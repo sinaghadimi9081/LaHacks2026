@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 
@@ -10,6 +10,25 @@ import MarketplacePostCard from './components/MarketplacePostCard.jsx'
 import SharePostModal from './components/SharePostModal.jsx'
 
 const feedFilters = ['all', 'available', 'claimed']
+
+const marketplaceBackgroundStickers = [
+  { label: 'Fresh', color: 'fresh', shape: 'oval', top: '15rem', left: '6%', rotate: '-10deg' },
+  { label: 'Local', color: 'local', shape: 'circle', top: '22rem', left: '74%', rotate: '12deg' },
+  { label: 'Ripe', color: 'ripe', shape: 'squircle', top: '33rem', left: '86%', rotate: '8deg' },
+  { label: 'Share', color: 'share', shape: 'oval', top: '42rem', left: '4%', rotate: '-7deg' },
+  { label: 'Apple', color: 'apple', shape: 'circle', top: '54rem', left: '64%', rotate: '15deg' },
+  { label: 'Citrus', color: 'fresh', shape: 'squircle', top: '66rem', left: '88%', rotate: '-13deg' },
+  { label: 'Basil', color: 'basil', shape: 'oval', top: '78rem', left: '10%', rotate: '9deg' },
+  { label: 'Tomato', color: 'share', shape: 'circle', top: '91rem', left: '72%', rotate: '-11deg' },
+  { label: 'Carrot', color: 'local', shape: 'squircle', top: '103rem', left: '3%', rotate: '11deg' },
+  { label: 'Pantry', color: 'paper', shape: 'oval', top: '116rem', left: '84%', rotate: '-6deg' },
+  { label: 'Picked', color: 'ripe', shape: 'circle', top: '129rem', left: '18%', rotate: '14deg' },
+  { label: 'Dinner', color: 'fresh', shape: 'oval', top: '142rem', left: '68%', rotate: '-12deg' },
+  { label: 'Soup', color: 'local', shape: 'circle', top: '155rem', left: '42%', rotate: '10deg' },
+  { label: 'Snack', color: 'apple', shape: 'squircle', top: '168rem', left: '80%', rotate: '-9deg' },
+  { label: 'Pesto', color: 'basil', shape: 'oval', top: '181rem', left: '7%', rotate: '13deg' },
+  { label: 'Pickup', color: 'paper', shape: 'squircle', top: '194rem', left: '58%', rotate: '-8deg' },
+]
 
 const initialSharePosts = [
   {
@@ -209,6 +228,10 @@ export default function Marketplace() {
   const [cartPostIds, setCartPostIds] = useState([])
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [isBasketMoving, setIsBasketMoving] = useState(false)
+  const [basketPosition, setBasketPosition] = useState(null)
+  const basketDockRef = useRef(null)
+  const basketDragRef = useRef(null)
 
   const selectedInventoryItem = useMemo(
     () =>
@@ -269,6 +292,75 @@ export default function Marketplace() {
   const cartPosts = cartPostIds
     .map((postId) => sharePosts.find((post) => post.id === postId))
     .filter(Boolean)
+
+  const moveBasketToPointer = useCallback((clientX, clientY) => {
+    const dock = basketDockRef.current
+    const dragState = basketDragRef.current
+
+    if (!dock || !dragState) {
+      return
+    }
+
+    const maxX = Math.max(12, window.innerWidth - dragState.width - 12)
+    const maxY = Math.max(12, window.innerHeight - dragState.height - 12)
+    const nextX = Math.min(Math.max(12, clientX - dragState.offsetX), maxX)
+    const nextY = Math.min(Math.max(12, clientY - dragState.offsetY), maxY)
+
+    setBasketPosition({ x: nextX, y: nextY })
+  }, [])
+
+  useEffect(() => {
+    if (!isBasketMoving) {
+      return undefined
+    }
+
+    function handlePointerMove(event) {
+      event.preventDefault()
+      moveBasketToPointer(event.clientX, event.clientY)
+    }
+
+    function handlePointerUp() {
+      basketDragRef.current = null
+      setIsBasketMoving(false)
+      document.body.classList.remove('is-moving-market-basket')
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp, { once: true })
+    window.addEventListener('pointercancel', handlePointerUp, { once: true })
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('pointercancel', handlePointerUp)
+      document.body.classList.remove('is-moving-market-basket')
+    }
+  }, [isBasketMoving, moveBasketToPointer])
+
+  function startBasketMove(event) {
+    if (event.button !== 0) {
+      return
+    }
+
+    event.preventDefault()
+
+    const dock = basketDockRef.current
+
+    if (!dock) {
+      return
+    }
+
+    const rect = dock.getBoundingClientRect()
+    basketDragRef.current = {
+      height: rect.height,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+      width: rect.width,
+    }
+    document.body.classList.add('is-moving-market-basket')
+    setIsBasketMoving(true)
+    moveBasketToPointer(event.clientX, event.clientY)
+  }
 
   function updateForm(field, value) {
     setForm((currentForm) => ({ ...currentForm, [field]: value }))
@@ -366,18 +458,19 @@ export default function Marketplace() {
     <DndProvider backend={HTML5Backend}>
       <main className="marketplace-page min-h-screen overflow-hidden text-ink">
         <div className="marketplace-sticker-pattern" aria-hidden="true">
-          <span className="marketplace-sticker marketplace-sticker--fresh">
-            Fresh
-          </span>
-          <span className="marketplace-sticker marketplace-sticker--local">
-            Local
-          </span>
-          <span className="marketplace-sticker marketplace-sticker--ripe">
-            Ripe
-          </span>
-          <span className="marketplace-sticker marketplace-sticker--share">
-            Share
-          </span>
+          {marketplaceBackgroundStickers.map((sticker) => (
+            <span
+              className={`marketplace-sticker marketplace-sticker--${sticker.color} marketplace-sticker--${sticker.shape}`}
+              key={`${sticker.label}-${sticker.top}`}
+              style={{
+                '--sticker-left': sticker.left,
+                '--sticker-rotate': sticker.rotate,
+                '--sticker-top': sticker.top,
+              }}
+            >
+              {sticker.label}
+            </span>
+          ))}
         </div>
         <MarketplaceDragLayer />
       <section className="pantry-dot-grid relative border-b-4 border-ink bg-moonstone px-5 py-8 md:px-10">
@@ -503,12 +596,23 @@ export default function Marketplace() {
         </div>
       </section>
 
-      <div className="mx-auto max-w-7xl px-5 pb-8 md:px-10 xl:fixed xl:bottom-6 xl:right-6 xl:top-24 xl:z-30 xl:w-80 xl:p-0">
+      <div
+        className={`market-cart-dock ${basketPosition ? 'market-cart-dock--moved' : ''}`}
+        ref={basketDockRef}
+        style={
+          basketPosition
+            ? {
+                transform: `translate3d(${basketPosition.x}px, ${basketPosition.y}px, 0)`,
+              }
+            : undefined
+        }
+      >
         <MarketplaceCart
           cartPosts={cartPosts}
           isOpen={isCartOpen}
           onAddPost={addPostToCart}
           onClaimCart={claimCart}
+          onMoveStart={startBasketMove}
           onRemovePost={removePostFromCart}
           onToggleOpen={() => setIsCartOpen((currentValue) => !currentValue)}
         />
