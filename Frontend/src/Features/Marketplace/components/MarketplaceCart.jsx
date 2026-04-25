@@ -82,6 +82,7 @@ function MarketplaceCart({
   isOpen,
   onAddPost,
   onClaimCart,
+  onMoveStart,
   onToggleOpen,
   onRemovePost,
 }) {
@@ -112,7 +113,7 @@ function MarketplaceCart({
       className={`market-cart-shell ${isOpen ? 'market-cart-shell--open' : ''}`}
       ref={dropRef}
     >
-      <div className="market-cart-shell__header">
+      <div className="market-cart-shell__header" onPointerDown={onMoveStart}>
         <div className="min-w-0">
           <p className="pantry-label">meetup cart</p>
           <h2 className="mt-2 text-4xl font-black uppercase leading-none">
