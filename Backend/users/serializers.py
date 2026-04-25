@@ -32,6 +32,7 @@ class HouseholdSummarySerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     default_household = serializers.SerializerMethodField()
     households = serializers.SerializerMethodField()
+    profile_image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -42,11 +43,21 @@ class UserSerializer(serializers.ModelSerializer):
             "display_name",
             "first_name",
             "last_name",
+            "profile_image_url",
             "default_household",
             "households",
             "date_joined",
         ]
         read_only_fields = ["id", "date_joined", "households"]
+
+    def get_profile_image_url(self, obj):
+        if not obj.profile_image:
+            return ""
+
+        request = self.context.get("request")
+        if request is None:
+            return obj.profile_image.url
+        return request.build_absolute_uri(obj.profile_image.url)
 
     def get_default_household(self, obj):
         memberships = self.context.get("memberships_by_household", {})
@@ -118,6 +129,9 @@ class SignupSerializer(serializers.Serializer):
             household=household,
             role=HouseholdMembership.Role.OWNER,
             status=HouseholdMembership.Status.ACTIVE,
+            can_upload_receipts=True,
+            can_post_share=True,
+            can_manage_members=True,
         )
         user.default_household = household
         user.save(update_fields=["default_household"])
@@ -159,6 +173,7 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
             "display_name",
             "first_name",
             "last_name",
+            "profile_image",
             "default_household_id",
         ]
 
@@ -181,3 +196,20 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
             instance.default_household_id = default_household_id
         instance.save()
         return instance
+
+
+class MarketplaceProfileSerializer(serializers.ModelSerializer):
+    profile_image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "display_name", "profile_image_url"]
+
+    def get_profile_image_url(self, obj):
+        if not obj.profile_image:
+            return ""
+
+        request = self.context.get("request")
+        if request is None:
+            return obj.profile_image.url
+        return request.build_absolute_uri(obj.profile_image.url)

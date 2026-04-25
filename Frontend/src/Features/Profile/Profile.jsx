@@ -1,7 +1,71 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'react-toastify'
 
 import { useAuth } from '../../Auth/useAuth.jsx'
+import {
+  acceptHouseholdInvitation,
+  declineHouseholdInvitation,
+  fetchHouseholdInvitations,
+  fetchMyHousehold,
+  fetchMyHouseholdInvitations,
+  inviteHouseholdMember,
+  removeHouseholdMember,
+} from '../../Utils/householdApi.jsx'
+import {
+  createSharePost,
+  deleteSharePost,
+  fetchMySharePosts,
+  updateSharePost,
+} from '../../Utils/shareApi.jsx'
+
+const marketTagStyles = [
+  'bg-citrus rotate-[-6deg]',
+  'bg-petal rotate-[5deg]',
+  'bg-moonstone rotate-[-4deg]',
+]
+
+const emptyPostForm = {
+  item_name: '',
+  quantity_label: '',
+  estimated_price: '',
+  title: '',
+  description: '',
+  pickup_location: '',
+  pickup_latitude: '',
+  pickup_longitude: '',
+  tags: '',
+}
+
+function getErrorMessage(error, fallbackMessage) {
+  return (
+    error?.response?.data?.detail ||
+    Object.values(error?.response?.data || {})
+      .flat()
+      .join(' ') ||
+    fallbackMessage
+  )
+}
+
+function parseTagInput(value) {
+  return value
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+}
+
+function toPostForm(post) {
+  return {
+    item_name: post.item_name || post.food_item?.name || '',
+    quantity_label: post.quantity_label || post.food_item?.quantity || '',
+    estimated_price: post.estimated_price ?? post.food_item?.estimated_price ?? '',
+    title: post.title || '',
+    description: post.description || '',
+    pickup_location: post.pickup_location || '',
+    pickup_latitude: post.pickup_latitude ?? '',
+    pickup_longitude: post.pickup_longitude ?? '',
+    tags: (post.tags || post.food_item?.recipe_uses || []).join(', '),
+  }
+}
 
 function ProfileCard({ title, children }) {
   return (
@@ -15,29 +79,183 @@ function ProfileCard({ title, children }) {
 }
 
 export default function Profile() {
-  const { user, saveProfile, saveHousehold } = useAuth()
-  const [profileForm, setProfileForm] = useState({
-    display_name: user?.display_name || '',
-    first_name: user?.first_name || '',
-    last_name: user?.last_name || '',
-    default_household_id: user?.default_household?.id || '',
-  })
-  const [householdForm, setHouseholdForm] = useState({
-    name: user?.default_household?.name || '',
-  })
+  const { user, refreshUser, saveProfile, saveHousehold } = useAuth()
+  const [profileDraft, setProfileDraft] = useState({})
+  const [householdDraft, setHouseholdDraft] = useState({})
   const [savingProfile, setSavingProfile] = useState(false)
   const [savingHousehold, setSavingHousehold] = useState(false)
+  const [profileImageFile, setProfileImageFile] = useState(null)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [sendingInvite, setSendingInvite] = useState(false)
+  const [householdMembers, setHouseholdMembers] = useState([])
+  const [incomingInvitations, setIncomingInvitations] = useState([])
+  const [ownerInvitations, setOwnerInvitations] = useState([])
+  const [membersLoading, setMembersLoading] = useState(true)
+  const [invitesLoading, setInvitesLoading] = useState(true)
+  const [inviteFeaturesAvailable, setInviteFeaturesAvailable] = useState(true)
+  const [memberActionsAvailable, setMemberActionsAvailable] = useState(true)
+  const [myPosts, setMyPosts] = useState([])
+  const [postsLoading, setPostsLoading] = useState(true)
+  const [postsSaving, setPostsSaving] = useState(false)
+  const [deletingPostId, setDeletingPostId] = useState(null)
+  const [postForm, setPostForm] = useState(emptyPostForm)
+  const [editingPostId, setEditingPostId] = useState(null)
+  const [editingPostForm, setEditingPostForm] = useState(emptyPostForm)
 
   const householdOptions = useMemo(() => user?.households ?? [], [user?.households])
+  const activeMembership = useMemo(
+    () =>
+      householdOptions.find((household) => household.id === user?.default_household?.id) || null,
+    [householdOptions, user?.default_household?.id],
+  )
+  const canManageMembers = activeMembership?.role === 'owner'
+  const profileImageUrl = user?.profile_image_url || user?.profile_image || ''
+  const profileInitial = (user?.display_name || user?.username || 'N').slice(0, 1).toUpperCase()
+  const profileForm = {
+    display_name: profileDraft.display_name ?? user?.display_name ?? '',
+    first_name: profileDraft.first_name ?? user?.first_name ?? '',
+    last_name: profileDraft.last_name ?? user?.last_name ?? '',
+    default_household_id:
+      profileDraft.default_household_id ?? user?.default_household?.id ?? '',
+  }
+  const householdForm = {
+    name: householdDraft.name ?? user?.default_household?.name ?? '',
+  }
+
+  useEffect(() => {
+    let isActive = true
+
+    async function loadMembers() {
+      if (!user?.default_household?.id) {
+        if (!isActive) return
+        setHouseholdMembers([])
+        setMembersLoading(false)
+        return
+      }
+
+      setMembersLoading(true)
+
+      try {
+        const response = await fetchMyHousehold()
+        if (!isActive) return
+        const nextMembers = response?.household?.members || response?.members || []
+        setHouseholdMembers(nextMembers)
+      } catch {
+        if (!isActive) return
+        setHouseholdMembers([])
+      } finally {
+        if (isActive) {
+          setMembersLoading(false)
+        }
+      }
+    }
+
+    void loadMembers()
+
+    return () => {
+      isActive = false
+    }
+  }, [user?.default_household?.id])
+
+  useEffect(() => {
+    let isActive = true
+
+    async function loadInvitations() {
+      if (!user?.id) {
+        if (!isActive) return
+        setIncomingInvitations([])
+        setOwnerInvitations([])
+        setInvitesLoading(false)
+        return
+      }
+
+      setInvitesLoading(true)
+
+      try {
+        const [incomingResponse, ownerResponse] = await Promise.all([
+          fetchMyHouseholdInvitations(),
+          fetchHouseholdInvitations(),
+        ])
+
+        if (!isActive) return
+        setIncomingInvitations(incomingResponse?.invitations || incomingResponse || [])
+        setOwnerInvitations(ownerResponse?.invitations || ownerResponse || [])
+        setInviteFeaturesAvailable(true)
+      } catch (error) {
+        if (!isActive) return
+
+        if (error?.response?.status === 404) {
+          setInviteFeaturesAvailable(false)
+          setIncomingInvitations([])
+          setOwnerInvitations([])
+        }
+      } finally {
+        if (isActive) {
+          setInvitesLoading(false)
+        }
+      }
+    }
+
+    void loadInvitations()
+
+    return () => {
+      isActive = false
+    }
+  }, [user?.id, user?.default_household?.id])
+
+  useEffect(() => {
+    let isActive = true
+
+    async function loadMyPosts() {
+      if (!user?.id) {
+        if (!isActive) return
+        setMyPosts([])
+        setPostsLoading(false)
+        return
+      }
+
+      setPostsLoading(true)
+
+      try {
+        const response = await fetchMySharePosts()
+        if (!isActive) return
+        setMyPosts(response?.posts || [])
+      } catch (error) {
+        if (!isActive) return
+        setMyPosts([])
+        toast.error(getErrorMessage(error, 'Failed to load your marketplace posts.'))
+      } finally {
+        if (isActive) {
+          setPostsLoading(false)
+        }
+      }
+    }
+
+    void loadMyPosts()
+
+    return () => {
+      isActive = false
+    }
+  }, [user?.id])
 
   const handleProfileChange = (event) => {
     const { name, value } = event.target
-    setProfileForm((current) => ({ ...current, [name]: value }))
+    setProfileDraft((current) => ({ ...current, [name]: value }))
   }
 
   const handleHouseholdChange = (event) => {
     const { name, value } = event.target
-    setHouseholdForm((current) => ({ ...current, [name]: value }))
+    setHouseholdDraft((current) => ({ ...current, [name]: value }))
+  }
+
+  const handlePostFormChange = (event) => {
+    const { name, value } = event.target
+    setPostForm((current) => ({ ...current, [name]: value }))
+  }
+
+  const handleEditingPostChange = (event) => {
+    const { name, value } = event.target
+    setEditingPostForm((current) => ({ ...current, [name]: value }))
   }
 
   const submitProfile = async (event) => {
@@ -45,18 +263,24 @@ export default function Profile() {
     setSavingProfile(true)
 
     try {
-      await saveProfile({
-        ...profileForm,
-        default_household_id: Number(profileForm.default_household_id),
-      })
+      const payload = new FormData()
+      payload.append('display_name', profileForm.display_name)
+      payload.append('first_name', profileForm.first_name)
+      payload.append('last_name', profileForm.last_name)
+
+      if (profileForm.default_household_id) {
+        payload.append('default_household_id', String(profileForm.default_household_id))
+      }
+
+      if (profileImageFile) {
+        payload.append('profile_image', profileImageFile)
+      }
+
+      await saveProfile(payload)
+      setProfileDraft({})
+      setProfileImageFile(null)
     } catch (error) {
-      const detail =
-        error?.response?.data?.detail ||
-        Object.values(error?.response?.data || {})
-          .flat()
-          .join(' ') ||
-        'Profile update failed.'
-      toast.error(detail)
+      toast.error(getErrorMessage(error, 'Profile update failed.'))
     } finally {
       setSavingProfile(false)
     }
@@ -68,16 +292,152 @@ export default function Profile() {
 
     try {
       await saveHousehold(householdForm)
+      setHouseholdDraft({})
     } catch (error) {
-      const detail =
-        error?.response?.data?.detail ||
-        Object.values(error?.response?.data || {})
-          .flat()
-          .join(' ') ||
-        'Household update failed.'
-      toast.error(detail)
+      toast.error(getErrorMessage(error, 'Household update failed.'))
     } finally {
       setSavingHousehold(false)
+    }
+  }
+
+  const submitInvite = async (event) => {
+    event.preventDefault()
+    setSendingInvite(true)
+
+    try {
+      await inviteHouseholdMember(inviteEmail.trim())
+      setInviteEmail('')
+      toast.success('Invitation sent.')
+      const ownerResponse = await fetchHouseholdInvitations()
+      setOwnerInvitations(ownerResponse?.invitations || ownerResponse || [])
+      setInviteFeaturesAvailable(true)
+    } catch (error) {
+      if (error?.response?.status === 404) {
+        setInviteFeaturesAvailable(false)
+        toast.error('Invite endpoints are not available on this backend branch yet.')
+      } else {
+        toast.error(getErrorMessage(error, 'Invitation failed.'))
+      }
+    } finally {
+      setSendingInvite(false)
+    }
+  }
+
+  const handleInvitationAction = async (invitationId, action) => {
+    try {
+      if (action === 'accept') {
+        await acceptHouseholdInvitation(invitationId)
+        toast.success('Invitation accepted.')
+      } else {
+        await declineHouseholdInvitation(invitationId)
+        toast.success('Invitation declined.')
+      }
+
+      await refreshUser()
+
+      const incomingResponse = await fetchMyHouseholdInvitations()
+      setIncomingInvitations(incomingResponse?.invitations || incomingResponse || [])
+    } catch (error) {
+      if (error?.response?.status === 404) {
+        setInviteFeaturesAvailable(false)
+        toast.error('Invite endpoints are not available on this backend branch yet.')
+      } else {
+        toast.error(getErrorMessage(error, 'Invitation update failed.'))
+      }
+    }
+  }
+
+  const handleRemoveMember = async (member) => {
+    try {
+      await removeHouseholdMember(member.user_id)
+      setHouseholdMembers((current) => current.filter((item) => item.user_id !== member.user_id))
+      toast.success('Member removed.')
+    } catch (error) {
+      if (error?.response?.status === 404) {
+        setMemberActionsAvailable(false)
+        toast.error('Member management endpoints are not available on this backend branch yet.')
+      } else {
+        toast.error(getErrorMessage(error, 'Failed to remove member.'))
+      }
+    }
+  }
+
+  const buildPostPayload = (formState) => {
+    const payload = {
+      item_name: formState.item_name.trim(),
+      quantity_label: formState.quantity_label.trim(),
+      title: formState.title.trim(),
+      description: formState.description.trim(),
+      pickup_location: formState.pickup_location.trim(),
+      tags: parseTagInput(formState.tags),
+      pickup_latitude: formState.pickup_latitude === '' ? null : formState.pickup_latitude,
+      pickup_longitude: formState.pickup_longitude === '' ? null : formState.pickup_longitude,
+    }
+
+    if (formState.estimated_price !== '') {
+      payload.estimated_price = formState.estimated_price
+    }
+
+    return payload
+  }
+
+  const submitPost = async (event) => {
+    event.preventDefault()
+    setPostsSaving(true)
+
+    try {
+      const createdPost = await createSharePost(buildPostPayload(postForm))
+      setMyPosts((current) => [createdPost, ...current])
+      setPostForm(emptyPostForm)
+      toast.success('Marketplace post created.')
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Failed to create marketplace post.'))
+    } finally {
+      setPostsSaving(false)
+    }
+  }
+
+  const startEditingPost = (post) => {
+    setEditingPostId(post.id)
+    setEditingPostForm(toPostForm(post))
+  }
+
+  const cancelEditingPost = () => {
+    setEditingPostId(null)
+    setEditingPostForm(emptyPostForm)
+  }
+
+  const submitPostUpdate = async (postId) => {
+    setPostsSaving(true)
+
+    try {
+      const updatedPost = await updateSharePost(postId, buildPostPayload(editingPostForm))
+      setMyPosts((current) =>
+        current.map((post) => (post.id === postId ? updatedPost : post)),
+      )
+      cancelEditingPost()
+      toast.success('Marketplace post updated.')
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Failed to update marketplace post.'))
+    } finally {
+      setPostsSaving(false)
+    }
+  }
+
+  const removePost = async (postId) => {
+    setDeletingPostId(postId)
+
+    try {
+      await deleteSharePost(postId)
+      setMyPosts((current) => current.filter((post) => post.id !== postId))
+      if (editingPostId === postId) {
+        cancelEditingPost()
+      }
+      toast.success('Marketplace post deleted.')
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Failed to delete marketplace post.'))
+    } finally {
+      setDeletingPostId(null)
     }
   }
 
@@ -88,13 +448,29 @@ export default function Profile() {
           <ProfileCard title="User summary">
             <div className="space-y-5">
               <div className="rounded-2xl border border-white/10 bg-phthalo p-6 text-white shadow-pop">
-                <p className="text-3xl font-black">
-                  {user?.display_name || user?.username}
-                </p>
-                <p className="mt-2 font-bold text-white/80">{user?.email}</p>
-                <p className="mt-4 text-sm font-bold text-white/60">
-                  Signed in with cookie-based JWT auth.
-                </p>
+                <div className="flex flex-col gap-5 md:flex-row md:items-center">
+                  {profileImageUrl ? (
+                    <img
+                      alt={`${user?.display_name || user?.username} profile`}
+                      className="h-20 w-20 rounded-3xl border-4 border-white/20 object-cover shadow-sticker"
+                      src={profileImageUrl}
+                    />
+                  ) : (
+                    <div className="grid h-20 w-20 place-items-center rounded-3xl border-4 border-white/20 bg-white/10 text-3xl font-black text-white shadow-sticker">
+                      {profileInitial}
+                    </div>
+                  )}
+
+                  <div>
+                    <p className="text-3xl font-black">
+                      {user?.display_name || user?.username}
+                    </p>
+                    <p className="mt-2 font-bold text-white/80">{user?.email}</p>
+                    <p className="mt-4 text-sm font-bold text-white/60">
+                      Signed in with cookie-based JWT auth.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -114,6 +490,31 @@ export default function Profile() {
                   <p className="mt-2 text-lg font-black text-ink">
                     {householdOptions.length}
                   </p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-ink/15 bg-white/90 p-5 shadow-sticker">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-ink/70">
+                  Marketplace preview
+                </p>
+                <div className="mt-4 flex items-center gap-4">
+                  {profileImageUrl ? (
+                    <img
+                      alt={`${user?.username} marketplace`}
+                      className="h-14 w-14 rounded-2xl object-cover shadow-sticker"
+                      src={profileImageUrl}
+                    />
+                  ) : (
+                    <div className="grid h-14 w-14 place-items-center rounded-2xl bg-petal text-lg font-black text-ink shadow-sticker">
+                      {profileInitial}
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-lg font-black text-ink">@{user?.username}</p>
+                    <p className="text-sm font-bold text-ink/65">
+                      {user?.display_name || user?.username}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -175,6 +576,21 @@ export default function Profile() {
                 />
               </label>
 
+              <label className="block md:col-span-2">
+                <span className="pantry-field-label">
+                  Profile picture
+                </span>
+                <input
+                  accept="image/*"
+                  className="pantry-input file:mr-4 file:rounded-full file:border-0 file:bg-citrus file:px-4 file:py-2 file:font-black file:text-ink"
+                  onChange={(event) => setProfileImageFile(event.target.files?.[0] || null)}
+                  type="file"
+                />
+                <p className="mt-2 text-sm font-bold text-ink/55">
+                  Optional now, but ready for the marketplace and future family views.
+                </p>
+              </label>
+
               <div className="md:col-span-2">
                 <button
                   className="pantry-button"
@@ -185,6 +601,53 @@ export default function Profile() {
                 </button>
               </div>
             </form>
+          </ProfileCard>
+
+          <ProfileCard title="Household members">
+            <div className="space-y-3">
+              {membersLoading ? (
+                <p className="text-sm font-bold text-ink/60">Loading household members...</p>
+              ) : householdMembers.length ? (
+                householdMembers.map((member) => (
+                  <div
+                    key={member.user_id}
+                    className="rounded-xl border border-ink/15 bg-white/85 p-4 shadow-sticker"
+                  >
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <p className="text-lg font-black text-ink">
+                          {member.display_name || member.username}
+                        </p>
+                        <p className="mt-1 text-sm font-bold text-ink/60">
+                          @{member.username} · {member.email}
+                        </p>
+                        <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-ink/55">
+                          {member.role} · {member.status}
+                        </p>
+                      </div>
+
+                      {canManageMembers && member.user_id !== user?.id ? (
+                        <button
+                          className="pantry-button pantry-button--light"
+                          onClick={() => void handleRemoveMember(member)}
+                          type="button"
+                        >
+                          Remove member
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm font-bold text-ink/60">No members found for this household yet.</p>
+              )}
+
+              {!memberActionsAvailable ? (
+                <p className="text-sm font-bold text-danger">
+                  Member management routes are not available on the current backend branch yet.
+                </p>
+              ) : null}
+            </div>
           </ProfileCard>
         </div>
 
@@ -211,6 +674,485 @@ export default function Profile() {
                 {savingHousehold ? 'Saving household...' : 'Save household'}
               </button>
             </form>
+          </ProfileCard>
+
+          <ProfileCard title="Invitations">
+            <div className="space-y-5">
+              {inviteFeaturesAvailable && canManageMembers ? (
+                <form className="space-y-3" onSubmit={submitInvite}>
+                  <label className="block">
+                    <span className="pantry-field-label">
+                      Invite by email
+                    </span>
+                    <input
+                      className="pantry-input"
+                      onChange={(event) => setInviteEmail(event.target.value)}
+                      placeholder="friend@example.com"
+                      type="email"
+                      value={inviteEmail}
+                    />
+                  </label>
+
+                  <button
+                    className="pantry-button pantry-button--accent"
+                    disabled={sendingInvite || !inviteEmail.trim()}
+                    type="submit"
+                  >
+                    {sendingInvite ? 'Sending invite...' : 'Send invite'}
+                  </button>
+                </form>
+              ) : null}
+
+              {!inviteFeaturesAvailable ? (
+                <p className="text-sm font-bold text-danger">
+                  Invite endpoints are not available on the current backend branch yet.
+                </p>
+              ) : null}
+
+              <div className="space-y-3">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-ink/60">
+                  Incoming invites
+                </p>
+
+                {invitesLoading ? (
+                  <p className="text-sm font-bold text-ink/60">Loading invitations...</p>
+                ) : incomingInvitations.length ? (
+                  incomingInvitations.map((invitation) => (
+                    <div
+                      key={invitation.id}
+                      className="rounded-xl border border-ink/15 bg-white/85 p-4 shadow-sticker"
+                    >
+                      <p className="text-sm font-black text-ink">
+                        {invitation.household_name || invitation.household?.name || 'Household invite'}
+                      </p>
+                      <p className="mt-1 text-sm font-bold text-ink/60">
+                        Invited by {invitation.invited_by_name || invitation.invited_by?.display_name || 'a household owner'}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-3">
+                        <button
+                          className="pantry-button pantry-button--accent"
+                          onClick={() => void handleInvitationAction(invitation.id, 'accept')}
+                          type="button"
+                        >
+                          Accept
+                        </button>
+                        <button
+                          className="pantry-button pantry-button--light"
+                          onClick={() => void handleInvitationAction(invitation.id, 'decline')}
+                          type="button"
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm font-bold text-ink/60">No pending invites.</p>
+                )}
+              </div>
+
+              {canManageMembers ? (
+                <div className="space-y-3">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-ink/60">
+                    Sent invites
+                  </p>
+
+                  {ownerInvitations.length ? (
+                    ownerInvitations.map((invitation) => (
+                      <div
+                        key={invitation.id}
+                        className="rounded-xl border border-ink/15 bg-white/85 p-4 shadow-sticker"
+                      >
+                        <p className="text-sm font-black text-ink">
+                          {invitation.invited_email || invitation.email}
+                        </p>
+                        <p className="mt-1 text-sm font-bold text-ink/60">
+                          Status: {invitation.status || 'pending'}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm font-bold text-ink/60">No sent invites yet.</p>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          </ProfileCard>
+
+          <ProfileCard title="My marketplace posts">
+            <div className="space-y-5">
+              <form className="grid gap-4 md:grid-cols-2" onSubmit={submitPost}>
+                <label className="block">
+                  <span className="pantry-field-label">
+                    Item name
+                  </span>
+                  <input
+                    className="pantry-input"
+                    name="item_name"
+                    onChange={handlePostFormChange}
+                    placeholder="Honeycrisp apples"
+                    required
+                    value={postForm.item_name}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="pantry-field-label">
+                    Quantity
+                  </span>
+                  <input
+                    className="pantry-input"
+                    name="quantity_label"
+                    onChange={handlePostFormChange}
+                    placeholder="8 apples"
+                    value={postForm.quantity_label}
+                  />
+                </label>
+
+                <label className="block md:col-span-2">
+                  <span className="pantry-field-label">
+                    Title
+                  </span>
+                  <input
+                    className="pantry-input"
+                    name="title"
+                    onChange={handlePostFormChange}
+                    placeholder="Apple snack pack"
+                    required
+                    value={postForm.title}
+                  />
+                </label>
+
+                <label className="block md:col-span-2">
+                  <span className="pantry-field-label">
+                    Description
+                  </span>
+                  <textarea
+                    className="pantry-input min-h-28 resize-y"
+                    name="description"
+                    onChange={handlePostFormChange}
+                    placeholder="Condition, timing, and anything a neighbor should know."
+                    value={postForm.description}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="pantry-field-label">
+                    Pickup location
+                  </span>
+                  <input
+                    className="pantry-input"
+                    name="pickup_location"
+                    onChange={handlePostFormChange}
+                    placeholder="Community fridge, porch cooler..."
+                    required
+                    value={postForm.pickup_location}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="pantry-field-label">
+                    Estimated price
+                  </span>
+                  <input
+                    className="pantry-input"
+                    min="0"
+                    name="estimated_price"
+                    onChange={handlePostFormChange}
+                    placeholder="6.75"
+                    step="0.01"
+                    type="number"
+                    value={postForm.estimated_price}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="pantry-field-label">
+                    Latitude
+                  </span>
+                  <input
+                    className="pantry-input"
+                    name="pickup_latitude"
+                    onChange={handlePostFormChange}
+                    placeholder="34.0635"
+                    step="0.000001"
+                    type="number"
+                    value={postForm.pickup_latitude}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="pantry-field-label">
+                    Longitude
+                  </span>
+                  <input
+                    className="pantry-input"
+                    name="pickup_longitude"
+                    onChange={handlePostFormChange}
+                    placeholder="-118.4455"
+                    step="0.000001"
+                    type="number"
+                    value={postForm.pickup_longitude}
+                  />
+                </label>
+
+                <label className="block md:col-span-2">
+                  <span className="pantry-field-label">
+                    Tags
+                  </span>
+                  <input
+                    className="pantry-input"
+                    name="tags"
+                    onChange={handlePostFormChange}
+                    placeholder="snack plates, salads, crumble"
+                    value={postForm.tags}
+                  />
+                  <p className="mt-2 text-sm font-bold text-ink/55">
+                    Use the same short recipe-style tags you use in inventory cards.
+                  </p>
+                </label>
+
+                <div className="md:col-span-2">
+                  <button
+                    className="pantry-button pantry-button--accent"
+                    disabled={postsSaving}
+                    type="submit"
+                  >
+                    {postsSaving ? 'Saving post...' : 'Create post'}
+                  </button>
+                </div>
+              </form>
+
+              {postsLoading ? (
+                <p className="text-sm font-bold text-ink/60">Loading your posts...</p>
+              ) : myPosts.length ? (
+                <div className="space-y-4">
+                  {myPosts.map((post) => {
+                    const isEditing = editingPostId === post.id
+                    const activeForm = isEditing ? editingPostForm : toPostForm(post)
+
+                    return (
+                      <div
+                        key={post.id}
+                        className="rounded-2xl border border-ink/15 bg-white/90 p-5 shadow-sticker"
+                      >
+                        {isEditing ? (
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <label className="block">
+                              <span className="pantry-field-label">
+                                Item name
+                              </span>
+                              <input
+                                className="pantry-input"
+                                name="item_name"
+                                onChange={handleEditingPostChange}
+                                value={activeForm.item_name}
+                              />
+                            </label>
+
+                            <label className="block">
+                              <span className="pantry-field-label">
+                                Quantity
+                              </span>
+                              <input
+                                className="pantry-input"
+                                name="quantity_label"
+                                onChange={handleEditingPostChange}
+                                value={activeForm.quantity_label}
+                              />
+                            </label>
+
+                            <label className="block md:col-span-2">
+                              <span className="pantry-field-label">
+                                Title
+                              </span>
+                              <input
+                                className="pantry-input"
+                                name="title"
+                                onChange={handleEditingPostChange}
+                                value={activeForm.title}
+                              />
+                            </label>
+
+                            <label className="block md:col-span-2">
+                              <span className="pantry-field-label">
+                                Description
+                              </span>
+                              <textarea
+                                className="pantry-input min-h-24 resize-y"
+                                name="description"
+                                onChange={handleEditingPostChange}
+                                value={activeForm.description}
+                              />
+                            </label>
+
+                            <label className="block">
+                              <span className="pantry-field-label">
+                                Pickup location
+                              </span>
+                              <input
+                                className="pantry-input"
+                                name="pickup_location"
+                                onChange={handleEditingPostChange}
+                                value={activeForm.pickup_location}
+                              />
+                            </label>
+
+                            <label className="block">
+                              <span className="pantry-field-label">
+                                Estimated price
+                              </span>
+                              <input
+                                className="pantry-input"
+                                name="estimated_price"
+                                onChange={handleEditingPostChange}
+                                step="0.01"
+                                type="number"
+                                value={activeForm.estimated_price}
+                              />
+                            </label>
+
+                            <label className="block">
+                              <span className="pantry-field-label">
+                                Latitude
+                              </span>
+                              <input
+                                className="pantry-input"
+                                name="pickup_latitude"
+                                onChange={handleEditingPostChange}
+                                step="0.000001"
+                                type="number"
+                                value={activeForm.pickup_latitude}
+                              />
+                            </label>
+
+                            <label className="block">
+                              <span className="pantry-field-label">
+                                Longitude
+                              </span>
+                              <input
+                                className="pantry-input"
+                                name="pickup_longitude"
+                                onChange={handleEditingPostChange}
+                                step="0.000001"
+                                type="number"
+                                value={activeForm.pickup_longitude}
+                              />
+                            </label>
+
+                            <label className="block md:col-span-2">
+                              <span className="pantry-field-label">
+                                Tags
+                              </span>
+                              <input
+                                className="pantry-input"
+                                name="tags"
+                                onChange={handleEditingPostChange}
+                                value={activeForm.tags}
+                              />
+                            </label>
+
+                            <div className="flex flex-wrap gap-3 md:col-span-2">
+                              <button
+                                className="pantry-button pantry-button--accent"
+                                disabled={postsSaving}
+                                onClick={() => void submitPostUpdate(post.id)}
+                                type="button"
+                              >
+                                {postsSaving ? 'Saving...' : 'Save changes'}
+                              </button>
+                              <button
+                                className="pantry-button pantry-button--light"
+                                onClick={cancelEditingPost}
+                                type="button"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                              <div>
+                                <p className="text-xs font-black uppercase tracking-[0.14em] text-tomato">
+                                  {post.item_name || post.food_item?.name}
+                                </p>
+                                <h3 className="mt-1 text-2xl font-black uppercase leading-none text-ink">
+                                  {post.title}
+                                </h3>
+                                <p className="mt-3 text-sm font-bold leading-7 text-ink/70">
+                                  {post.description || 'No extra details added yet.'}
+                                </p>
+                              </div>
+
+                              <span className="rounded-full border-2 border-ink bg-citrus px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-ink">
+                                {post.status}
+                              </span>
+                            </div>
+
+                            <dl className="receipt-lines">
+                              <div>
+                                <dt>pickup</dt>
+                                <dd>{post.pickup_location}</dd>
+                              </div>
+                              <div>
+                                <dt>quantity</dt>
+                                <dd>{post.quantity_label || post.food_item?.quantity || 'n/a'}</dd>
+                              </div>
+                              <div>
+                                <dt>price</dt>
+                                <dd>${Number(post.estimated_price || 0).toFixed(2)}</dd>
+                              </div>
+                            </dl>
+
+                            {post.pickup_latitude && post.pickup_longitude ? (
+                              <p className="text-sm font-bold text-ink/55">
+                                Point: {post.pickup_latitude}, {post.pickup_longitude}
+                              </p>
+                            ) : null}
+
+                            {(post.tags || []).length ? (
+                              <div className="flex flex-wrap gap-2">
+                                {post.tags.map((tag, tagIndex) => (
+                                  <span
+                                    className={`rounded-full border border-ink/15 px-2.5 py-1 text-[0.65rem] font-black uppercase shadow-sticker ${marketTagStyles[tagIndex % marketTagStyles.length]}`}
+                                    key={`${post.id}-${tag}`}
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+
+                            <div className="flex flex-wrap gap-3">
+                              <button
+                                className="pantry-button pantry-button--accent"
+                                onClick={() => startEditingPost(post)}
+                                type="button"
+                              >
+                                Edit post
+                              </button>
+                              <button
+                                className="pantry-button pantry-button--light"
+                                disabled={deletingPostId === post.id}
+                                onClick={() => void removePost(post.id)}
+                                type="button"
+                              >
+                                {deletingPostId === post.id ? 'Deleting...' : 'Delete post'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm font-bold text-ink/60">
+                  You have not posted anything to the marketplace yet.
+                </p>
+              )}
+            </div>
           </ProfileCard>
 
           <ProfileCard title="Memberships">

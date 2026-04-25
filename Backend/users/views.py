@@ -8,8 +8,10 @@ from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 
 from households.models import HouseholdMembership
 
+from .models import User
 from .serializers import (
     LoginSerializer,
+    MarketplaceProfileSerializer,
     ProfileUpdateSerializer,
     SignupSerializer,
     UserSerializer,
@@ -75,6 +77,7 @@ def serialize_user(user):
     return UserSerializer(
         user,
         context={
+            "request": None,
             "households": households,
             "memberships_by_household": memberships_by_household,
         },
@@ -168,3 +171,20 @@ class MeView(generics.RetrieveUpdateAPIView):
         response = super().patch(request, *args, **kwargs)
         response.data = {"user": serialize_user(request.user)}
         return response
+
+
+class MarketplaceProfileView(APIView):
+    def get(self, request):
+        serializer = MarketplaceProfileSerializer(request.user, context={"request": request})
+        return Response({"profile": serializer.data}, status=status.HTTP_200_OK)
+
+
+class MarketplaceProfileDetailView(generics.RetrieveAPIView):
+    queryset = User.objects.all()
+    serializer_class = MarketplaceProfileSerializer
+    lookup_url_kwarg = "user_id"
+
+    def get(self, request, *args, **kwargs):
+        user = self.get_object()
+        serializer = self.get_serializer(user, context={"request": request})
+        return Response({"profile": serializer.data}, status=status.HTTP_200_OK)
