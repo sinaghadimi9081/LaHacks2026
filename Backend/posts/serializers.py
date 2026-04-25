@@ -1,25 +1,27 @@
 from rest_framework import serializers
 
+from core.models import FoodItem
+
 from .location_services import GeocodingError, geocode_address, reverse_geocode
-from .models import FoodItem, SharePost
+from .models import Post
 
 
-class SharePostOwnerSerializer(serializers.Serializer):
+class PostOwnerSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
     username = serializers.CharField(read_only=True)
     display_name = serializers.CharField(read_only=True)
     full_name = serializers.CharField(source="full_display_name", read_only=True)
 
 
-class SharePostReadSerializer(serializers.ModelSerializer):
-    owner = SharePostOwnerSerializer(read_only=True)
+class PostReadSerializer(serializers.ModelSerializer):
+    owner = PostOwnerSerializer(read_only=True)
     claimed_by = serializers.SerializerMethodField()
     food_item = serializers.SerializerMethodField()
     distance_miles = serializers.SerializerMethodField()
     is_owner = serializers.SerializerMethodField()
 
     class Meta:
-        model = SharePost
+        model = Post
         fields = [
             "id",
             "owner",
@@ -101,7 +103,7 @@ class SharePostReadSerializer(serializers.ModelSerializer):
         return bool(request and request.user.is_authenticated and obj.owner_id == request.user.id)
 
 
-class SharePostWriteSerializer(serializers.ModelSerializer):
+class PostWriteSerializer(serializers.ModelSerializer):
     food_item_id = serializers.PrimaryKeyRelatedField(
         source="food_item",
         queryset=FoodItem.objects.all(),
@@ -119,7 +121,7 @@ class SharePostWriteSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = SharePost
+        model = Post
         fields = [
             "food_item_id",
             "item_name",
@@ -149,10 +151,8 @@ class SharePostWriteSerializer(serializers.ModelSerializer):
     def _clean_tags(self, value):
         if value is None:
             return []
-
         if isinstance(value, str):
             value = value.split(",")
-
         if not isinstance(value, list):
             raise serializers.ValidationError("Tags must be a list of strings.")
 
@@ -176,7 +176,6 @@ class SharePostWriteSerializer(serializers.ModelSerializer):
 
         food_item = attrs.get("food_item")
         item_name = attrs.get("item_name")
-
         if self.instance is not None:
             food_item = food_item if "food_item" in attrs else self.instance.food_item
             item_name = item_name if "item_name" in attrs else self.instance.item_name
@@ -229,20 +228,15 @@ class SharePostWriteSerializer(serializers.ModelSerializer):
 
         if latitude is not None and not (-90 <= latitude <= 90):
             raise serializers.ValidationError({"pickup_latitude": "Latitude must be between -90 and 90."})
-
         if longitude is not None and not (-180 <= longitude <= 180):
-            raise serializers.ValidationError(
-                {"pickup_longitude": "Longitude must be between -180 and 180."}
-            )
+            raise serializers.ValidationError({"pickup_longitude": "Longitude must be between -180 and 180."})
 
         if pickup_location and latitude is not None and longitude is not None:
             attrs["pickup_location"] = pickup_location
             return attrs
-
         if pickup_location:
             attrs.update(geocode_address(pickup_location))
             return attrs
-
         if latitude is not None and longitude is not None:
             attrs.update(reverse_geocode(latitude, longitude))
             return attrs
@@ -254,7 +248,7 @@ class SharePostWriteSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data = self._fill_from_food_item(validated_data)
         validated_data.setdefault("owner", self.context["request"].user)
-        validated_data.setdefault("status", SharePost.Status.AVAILABLE)
+        validated_data.setdefault("status", Post.Status.AVAILABLE)
         return super().create(validated_data)
 
     def update(self, instance, validated_data):

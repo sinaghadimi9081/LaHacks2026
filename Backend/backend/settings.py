@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "core",
+    "posts.apps.PostsConfig",
     "receipts.apps.ReceiptsConfig",
     "rest_framework_simplejwt.token_blacklist",
     "users",
