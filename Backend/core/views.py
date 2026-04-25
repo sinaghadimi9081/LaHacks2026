@@ -6,8 +6,12 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import ImpactLog, SharePost
-from .serializers import SharePostReadSerializer, SharePostWriteSerializer
+from .models import ImpactLog, Notification, SharePost
+from .serializers import (
+    NotificationSerializer,
+    SharePostReadSerializer,
+    SharePostWriteSerializer,
+)
 
 
 def _distance_miles(latitude_a, longitude_a, latitude_b, longitude_b):
@@ -230,3 +234,29 @@ class SharePostClaimView(APIView):
             context=_serializer_context(request),
         )
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+class NotificationListView(generics.ListAPIView):
+    serializer_class = NotificationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user).order_by("-created_at")
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({"notifications": serializer.data}, status=status.HTTP_200_OK)
+
+
+class NotificationReadView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request, notification_id):
+        notification = generics.get_object_or_404(
+            Notification, pk=notification_id, user=request.user
+        )
+        notification.is_read = True
+        notification.save(update_fields=["is_read"])
+        return Response(
+            {"detail": "Notification marked as read."}, status=status.HTTP_200_OK
+        )

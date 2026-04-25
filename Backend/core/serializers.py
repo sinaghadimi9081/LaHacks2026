@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import FoodItem, SharePost
+from .models import FoodItem, Notification, SharePost
 
 
 class SharePostOwnerSerializer(serializers.Serializer):
@@ -226,3 +226,9 @@ class SharePostWriteSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         validated_data = self._fill_from_food_item(validated_data)
         return super().update(instance, validated_data)
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ["id", "title", "message", "is_read", "created_at"]
+        read_only_fields = ["id", "title", "message", "created_at"]

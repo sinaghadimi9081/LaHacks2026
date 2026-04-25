@@ -144,6 +144,13 @@ def confirm_receipt(request, receipt_id):
         if est_price is None or str(est_price).strip() == "":
             est_price = 0.00
             
+        # Try to associate with the user's default household
+        household = None
+        owner_name = "Anonymous"
+        if request.user.is_authenticated:
+            household = request.user.default_household
+            owner_name = request.user.display_name or request.user.username
+
         food_items.append(
             FoodItem(
                 name=item_data.get("standardized_name") or item_data.get("name") or "Unknown Item",
@@ -152,7 +159,8 @@ def confirm_receipt(request, receipt_id):
                 estimated_price=est_price,
                 image_url=item_data.get("image_url", ""),
                 description=item_data.get("description", ""),
-                owner_name="Anonymous",
+                owner_name=owner_name,
+                household=household,
             )
         )
     
