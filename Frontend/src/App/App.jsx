@@ -7,6 +7,7 @@ import Home from '../Features/Home/Home.jsx'
 import Login from '../Features/Auth/Login.jsx'
 import Signup from '../Features/Auth/Signup.jsx'
 import Profile from '../Features/Profile/Profile.jsx'
+import Inventory from '../Features/Inventory/Inventory.jsx'
 import './app.css'
 import 'react-toastify/dist/ReactToastify.css'
 
@@ -31,6 +32,10 @@ function NavBar() {
         <nav className="flex items-center gap-3">
           <NavLink className="nav-pill" to="/">
             Home
+          </NavLink>
+
+          <NavLink className="nav-pill" to="/inventory">
+            Inventory
           </NavLink>
 
           {isAuthed && (
@@ -74,6 +79,7 @@ export default function App() {
 
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/inventory" element={<Inventory />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route
