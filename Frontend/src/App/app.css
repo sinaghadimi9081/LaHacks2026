@@ -1,0 +1,32 @@
+.nav-pill {
+  border-radius: 9999px;
+  padding: 0.7rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+  text-decoration: none;
+  transition:
+    transform 140ms ease,
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.nav-pill:hover {
+  transform: translateY(-1px);
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.nav-pill.active {
+  background: rgba(5, 150, 105, 0.12);
+  color: #047857;
+}
+
+.nav-pill-strong {
+  background: #0f172a;
+  color: #fff;
+}
+
+.nav-pill-strong:hover {
+  background: #111827;
+  color: #fff;
+}

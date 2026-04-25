@@ -27,6 +27,10 @@ body {
   min-width: 320px;
 }
 
+#root {
+  min-height: 100vh;
+}
+
 code {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
 }
