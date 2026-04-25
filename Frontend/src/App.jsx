@@ -1,4 +1,4 @@
-import FoodItem from './component/FoodItem'
+import FoodItem from './components/FoodItem'
 
 const foodItems = [
   {
@@ -9,6 +9,7 @@ const foodItems = [
     status: 'fresh',
     owner_name: 'Anthony',
     created_at: '2026-04-25',
+    recipe_uses: ['snack plates', 'salads', 'crumble'],
     image:
       'https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?auto=format&fit=crop&w=800&q=80',
   },
@@ -20,6 +21,7 @@ const foodItems = [
     status: 'use soon',
     owner_name: 'Maya',
     created_at: '2026-04-24',
+    recipe_uses: ['roast trays', 'slaw', 'stock'],
     image:
       'https://images.unsplash.com/photo-1447175008436-054170c2e979?auto=format&fit=crop&w=800&q=80',
   },
@@ -31,6 +33,7 @@ const foodItems = [
     status: 'use soon',
     owner_name: 'Shared Shelf',
     created_at: '2026-04-23',
+    recipe_uses: ['pesto', 'pasta', 'grain bowls'],
     image:
       'https://images.unsplash.com/photo-1618375569909-3c8616cf7733?auto=format&fit=crop&w=800&q=80',
   },
@@ -42,6 +45,7 @@ const foodItems = [
     status: 'fresh',
     owner_name: 'Leo',
     created_at: '2026-04-22',
+    recipe_uses: ['marinades', 'breakfast bowls', 'sauces'],
     image:
       'https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=800&q=80',
   },
@@ -53,6 +57,7 @@ const foodItems = [
     status: 'feed today',
     owner_name: 'Anthony',
     created_at: '2026-04-20',
+    recipe_uses: ['bread', 'pancakes', 'pizza dough'],
     image:
       'https://images.unsplash.com/photo-1586444248902-2f64eddc13df?auto=format&fit=crop&w=800&q=80',
   },
@@ -64,6 +69,7 @@ const foodItems = [
     status: 'critical',
     owner_name: 'Shared Shelf',
     created_at: '2026-04-21',
+    recipe_uses: ['salsa', 'pasta', 'sheet pans'],
     image:
       'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=800&q=80',
   },
@@ -79,19 +85,18 @@ function App() {
   return (
     <main className="min-h-screen overflow-hidden bg-cream text-ink">
       <section className="relative border-b-4 border-ink bg-petal px-5 py-8 md:px-10">
-        <div className="sticker sticker-star left-[6%] top-7 bg-moonstone" />
         <div className="sticker sticker-circle right-[9%] top-12 bg-tomato" />
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
           <div>
             <p className="mb-4 w-fit rounded-full border-2 border-ink bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.18em] shadow-sticker">
-              shared kitchen inventory
+              your inventory
             </p>
             <h1 className="max-w-3xl text-6xl font-black uppercase leading-[0.85] md:text-8xl">
               Pantry pop
             </h1>
             <p className="mt-5 max-w-2xl text-lg font-bold leading-8 text-ink/75">
               A bright ingredient board for tracking what is fresh, what needs
-              attention, and who claimed the last heroic jar of basil.
+              attention, and what can become dinner later.
             </p>
           </div>
 

@@ -19,13 +19,13 @@ function FoodItem({ item, index }) {
       className="ingredient-card"
       style={{ '--tilt': `${index % 2 === 0 ? -1 : 1}deg` }}
     >
-      <div className="relative z-10">
-        <div className="absolute -left-3 top-4 z-10 rotate-[-8deg] rounded-full border-2 border-ink bg-citrus px-3 py-1 text-xs font-black uppercase shadow-sticker">
+      <div className="relative z-10 border-none-important">
+        <div className="absolute left-2 top-4 z-10 rotate-[-8deg] rounded-full border-2 border-ink bg-citrus px-3 py-1 text-xs font-black uppercase shadow-sticker">
           {item.quantity}
         </div>
         <img
           alt={item.name}
-          className="h-56 w-full rounded-t-md border-b-4 border-ink object-cover"
+          className="h-56 w-full rounded-t-md border-b-4 border-ink object-cover shadow-card"
           src={item.image}
         />
       </div>

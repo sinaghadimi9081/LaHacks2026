@@ -45,7 +45,7 @@ code {
   }
 
   .ingredient-card {
-    @apply relative overflow-hidden rounded-md border-4 border-ink bg-white shadow-paper transition duration-200;
+    @apply relative overflow-visible rounded-md border-4 border-ink bg-white shadow-paper transition duration-200;
     transform: rotate(var(--tilt));
   }
 
@@ -53,15 +53,15 @@ code {
     transform: translateY(-4px) rotate(0deg);
   }
 
-  .receipt-panel {
-    @apply relative grid gap-4 bg-white p-5;
+  .recipe-card {
+    @apply relative grid gap-4 rounded-b-md bg-white p-5;
     background-image:
       linear-gradient(rgba(16, 31, 31, 0.08) 1px, transparent 1px),
       linear-gradient(90deg, rgba(16, 31, 31, 0.05) 1px, transparent 1px);
     background-size: 100% 28px, 28px 100%;
   }
 
-  .receipt-panel::after {
+  .recipe-card::after {
     @apply absolute inset-x-0 bottom-0 h-3;
     content: '';
     background:
@@ -100,6 +100,45 @@ code {
   .receipt-total strong {
     @apply text-3xl font-black leading-none text-ink;
   }
+
+  .photo-sheet {
+    @apply relative bg-white p-4 pb-3;
+    transform: rotate(calc(var(--tilt) * -1.2));
+  }
+
+  .fruit-sticker {
+    @apply absolute z-20 grid min-h-16 min-w-16 place-items-center rounded-full border-2 border-ink px-3 text-center text-[0.65rem] font-black uppercase leading-tight shadow-sticker;
+  }
+
+  .fruit-sticker span {
+    @apply block max-w-20;
+  }
+}
+
+.paper-clip {
+  position: absolute;
+  left: 32px;
+  top: -25px;
+  z-index: 9999;
+  width: 28px;
+  height: 76px;
+  border: 5px solid #101f1f;
+  border-bottom-color: transparent;
+  border-radius: 999px 999px 0 0;
+  transform: rotate(8deg);
+  pointer-events: none;
+}
+
+.paper-clip::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 8px;
+  width: 10px;
+  height: 50px;
+  border: 4px solid #101f1f;
+  border-bottom-color: transparent;
+  border-radius: 999px 999px 0 0;
 }
 
 .sticker {
