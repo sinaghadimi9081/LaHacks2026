@@ -5,5 +5,18 @@ export function fetchMyProfile() {
 }
 
 export function updateMyProfile(payload) {
-  return apiFetch('/users/me/', 'PATCH', payload)
+  const config =
+    payload instanceof FormData
+      ? { headers: { 'Content-Type': 'multipart/form-data' } }
+      : {}
+
+  return apiFetch('/users/me/', 'PATCH', payload, config)
+}
+
+export function fetchMarketplaceProfile() {
+  return apiFetch('/users/profile/', 'GET')
+}
+
+export function fetchMarketplaceProfileById(userId) {
+  return apiFetch(`/users/profile/${userId}/`, 'GET')
 }
