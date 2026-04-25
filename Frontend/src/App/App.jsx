@@ -8,6 +8,7 @@ import Login from '../Features/Auth/Login.jsx'
 import Signup from '../Features/Auth/Signup.jsx'
 import Profile from '../Features/Profile/Profile.jsx'
 import Inventory from '../Features/Inventory/Inventory.jsx'
+import Marketplace from '../Features/Marketplace/Marketplace.jsx'
 import ReceiptsWorkbench from '../Features/Receipts/ReceiptsWorkbench.jsx'
 import './app.css'
 import 'react-toastify/dist/ReactToastify.css'
@@ -39,6 +40,10 @@ function NavBar() {
 
           <NavLink className="nav-pill" to="/inventory">
             Inventory
+          </NavLink>
+
+          <NavLink className="nav-pill" to="/marketplace">
+            Marketplace
           </NavLink>
 
           <NavLink className="nav-pill" to="/receipts">
@@ -87,6 +92,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/inventory" element={<Inventory />} />
+          <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/receipts" element={<ReceiptsWorkbench />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
