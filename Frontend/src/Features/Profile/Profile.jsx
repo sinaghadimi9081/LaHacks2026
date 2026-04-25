@@ -35,6 +35,8 @@ const emptyPostForm = {
   pickup_latitude: '',
   pickup_longitude: '',
   tags: '',
+  image_file: null,
+  image_preview: '',
 }
 
 function getErrorMessage(error, fallbackMessage) {
@@ -65,11 +67,20 @@ function toPostForm(post) {
     pickup_latitude: post.pickup_latitude ?? '',
     pickup_longitude: post.pickup_longitude ?? '',
     tags: (post.tags || post.food_item?.recipe_uses || []).join(', '),
+    image_file: null,
+    image_preview: post.food_item?.image || post.image_url || post.image_file || '',
   }
 }
 
 function locationRequestPromise() {
   return new Promise((resolve, reject) => {
+    if (!window.isSecureContext) {
+      reject(
+        new Error('Use my location only works on https or on localhost/127.0.0.1.'),
+      )
+      return
+    }
+
     if (!navigator.geolocation) {
       reject(new Error('Geolocation is not supported in this browser.'))
       return
@@ -81,6 +92,19 @@ function locationRequestPromise() {
       maximumAge: 60000,
     })
   })
+}
+
+function geolocationErrorMessage(error) {
+  if (error?.code === 1) {
+    return 'Location permission was denied in the browser.'
+  }
+  if (error?.code === 2) {
+    return 'Your location could not be determined.'
+  }
+  if (error?.code === 3) {
+    return 'Location lookup timed out.'
+  }
+  return error?.message || 'Unable to use your current location.'
 }
 
 function ProfileCard({ title, children }) {
@@ -267,7 +291,18 @@ export default function Profile() {
   }
 
   const handlePostFormChange = (event) => {
-    const { name, value } = event.target
+    const { files, name, value } = event.target
+
+    if (name === 'image_file') {
+      const nextFile = files?.[0] || null
+      setPostForm((current) => ({
+        ...current,
+        image_file: nextFile,
+        image_preview: nextFile ? URL.createObjectURL(nextFile) : '',
+      }))
+      return
+    }
+
     setPostForm((current) => ({
       ...current,
       [name]: value,
@@ -278,7 +313,18 @@ export default function Profile() {
   }
 
   const handleEditingPostChange = (event) => {
-    const { name, value } = event.target
+    const { files, name, value } = event.target
+
+    if (name === 'image_file') {
+      const nextFile = files?.[0] || null
+      setEditingPostForm((current) => ({
+        ...current,
+        image_file: nextFile,
+        image_preview: nextFile ? URL.createObjectURL(nextFile) : current.image_preview,
+      }))
+      return
+    }
+
     setEditingPostForm((current) => ({
       ...current,
       [name]: value,
@@ -393,25 +439,30 @@ export default function Profile() {
   }
 
   const buildPostPayload = (formState) => {
-    const payload = {
-      item_name: formState.item_name.trim(),
-      quantity_label: formState.quantity_label.trim(),
-      title: formState.title.trim(),
-      description: formState.description.trim(),
-      pickup_location: formState.pickup_location.trim(),
-      tags: parseTagInput(formState.tags),
-      pickup_latitude: formState.pickup_latitude === '' ? null : formState.pickup_latitude,
-      pickup_longitude: formState.pickup_longitude === '' ? null : formState.pickup_longitude,
-    }
+    const payload = new FormData()
+    payload.append('item_name', formState.item_name.trim())
+    payload.append('quantity_label', formState.quantity_label.trim())
+    payload.append('title', formState.title.trim())
+    payload.append('description', formState.description.trim())
+    payload.append('pickup_location', formState.pickup_location.trim())
+    payload.append('tags', parseTagInput(formState.tags).join(','))
 
+    if (formState.pickup_latitude !== '') {
+      payload.append('pickup_latitude', formState.pickup_latitude)
+    }
+    if (formState.pickup_longitude !== '') {
+      payload.append('pickup_longitude', formState.pickup_longitude)
+    }
     if (formState.estimated_price !== '') {
-      payload.estimated_price = formState.estimated_price
+      payload.append('estimated_price', formState.estimated_price)
     }
-
+    if (formState.image_file) {
+      payload.append('image_file', formState.image_file)
+    }
     return payload
   }
 
-  const useCurrentLocation = async (mode) => {
+  const applyCurrentLocation = async (mode) => {
     if (mode === 'edit' && !editingPostId) {
       return
     }
@@ -449,7 +500,7 @@ export default function Profile() {
     } catch (error) {
       const message =
         error?.response?.data?.detail ||
-        error?.message ||
+        geolocationErrorMessage(error) ||
         'Unable to use your current location.'
       toast.error(message)
     } finally {
@@ -937,7 +988,7 @@ export default function Profile() {
                   <button
                     className="pantry-button pantry-button--light w-full"
                     disabled={locatingPost}
-                    onClick={() => void useCurrentLocation('create')}
+                    onClick={() => void applyCurrentLocation('create')}
                     type="button"
                   >
                     {locatingPost ? 'Finding your location...' : 'Use my location'}
@@ -958,6 +1009,26 @@ export default function Profile() {
                     type="number"
                     value={postForm.estimated_price}
                   />
+                </label>
+
+                <label className="block md:col-span-2">
+                  <span className="pantry-field-label">
+                    Post picture
+                  </span>
+                  <input
+                    accept="image/*"
+                    className="pantry-input file:mr-4 file:rounded-full file:border-0 file:bg-citrus file:px-4 file:py-2 file:font-black file:text-ink"
+                    name="image_file"
+                    onChange={handlePostFormChange}
+                    type="file"
+                  />
+                  {postForm.image_preview ? (
+                    <img
+                      alt="New marketplace post preview"
+                      className="mt-3 h-44 w-full rounded-2xl object-cover shadow-sticker"
+                      src={postForm.image_preview}
+                    />
+                  ) : null}
                 </label>
 
                 <label className="block md:col-span-2">
@@ -1069,7 +1140,7 @@ export default function Profile() {
                               <button
                                 className="pantry-button pantry-button--light w-full"
                                 disabled={locatingEditPostId === post.id}
-                                onClick={() => void useCurrentLocation('edit')}
+                                onClick={() => void applyCurrentLocation('edit')}
                                 type="button"
                               >
                                 {locatingEditPostId === post.id ? 'Finding your location...' : 'Use my location'}
@@ -1088,6 +1159,26 @@ export default function Profile() {
                                 type="number"
                                 value={activeForm.estimated_price}
                               />
+                            </label>
+
+                            <label className="block md:col-span-2">
+                              <span className="pantry-field-label">
+                                Post picture
+                              </span>
+                              <input
+                                accept="image/*"
+                                className="pantry-input file:mr-4 file:rounded-full file:border-0 file:bg-citrus file:px-4 file:py-2 file:font-black file:text-ink"
+                                name="image_file"
+                                onChange={handleEditingPostChange}
+                                type="file"
+                              />
+                              {activeForm.image_preview ? (
+                                <img
+                                  alt={`${activeForm.title || activeForm.item_name} preview`}
+                                  className="mt-3 h-44 w-full rounded-2xl object-cover shadow-sticker"
+                                  src={activeForm.image_preview}
+                                />
+                              ) : null}
                             </label>
 
                             <label className="block md:col-span-2">
@@ -1122,6 +1213,14 @@ export default function Profile() {
                           </div>
                         ) : (
                           <div className="space-y-4">
+                            {post.food_item?.image ? (
+                              <img
+                                alt={`${post.title} post`}
+                                className="h-48 w-full rounded-2xl object-cover shadow-sticker"
+                                src={post.food_item.image}
+                              />
+                            ) : null}
+
                             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                               <div>
                                 <p className="text-xs font-black uppercase tracking-[0.14em] text-tomato">

@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -126,6 +127,40 @@ class PostApiTests(TestCase):
         delete_response = self.owner_client.delete(f"/api/share/{post.id}/")
         self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Post.objects.filter(id=post.id).exists())
+
+    @patch("posts.serializers.geocode_address")
+    def test_owner_can_upload_post_image(self, mock_geocode_address):
+        mock_geocode_address.return_value = {
+            "pickup_location": "Westwood community fridge, Los Angeles, CA",
+            "pickup_latitude": "34.063500",
+            "pickup_longitude": "-118.445500",
+        }
+
+        image_file = SimpleUploadedFile(
+            "post.gif",
+            (
+                b"GIF87a\x01\x00\x01\x00\x80\x00\x00"
+                b"\x00\x00\x00\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,"
+                b"\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+            ),
+            content_type="image/gif",
+        )
+
+        response = self.owner_client.post(
+            "/api/share/",
+            {
+                "item_name": "Rainbow carrots",
+                "quantity_label": "1 bunch",
+                "title": "Picture post",
+                "pickup_location": "Westwood community fridge",
+                "tags": "soup,roast trays",
+                "image_file": image_file,
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data["food_item"]["image"])
+        self.assertTrue(Post.objects.get(id=response.data["id"]).image_file.name)
 
     def test_non_owner_cannot_edit_post_but_can_claim(self):
         post = Post.objects.create(

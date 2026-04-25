@@ -4,6 +4,7 @@ from django.db import DatabaseError
 from django.db.models import Q
 from rest_framework import generics, permissions, status
 from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -126,6 +127,7 @@ class PostFeedView(generics.ListAPIView):
 
 class PostCreateView(generics.CreateAPIView):
     serializer_class = PostWriteSerializer
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -155,6 +157,7 @@ class MyPostListView(generics.ListAPIView):
 
 class PostDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Post.objects.select_related("owner", "claimed_by_user")
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_serializer_class(self):
         if self.request.method in permissions.SAFE_METHODS:
