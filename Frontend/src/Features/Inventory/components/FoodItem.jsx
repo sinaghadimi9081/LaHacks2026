@@ -38,7 +38,7 @@ function FoodItem({ item, index }) {
         </div>
         <img
           alt={`${item.name} ingredient`}
-          className="h-40 w-full rounded-xl border border-ink/15 object-cover shadow-pop sm:h-44"
+          className="food-item-image"
           loading="lazy"
           src={item.image}
         />

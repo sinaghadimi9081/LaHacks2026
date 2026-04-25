@@ -105,8 +105,8 @@ code {
   }
 
   .metric-card strong {
-    @apply mt-2 block whitespace-nowrap font-black leading-none;
-    font-size: clamp(2.25rem, 8vw, 3rem);
+    @apply mt-2 block whitespace-nowrap font-black leading-none text-2xl;
+    /* font-size: clamp(2.25rem, 8vw, 3rem); */
   }
 
   .ingredient-card {
@@ -182,14 +182,6 @@ code {
     @apply rounded-2xl;
   }
 
-  .recipe-card::after {
-    @apply absolute inset-x-0 bottom-0 h-3;
-    content: '';
-    background:
-      radial-gradient(circle at 8px 100%, transparent 8px, rgba(255, 255, 255, 0.75) 8.5px)
-        left bottom / 16px 12px repeat-x;
-  }
-
   .receipt-lines {
     @apply grid gap-0 border-b border-dashed border-ink/25 py-1 font-mono text-xs;
   }
@@ -227,6 +219,10 @@ code {
     transform: rotate(calc(var(--tilt) * -1.2));
   }
 
+  .food-item-image {
+    @apply aspect-[4/3] h-auto w-full rounded-xl border border-ink/15 bg-cream/70 object-cover shadow-pop;
+  }
+
   .fruit-sticker {
     @apply absolute z-20 grid min-h-12 min-w-12 place-items-center rounded-full border border-ink/20 px-2.5 text-center text-[0.6rem] font-black uppercase leading-tight shadow-sticker backdrop-blur;
   }
@@ -260,6 +256,53 @@ code {
   border: 3px solid rgba(18, 49, 42, 0.72);
   border-bottom-color: transparent;
   border-radius: 999px 999px 0 0;
+}
+
+.plant-trail {
+  pointer-events: none;
+  position: absolute;
+  inset-block: 0;
+  right: max(1rem, calc((100vw - 80rem) / 2));
+  width: min(34vw, 28rem);
+  overflow: hidden;
+  color: rgba(18, 49, 42, 0.22);
+}
+
+.plant-trail__leaf {
+  position: absolute;
+  width: clamp(3.5rem, 8vw, 7rem);
+  height: auto;
+  filter: drop-shadow(0 18px 22px rgba(18, 49, 42, 0.08));
+}
+
+.plant-trail__leaf:nth-child(1) {
+  right: 5%;
+  top: 6%;
+  transform: rotate(28deg);
+}
+
+.plant-trail__leaf:nth-child(2) {
+  right: 24%;
+  top: 22%;
+  transform: rotate(52deg) scale(0.78);
+}
+
+.plant-trail__leaf:nth-child(3) {
+  right: 1%;
+  top: 40%;
+  transform: rotate(72deg) scale(1.08);
+}
+
+.plant-trail__leaf:nth-child(4) {
+  right: 30%;
+  top: 58%;
+  transform: rotate(42deg) scale(0.9);
+}
+
+.plant-trail__leaf:nth-child(5) {
+  right: 10%;
+  top: 76%;
+  transform: rotate(65deg) scale(0.72);
 }
 
 .sticker {
