@@ -21,7 +21,7 @@ function FoodItem({ item, index, onDelete, onEditQuantity, onSell }) {
 
   return (
     <article
-      className={`ingredient-card ${isCritical ? 'ingredient-card--critical' : ''} ${isUseSoon ? 'ingredient-card--use-soon' : ''} ${isFeedToday ? 'ingredient-card--feed-today' : ''}`}
+      className={`ingredient-card flex h-full flex-col row-span-2 ${isCritical ? 'ingredient-card--critical' : ''} ${isUseSoon ? 'ingredient-card--use-soon' : ''} ${isFeedToday ? 'ingredient-card--feed-today' : ''}`}
       style={{ '--tilt': tilt }}
     >
       <div className="paper-clip" aria-hidden="true" />
@@ -38,7 +38,7 @@ function FoodItem({ item, index, onDelete, onEditQuantity, onSell }) {
         />
       </div>
 
-      <div className="recipe-card">
+      <div className="recipe-card flex flex-1 flex-col">
         <div className="flex items-start justify-between gap-3 border-b-2 border-moonstone pb-3">
           <div>
             <p className="text-[0.65rem] font-black uppercase tracking-[0.14em] text-tomato">
@@ -70,7 +70,7 @@ function FoodItem({ item, index, onDelete, onEditQuantity, onSell }) {
           </div>
         </dl>
 
-        <div className="mt-4">
+        <div className="mt-auto pt-4">
           <p className="text-[0.65rem] font-black uppercase tracking-[0.14em] text-ink/55">
             item actions
           </p>

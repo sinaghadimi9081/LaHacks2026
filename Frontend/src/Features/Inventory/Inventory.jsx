@@ -108,11 +108,23 @@ export default function Inventory() {
       return
     }
 
+    const newQuantity = editedQuantity.trim()
+    const isZero = newQuantity === '0' || newQuantity.startsWith('0 ') || newQuantity.toLowerCase() === 'none'
+    
+    if (isZero) {
+      if (window.confirm(`It looks like you're out of ${editingItem.name}. Would you like to delete this item?`)) {
+        handleDeleteItem(editingItem)
+        setEditingItem(null)
+        setEditedQuantity('')
+        return
+      }
+    }
+
     const editingKey = getItemKey(editingItem)
     setInventoryItems((currentItems) =>
       currentItems.map((item) =>
         getItemKey(item) === editingKey
-          ? { ...item, quantity: editedQuantity.trim() }
+          ? { ...item, quantity: newQuantity }
           : item,
       ),
     )
@@ -261,7 +273,7 @@ export default function Inventory() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-4 px-5 py-8 sm:grid-cols-2 md:px-10 lg:grid-cols-3 xl:grid-cols-4">
+      <section className="mx-auto grid max-w-7xl gap-4 px-5 py-8 sm:grid-cols-2 md:px-10 lg:grid-cols-3 xl:grid-cols-4 grid-flow-row-dense">
         {filteredInventoryItems.map((item, index) =>
           item.image ? (
             <FoodItem
@@ -330,9 +342,24 @@ export default function Inventory() {
               />
             </label>
 
-            <button className="pantry-button" type="submit">
-              Save amount
-            </button>
+            <div className="grid grid-cols-2 gap-3 mt-2">
+              <button
+                className="pantry-button !bg-petal !text-danger !border-danger/20"
+                onClick={() => {
+                  if (window.confirm(`Are you sure you want to delete ${editingItem.name}?`)) {
+                    handleDeleteItem(editingItem)
+                    setEditingItem(null)
+                    setEditedQuantity('')
+                  }
+                }}
+                type="button"
+              >
+                Delete
+              </button>
+              <button className="pantry-button" type="submit">
+                Save amount
+              </button>
+            </div>
           </form>
         </div>
       )}

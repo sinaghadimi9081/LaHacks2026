@@ -21,10 +21,10 @@ function FoodItemNoImage({ item, index, onDelete, onEditQuantity, onSell }) {
 
   return (
     <article
-      className={`ingredient-card ingredient-card--text-only ${isCritical ? 'ingredient-card--critical' : ''} ${isUseSoon ? 'ingredient-card--use-soon' : ''} ${isFeedToday ? 'ingredient-card--feed-today' : ''}`}
+      className={`ingredient-card ingredient-card--text-only flex h-full flex-col ${isCritical ? 'ingredient-card--critical' : ''} ${isUseSoon ? 'ingredient-card--use-soon' : ''} ${isFeedToday ? 'ingredient-card--feed-today' : ''}`}
       style={{ '--tilt': tilt }}
     >
-      <div className="recipe-card recipe-card--full">
+      <div className="recipe-card recipe-card--full flex flex-1 flex-col">
         <div className="flex items-start justify-between gap-3 border-b-2 border-moonstone pb-3">
           <div>
             <p className="text-[0.65rem] font-black uppercase tracking-[0.14em] text-tomato">
@@ -56,7 +56,7 @@ function FoodItemNoImage({ item, index, onDelete, onEditQuantity, onSell }) {
           </div>
         </dl>
 
-        <div className="mt-4">
+        <div className="mt-auto pt-4">
           <p className="text-[0.65rem] font-black uppercase tracking-[0.14em] text-ink/55">
             item actions
           </p>
