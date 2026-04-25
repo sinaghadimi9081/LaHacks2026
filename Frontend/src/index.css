@@ -6,8 +6,8 @@
 
 :root {
   font-family: 'Manrope', system-ui, sans-serif;
-  color: #0f172a;
-  background: #f7f1e8;
+  color: #12312a;
+  background: #f5f9ed;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -27,6 +27,309 @@ body {
   min-width: 320px;
 }
 
+#root {
+  min-height: 100vh;
+}
+
 code {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+}
+
+@layer components {
+  .pantry-page {
+    @apply min-h-screen bg-cream text-ink;
+  }
+
+  .pantry-dot-grid {
+    background-color: #f5f9ed;
+    background-image:
+      radial-gradient(circle, rgba(18, 49, 42, 0.13) 1px, transparent 1.1px),
+      linear-gradient(135deg, rgba(159, 207, 178, 0.22), transparent 42%);
+    background-size: 20px 20px;
+  }
+
+  .pantry-shell {
+    @apply mx-auto w-full max-w-7xl px-5 py-8 md:px-10;
+  }
+
+  .pantry-card {
+    @apply rounded-xl border border-ink/15 bg-white/80 p-5 shadow-paper backdrop-blur-md;
+  }
+
+  .pantry-label {
+    @apply text-xs font-black uppercase tracking-[0.18em] text-tomato;
+  }
+
+  .pantry-heading {
+    @apply text-4xl font-black uppercase leading-none text-ink md:text-6xl;
+  }
+
+  .pantry-copy {
+    @apply text-base font-bold leading-8 text-ink/70;
+  }
+
+  .pantry-button {
+    @apply inline-flex items-center justify-center rounded-full border border-ink/15 bg-phthalo px-5 py-3 text-sm font-black uppercase text-white shadow-sticker transition hover:-translate-y-0.5 hover:shadow-pop disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .pantry-button--light {
+    @apply bg-white text-ink;
+  }
+
+  .pantry-button--accent {
+    @apply bg-citrus text-ink;
+  }
+
+  .pantry-field-label {
+    @apply mb-2 block text-xs font-black uppercase tracking-[0.14em] text-ink/70;
+  }
+
+  .pantry-input {
+    @apply w-full rounded-xl border border-ink/20 bg-white/85 px-4 py-3 font-bold text-ink outline-none shadow-sticker transition focus:-translate-y-0.5 focus:border-phthalo focus:bg-white focus:shadow-pop;
+  }
+
+  .pantry-filter-button {
+    @apply rounded-full border border-ink/15 bg-white/80 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-ink shadow-sticker transition hover:-translate-y-0.5 hover:bg-citrus/70;
+  }
+
+  .pantry-filter-button--active {
+    @apply border-phthalo bg-phthalo text-white shadow-pop;
+  }
+
+  .metric-card {
+    @apply min-w-0 rounded-xl border border-ink/15 p-4 shadow-pop backdrop-blur-md;
+  }
+
+  .metric-card span {
+    @apply text-xs font-black uppercase tracking-[0.18em];
+  }
+
+  .metric-card strong {
+    @apply mt-2 block whitespace-nowrap font-black leading-none text-2xl;
+    /* font-size: clamp(2.25rem, 8vw, 3rem); */
+  }
+
+  .ingredient-card {
+    @apply relative overflow-visible rounded-2xl border border-ink/15 bg-white/80 shadow-paper backdrop-blur-md transition duration-200;
+    transform: rotate(var(--tilt));
+  }
+
+  .ingredient-card--text-only {
+    @apply bg-white/80;
+  }
+
+  .ingredient-card--critical {
+    @apply border-danger/35 bg-danger-soft/70;
+  }
+
+  .ingredient-card--use-soon {
+    @apply border-soon-ring/35 bg-soon-soft/75;
+  }
+
+  .ingredient-card--use-soon .recipe-card,
+  .ingredient-card--use-soon .photo-sheet {
+    @apply bg-white/85;
+  }
+
+  .ingredient-card--use-soon .paper-clip {
+    border-color: rgba(125, 154, 77, 0.78);
+    border-bottom-color: transparent;
+  }
+
+  .ingredient-card--use-soon .paper-clip::after {
+    border-color: rgba(125, 154, 77, 0.78);
+    border-bottom-color: transparent;
+  }
+
+  .ingredient-card--feed-today {
+    @apply border-feed-ring/35 bg-feed-soft/75;
+  }
+
+  .ingredient-card--feed-today .recipe-card,
+  .ingredient-card--feed-today .photo-sheet {
+    @apply bg-white/85;
+  }
+
+  .ingredient-card--feed-today .paper-clip {
+    border-color: rgba(196, 138, 67, 0.78);
+    border-bottom-color: transparent;
+  }
+
+  .ingredient-card--feed-today .paper-clip::after {
+    border-color: rgba(196, 138, 67, 0.78);
+    border-bottom-color: transparent;
+  }
+
+  .ingredient-card--critical .recipe-card,
+  .ingredient-card--critical .photo-sheet {
+    @apply bg-white/85;
+  }
+
+
+  .ingredient-card:hover {
+    transform: translateY(-4px) rotate(0deg);
+  }
+
+  .recipe-card {
+    @apply relative grid gap-3 rounded-b-2xl bg-white/75 p-4 backdrop-blur;
+    background-image:
+      linear-gradient(rgba(18, 49, 42, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(18, 49, 42, 0.025) 1px, transparent 1px);
+    background-size: 100% 28px, 28px 100%;
+  }
+
+  .recipe-card--full {
+    @apply rounded-2xl;
+  }
+
+  .receipt-lines {
+    @apply grid gap-0 border-b border-dashed border-ink/25 py-1 font-mono text-xs;
+  }
+
+  .receipt-lines div {
+    @apply flex items-baseline justify-between gap-4 border-b border-ink/15 py-2;
+  }
+
+  .receipt-lines div:last-child {
+    @apply border-b-0;
+  }
+
+  .receipt-lines dt {
+    @apply text-xs font-black uppercase tracking-[0.14em] text-ink/55;
+  }
+
+  .receipt-lines dd {
+    @apply text-right font-black uppercase text-ink;
+  }
+
+  .receipt-total {
+    @apply flex items-end justify-between gap-4 rounded-md border-2 border-ink bg-citrus px-4 py-3 shadow-sticker;
+  }
+
+  .receipt-total span {
+    @apply text-xs font-black uppercase tracking-[0.14em] text-ink/70;
+  }
+
+  .receipt-total strong {
+    @apply text-3xl font-black leading-none text-ink;
+  }
+
+  .photo-sheet {
+    @apply relative rounded-t-2xl bg-white/65 p-3 pb-2 backdrop-blur;
+    transform: rotate(calc(var(--tilt) * -1.2));
+  }
+
+  .food-item-image {
+    @apply aspect-[4/3] h-auto w-full rounded-xl border border-ink/15 bg-cream/70 object-cover shadow-pop;
+  }
+
+  .fruit-sticker {
+    @apply absolute z-20 grid min-h-12 min-w-12 place-items-center rounded-full border border-ink/20 px-2.5 text-center text-[0.6rem] font-black uppercase leading-tight shadow-sticker backdrop-blur;
+  }
+
+  .fruit-sticker span {
+    @apply block max-w-20;
+  }
+}
+
+.paper-clip {
+  position: absolute;
+  left: 32px;
+  top: -25px;
+  z-index: 9999;
+  width: 26px;
+  height: 72px;
+  border: 4px solid rgba(18, 49, 42, 0.72);
+  border-bottom-color: transparent;
+  border-radius: 999px 999px 0 0;
+  transform: rotate(8deg);
+  pointer-events: none;
+}
+
+.paper-clip::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 8px;
+  width: 10px;
+  height: 50px;
+  border: 3px solid rgba(18, 49, 42, 0.72);
+  border-bottom-color: transparent;
+  border-radius: 999px 999px 0 0;
+}
+
+.plant-trail {
+  pointer-events: none;
+  position: absolute;
+  inset-block: 0;
+  right: max(1rem, calc((100vw - 80rem) / 2));
+  width: min(34vw, 28rem);
+  overflow: hidden;
+  color: rgba(18, 49, 42, 0.22);
+}
+
+.plant-trail__leaf {
+  position: absolute;
+  width: clamp(3.5rem, 8vw, 7rem);
+  height: auto;
+  filter: drop-shadow(0 18px 22px rgba(18, 49, 42, 0.08));
+}
+
+.plant-trail__leaf:nth-child(1) {
+  right: 5%;
+  top: 6%;
+  transform: rotate(28deg);
+}
+
+.plant-trail__leaf:nth-child(2) {
+  right: 24%;
+  top: 22%;
+  transform: rotate(52deg) scale(0.78);
+}
+
+.plant-trail__leaf:nth-child(3) {
+  right: 1%;
+  top: 40%;
+  transform: rotate(72deg) scale(1.08);
+}
+
+.plant-trail__leaf:nth-child(4) {
+  right: 30%;
+  top: 58%;
+  transform: rotate(42deg) scale(0.9);
+}
+
+.plant-trail__leaf:nth-child(5) {
+  right: 10%;
+  top: 76%;
+  transform: rotate(65deg) scale(0.72);
+}
+
+.sticker {
+  position: absolute;
+  border: 1px solid rgba(18, 49, 42, 0.22);
+  box-shadow: 0 18px 34px -28px rgba(18, 49, 42, 0.45);
+}
+
+.sticker-star {
+  width: 42px;
+  height: 42px;
+  clip-path: polygon(
+    50% 0%,
+    61% 35%,
+    98% 35%,
+    68% 57%,
+    79% 91%,
+    50% 70%,
+    21% 91%,
+    32% 57%,
+    2% 35%,
+    39% 35%
+  );
+}
+
+.sticker-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
 }
