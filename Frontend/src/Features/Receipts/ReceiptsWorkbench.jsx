@@ -1,6 +1,6 @@
 import { startTransition, useMemo, useState } from 'react'
 
-import { fetchReceipt, uploadReceipt } from '../../Utils/receiptsApi.jsx'
+import { confirmReceipt, fetchReceipt, uploadReceipt } from '../../Utils/receiptsApi.jsx'
 
 function formatCurrency(value) {
   if (value === null || value === undefined || value === '') {
@@ -47,6 +47,21 @@ function getErrorMessage(error, fallbackMessage) {
   return fallbackMessage
 }
 
+function createDraftItems(items = []) {
+  return items.map((item) => ({
+    ...item,
+    standardized_name: item.standardized_name || '',
+    estimated_price: item.estimated_price ?? '',
+    expiration_days:
+      item.expiration_days === null || item.expiration_days === undefined
+        ? ''
+        : String(item.expiration_days),
+    quantity:
+      item.quantity === null || item.quantity === undefined ? '1' : String(item.quantity),
+    selected: item.selected ?? true,
+  }))
+}
+
 export default function ReceiptsWorkbench() {
   const configuredApiBaseUrl =
     import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000/api'
@@ -55,14 +70,16 @@ export default function ReceiptsWorkbench() {
   const [selectedFile, setSelectedFile] = useState(null)
   const [receiptIdInput, setReceiptIdInput] = useState('')
   const [receiptData, setReceiptData] = useState(null)
+  const [draftItems, setDraftItems] = useState([])
   const [statusMessage, setStatusMessage] = useState(
-    'Choose a receipt image, upload it, and inspect the parsed draft items below.',
+    'Choose a receipt image, upload it, and inspect the draft pantry items below.',
   )
   const [errorMessage, setErrorMessage] = useState('')
   const [isUploading, setIsUploading] = useState(false)
   const [isLoadingReceipt, setIsLoadingReceipt] = useState(false)
+  const [isConfirming, setIsConfirming] = useState(false)
 
-  const parsedItems = receiptData?.parsed_items ?? []
+  const parsedItems = draftItems
   const selectedItemCount = parsedItems.filter((item) => item.selected).length
   const estimatedTotal = useMemo(
     () =>
@@ -88,6 +105,27 @@ export default function ReceiptsWorkbench() {
   const hasMeaningfulTotalGap =
     totalDifference !== null && Math.abs(totalDifference) >= 0.01
 
+  function applyReceiptPayload(payload) {
+    startTransition(() => {
+      setReceiptData(payload)
+      setDraftItems(createDraftItems(payload?.parsed_items || []))
+      setReceiptIdInput(payload?.receipt_id ? String(payload.receipt_id) : '')
+    })
+  }
+
+  function handleDraftItemChange(itemId, field, value) {
+    setDraftItems((currentItems) =>
+      currentItems.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              [field]: value,
+            }
+          : item,
+      ),
+    )
+  }
+
   async function handleUpload(event) {
     event.preventDefault()
 
@@ -105,10 +143,7 @@ export default function ReceiptsWorkbench() {
 
     try {
       const payload = await uploadReceipt(formData)
-      startTransition(() => {
-        setReceiptData(payload)
-        setReceiptIdInput(String(payload.receipt_id))
-      })
+      applyReceiptPayload(payload)
       setStatusMessage(
         `Parsed receipt #${payload.receipt_id}. Review the draft items before saving anything to the pantry.`,
       )
@@ -139,9 +174,7 @@ export default function ReceiptsWorkbench() {
 
     try {
       const payload = await fetchReceipt(receiptIdInput.trim())
-      startTransition(() => {
-        setReceiptData(payload)
-      })
+      applyReceiptPayload(payload)
       setStatusMessage(`Loaded receipt #${payload.receipt_id}.`)
     } catch (error) {
       setErrorMessage(
@@ -150,6 +183,60 @@ export default function ReceiptsWorkbench() {
       setStatusMessage('Receipt lookup failed.')
     } finally {
       setIsLoadingReceipt(false)
+    }
+  }
+
+  async function handleConfirmReceipt(event) {
+    event.preventDefault()
+
+    if (!receiptData?.receipt_id) {
+      setErrorMessage('Upload or load a receipt before confirming items.')
+      return
+    }
+
+    if (!draftItems.some((item) => item.selected)) {
+      setErrorMessage('Select at least one item to save to the pantry.')
+      return
+    }
+
+    setIsConfirming(true)
+    setErrorMessage('')
+
+    try {
+      const payload = await confirmReceipt(receiptData.receipt_id, {
+        items: draftItems.map((item) => ({
+          id: item.id,
+          selected: item.selected,
+          name: item.name,
+          standardized_name: item.standardized_name?.trim() || item.name,
+          quantity: Number.parseInt(item.quantity, 10) || 1,
+          estimated_price: item.estimated_price === '' ? null : item.estimated_price,
+          expiration_days:
+            item.expiration_days === '' ? null : Number.parseInt(item.expiration_days, 10),
+          image_url: item.image_url || '',
+          description: item.description || '',
+        })),
+      })
+
+      startTransition(() => {
+        setReceiptData((currentReceipt) =>
+          currentReceipt
+            ? {
+                ...currentReceipt,
+                confirmed_at: payload.confirmed_at,
+                parsed_items: draftItems,
+              }
+            : currentReceipt,
+        )
+      })
+      setStatusMessage(
+        `Saved ${payload.created_count} pantry item${payload.created_count === 1 ? '' : 's'} from receipt #${receiptData.receipt_id}.`,
+      )
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, 'Could not confirm this receipt.'))
+      setStatusMessage('Receipt confirmation failed.')
+    } finally {
+      setIsConfirming(false)
     }
   }
 
@@ -164,12 +251,12 @@ export default function ReceiptsWorkbench() {
               </span>
               <div className="space-y-3">
                 <h1 className="max-w-3xl text-4xl font-extrabold tracking-tight text-slate-950 md:text-5xl">
-                  Upload a grocery receipt and inspect the draft pantry items.
+                  Upload a grocery receipt and confirm the draft pantry items.
                 </h1>
                 <p className="max-w-2xl text-base leading-8 text-slate-600 md:text-lg">
                   The browser sends the image as multipart form-data, Django
                   stores it, and the backend returns draft receipt items for
-                  review instead of saving them directly as pantry objects.
+                  review. Only after confirmation are pantry objects created.
                 </p>
               </div>
               <div className="flex flex-wrap gap-3 text-sm font-medium text-slate-700">
@@ -180,7 +267,7 @@ export default function ReceiptsWorkbench() {
                   GET /receipts/&lt;id&gt;/
                 </span>
                 <span className="rounded-full bg-white px-4 py-2 ring-1 ring-slate-200">
-                  Draft items only
+                  POST /receipts/&lt;id&gt;/confirm/
                 </span>
               </div>
             </div>
@@ -195,8 +282,8 @@ export default function ReceiptsWorkbench() {
               <div className="mt-5 space-y-3 text-slate-300">
                 <p>{statusMessage}</p>
                 <p>
-                  If uploads fail, confirm Django is running on
-                  `http://127.0.0.1:8000`.
+                  Uploads now require an authenticated household member, so run
+                  this while signed in to the app.
                 </p>
                 <p>
                   If OCR fails, confirm the Tesseract system binary is installed
@@ -304,7 +391,7 @@ export default function ReceiptsWorkbench() {
                 </div>
                 <div className="rounded-[1.25rem] bg-slate-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    Selected
+                    Selected to save
                   </p>
                   <p className="mt-2 text-3xl font-bold text-slate-950">
                     {selectedItemCount}
@@ -353,6 +440,12 @@ export default function ReceiptsWorkbench() {
                   {errorMessage}
                 </div>
               ) : null}
+
+              {receiptData?.confirmed_at ? (
+                <div className="rounded-[1.25rem] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                  This receipt was confirmed on {formatTimestamp(receiptData.confirmed_at)}.
+                </div>
+              ) : null}
             </div>
           </article>
         </section>
@@ -365,7 +458,7 @@ export default function ReceiptsWorkbench() {
                   Parsed items
                 </p>
                 <h2 className="mt-2 text-2xl font-bold text-slate-950">
-                  Draft items returned by the backend
+                  Edit the draft items before pantry confirmation
                 </h2>
               </div>
               {receiptData ? (
@@ -383,26 +476,73 @@ export default function ReceiptsWorkbench() {
                     <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
                       <thead className="bg-slate-50 text-slate-600">
                         <tr>
-                          <th className="px-4 py-3 font-semibold">Name</th>
+                          <th className="px-4 py-3 font-semibold">Save</th>
+                          <th className="px-4 py-3 font-semibold">Pantry name</th>
                           <th className="px-4 py-3 font-semibold">Price</th>
                           <th className="px-4 py-3 font-semibold">Qty</th>
-                          <th className="px-4 py-3 font-semibold">Selected</th>
+                          <th className="px-4 py-3 font-semibold">Days left</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 bg-white">
                         {parsedItems.map((item) => (
                           <tr key={item.id}>
+                            <td className="px-4 py-3 text-slate-700">
+                              <input
+                                checked={Boolean(item.selected)}
+                                className="h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-700"
+                                onChange={(event) =>
+                                  handleDraftItemChange(item.id, 'selected', event.target.checked)
+                                }
+                                type="checkbox"
+                              />
+                            </td>
                             <td className="px-4 py-3 font-medium text-slate-900">
-                              {item.name}
+                              <input
+                                className="w-full min-w-[12rem] rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-700"
+                                onChange={(event) =>
+                                  handleDraftItemChange(item.id, 'standardized_name', event.target.value)
+                                }
+                                value={item.standardized_name || item.name}
+                              />
+                              <p className="mt-2 text-xs font-medium text-slate-500">
+                                OCR line: {item.name}
+                              </p>
                             </td>
                             <td className="px-4 py-3 text-slate-700">
-                              {formatCurrency(item.estimated_price)}
+                              <input
+                                className="w-28 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-700"
+                                min="0"
+                                onChange={(event) =>
+                                  handleDraftItemChange(item.id, 'estimated_price', event.target.value)
+                                }
+                                step="0.01"
+                                type="number"
+                                value={item.estimated_price}
+                              />
                             </td>
                             <td className="px-4 py-3 text-slate-700">
-                              {item.quantity}
+                              <input
+                                className="w-24 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-700"
+                                min="1"
+                                onChange={(event) =>
+                                  handleDraftItemChange(item.id, 'quantity', event.target.value)
+                                }
+                                step="1"
+                                type="number"
+                                value={item.quantity}
+                              />
                             </td>
                             <td className="px-4 py-3 text-slate-700">
-                              {item.selected ? 'Yes' : 'No'}
+                              <input
+                                className="w-28 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-700"
+                                min="0"
+                                onChange={(event) =>
+                                  handleDraftItemChange(item.id, 'expiration_days', event.target.value)
+                                }
+                                step="1"
+                                type="number"
+                                value={item.expiration_days}
+                              />
                             </td>
                           </tr>
                         ))}
@@ -422,6 +562,32 @@ export default function ReceiptsWorkbench() {
                 No receipt loaded yet. Upload a receipt or load one by ID.
               </div>
             )}
+
+            {receiptData ? (
+              <form className="mt-6 rounded-[1.25rem] bg-emerald-50 p-5" onSubmit={handleConfirmReceipt}>
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                      Confirm to pantry
+                    </p>
+                    <p className="mt-2 text-sm text-emerald-950">
+                      Selected rows will be saved as pantry items for the active household.
+                    </p>
+                  </div>
+                  <button
+                    className="inline-flex items-center justify-center rounded-full bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                    disabled={isConfirming || Boolean(receiptData.confirmed_at) || selectedItemCount === 0}
+                    type="submit"
+                  >
+                    {receiptData.confirmed_at
+                      ? 'Already confirmed'
+                      : isConfirming
+                        ? 'Saving to pantry...'
+                        : `Save ${selectedItemCount} item${selectedItemCount === 1 ? '' : 's'} to pantry`}
+                  </button>
+                </div>
+              </form>
+            ) : null}
 
             {receiptData?.raw_text ? (
               <div className="mt-6 rounded-[1.25rem] bg-slate-950 p-5 text-sm text-slate-200">
@@ -460,13 +626,14 @@ export default function ReceiptsWorkbench() {
 
             <div className="mt-5 space-y-3 rounded-[1.25rem] bg-slate-50 p-5 text-sm leading-7 text-slate-700">
               <p>
-                The browser uploads using the `image` form-data key, matching the
-                DRF endpoint you already built.
+                The browser uploads using the `image` form-data key, then this
+                screen lets the user edit the parsed draft rows before calling
+                the confirm endpoint.
               </p>
               <p>
                 Uploaded files are stored in `Backend/media/receipts/`, and the
-                parsed rows in the table above are still draft `ParsedReceiptItem`
-                records.
+                parsed rows in the table above stay as draft `ParsedReceiptItem`
+                records until confirmation.
               </p>
               <p>
                 If a receipt looks wrong, compare the table against the raw OCR

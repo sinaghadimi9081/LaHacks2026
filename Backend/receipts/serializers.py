@@ -55,6 +55,7 @@ class ReceiptSerializer(serializers.ModelSerializer):
             "store_name",
             "raw_text",
             "created_at",
+            "confirmed_at",
             "detected_total",
             "parsed_item_total",
             "parsed_items",

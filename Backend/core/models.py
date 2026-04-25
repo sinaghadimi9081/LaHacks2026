@@ -15,6 +15,20 @@ class ExpirationKnowledge(models.Model):
 
 
 class FoodItem(models.Model):
+    household = models.ForeignKey(
+        "households.Household",
+        on_delete=models.CASCADE,
+        related_name="food_items",
+        null=True,
+        blank=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_food_items",
+        null=True,
+        blank=True,
+    )
     name = models.CharField(max_length=255)
     quantity = models.IntegerField(default=1)
     expiration_date = models.DateField(blank=True, null=True)
@@ -30,6 +44,20 @@ class FoodItem(models.Model):
         return f"{self.name} ({self.quantity})"
 
 class ImpactLog(models.Model):
+    household = models.ForeignKey(
+        "households.Household",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="impact_logs",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="impact_logs",
+    )
     food_item = models.ForeignKey(FoodItem, on_delete=models.SET_NULL, null=True, related_name='impact_logs')
     action = models.CharField(max_length=100)
     dollars_saved = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)

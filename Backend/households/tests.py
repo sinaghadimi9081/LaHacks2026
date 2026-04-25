@@ -111,7 +111,7 @@ class HouseholdEndpointTests(APITestCase):
         )
         self.assertEqual(membership.status, HouseholdMembership.Status.ACTIVE)
         self.assertTrue(membership.can_upload_receipts)
-        self.assertFalse(membership.can_post_share)
+        self.assertTrue(membership.can_post_share)
 
         invitation.refresh_from_db()
         self.assertEqual(invitation.status, HouseholdInvitation.Status.ACCEPTED)
@@ -125,7 +125,7 @@ class HouseholdEndpointTests(APITestCase):
             role=HouseholdMembership.Role.MEMBER,
             status=HouseholdMembership.Status.ACTIVE,
             can_upload_receipts=True,
-            can_post_share=False,
+            can_post_share=True,
             can_manage_members=False,
         )
 

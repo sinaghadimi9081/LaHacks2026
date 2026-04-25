@@ -126,7 +126,7 @@ def accept_invitation(invitation, user):
             "role": HouseholdMembership.Role.MEMBER,
             "status": HouseholdMembership.Status.ACTIVE,
             "can_upload_receipts": True,
-            "can_post_share": False,
+            "can_post_share": True,
             "can_manage_members": False,
         },
     )

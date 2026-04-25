@@ -1,7 +1,22 @@
+from django.conf import settings
 from django.db import models
 
 
 class Receipt(models.Model):
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="uploaded_receipts",
+        null=True,
+        blank=True,
+    )
+    household = models.ForeignKey(
+        "households.Household",
+        on_delete=models.CASCADE,
+        related_name="receipts",
+        null=True,
+        blank=True,
+    )
     image = models.ImageField(upload_to="receipts/")
     store_name = models.CharField(max_length=150, blank=True, default="")
     detected_total_amount = models.DecimalField(
@@ -11,6 +26,7 @@ class Receipt(models.Model):
         blank=True,
     )
     raw_text = models.TextField(blank=True)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
 
