@@ -26,33 +26,33 @@ function FoodItem({ item, index }) {
     <article className="ingredient-card" style={{ '--tilt': tilt }}>
       <div className="paper-clip" aria-hidden="true" />
 
-      <div className="photo-sheet drop-shadow-lg z-10">
-        <div className="fruit-sticker left-4 top-5 bg-citrus">
+      <div className="photo-sheet z-10 drop-shadow-lg">
+        <div className="fruit-sticker right-3 top-4 bg-citrus">
           <span>{item.quantity}</span>
         </div>
-        <div className="fruit-sticker right-4 top-7 bg-white">
+        {/* <div className="fruit-sticker right-3 top-5 bg-white">
           <span>{item.owner_name}</span>
-        </div>
+        </div> */}
         <img
           alt={`${item.name} ingredient`}
-          className="h-60 w-full rounded-md border-4 border-ink object-cover"
+          className="h-40 w-full rounded-md border-[3px] border-ink object-cover sm:h-44"
           loading="lazy"
           src={item.image}
         />
       </div>
 
       <div className="recipe-card">
-        <div className="flex items-start justify-between gap-4 border-b-2 border-moonstone pb-4">
+        <div className="flex items-start justify-between gap-3 border-b-2 border-moonstone pb-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-tomato">
+            <p className="text-[0.65rem] font-black uppercase tracking-[0.14em] text-tomato">
               Recipe ingredient
             </p>
-            <h2 className="mt-1 text-3xl font-black uppercase leading-none">
+            <h2 className="mt-1 text-2xl font-black uppercase leading-none">
               {item.name}
             </h2>
           </div>
           <span
-            className={`shrink-0 rounded-full border-2 border-ink px-3 py-2 text-xs font-black uppercase shadow-sticker ${statusStyles[item.status]}`}
+            className={`shrink-0 rounded-full border-2 border-ink px-2.5 py-1.5 text-[0.65rem] font-black uppercase shadow-sticker ${statusStyles[item.status]}`}
           >
             {item.status}
           </span>
@@ -74,13 +74,13 @@ function FoodItem({ item, index }) {
         </dl>
 
         <div className="mt-4">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ink/55">
+          <p className="text-[0.65rem] font-black uppercase tracking-[0.14em] text-ink/55">
             recipe ideas
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {item.recipe_uses.map((use, useIndex) => (
               <span
-                className={`rounded-full border-2 border-ink px-3 py-1 text-xs font-black uppercase shadow-sticker ${stickerStyles[useIndex % stickerStyles.length]}`}
+                className={`rounded-full border-2 border-ink px-2.5 py-1 text-[0.65rem] font-black uppercase shadow-sticker ${stickerStyles[useIndex % stickerStyles.length]}`}
                 key={use}
               >
                 {use}

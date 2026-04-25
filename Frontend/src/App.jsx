@@ -1,4 +1,5 @@
 import FoodItem from './components/FoodItem'
+import FoodItemNoImage from './components/FoodItemNoImage'
 
 const foodItems = [
   {
@@ -75,6 +76,41 @@ const foodItems = [
   },
 ]
 
+const pantryNotes = [
+  {
+    name: 'Rolled oats',
+    quantity: '3 cups',
+    expiration_date: '2026-06-15',
+    status: 'fresh',
+    owner_name: 'Shared Shelf',
+    notes: ['bulk bin refill', 'breakfast jars', 'cookie backup'],
+  },
+  {
+    name: 'Red lentils',
+    quantity: '1.5 cups',
+    expiration_date: '2026-05-10',
+    status: 'use soon',
+    owner_name: 'Maya',
+    notes: ['soup night', 'pairs with carrots', 'quick protein'],
+  },
+  {
+    name: 'Pizza dough',
+    quantity: '2 balls',
+    expiration_date: '2026-04-26',
+    status: 'feed today',
+    owner_name: 'Anthony',
+    notes: ['defrost tonight', 'use basil', 'sheet pan dinner'],
+  },
+  {
+    name: 'Lime wedges',
+    quantity: '6 wedges',
+    expiration_date: '2026-04-25',
+    status: 'critical',
+    owner_name: 'Leo',
+    notes: ['taco topping', 'make dressing', 'juice before bed'],
+  },
+]
+
 function App() {
   const totalValue = foodItems.reduce(
     (sum, item) => sum + item.estimated_price,
@@ -117,7 +153,7 @@ function App() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-5 px-5 py-8 md:grid-cols-2 md:px-10 xl:grid-cols-3">
+      <section className="mx-auto grid max-w-7xl gap-4 px-5 py-8 sm:grid-cols-2 md:px-10 lg:grid-cols-3 xl:grid-cols-4">
         {foodItems.map((item, index) => (
           <FoodItem
             index={index}
@@ -125,6 +161,29 @@ function App() {
             key={`${item.name}-${item.created_at}`}
           />
         ))}
+      </section>
+
+      <section className="mx-auto grid max-w-7xl gap-4 px-5 pb-10 md:px-10">
+        <div className="flex items-end justify-between gap-4 border-b-4 border-ink pb-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-tomato">
+              no image cards
+            </p>
+            <h2 className="text-4xl font-black uppercase leading-none">
+              Pantry notes
+            </h2>
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {pantryNotes.map((item, index) => (
+            <FoodItemNoImage
+              index={index}
+              item={item}
+              key={`${item.name}-${item.expiration_date}`}
+            />
+          ))}
+        </div>
       </section>
     </main>
   )

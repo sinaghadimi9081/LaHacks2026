@@ -45,8 +45,12 @@ code {
   }
 
   .ingredient-card {
-    @apply relative overflow-visible rounded-md border-4 border-ink bg-white shadow-paper transition duration-200;
+    @apply relative overflow-visible rounded-md border-[3px] border-ink bg-white shadow-paper transition duration-200;
     transform: rotate(var(--tilt));
+  }
+
+  .ingredient-card--text-only {
+    @apply bg-citrus;
   }
 
   .ingredient-card:hover {
@@ -54,11 +58,15 @@ code {
   }
 
   .recipe-card {
-    @apply relative grid gap-4 rounded-b-md bg-white p-5;
+    @apply relative grid gap-3 rounded-b-md bg-white p-4;
     background-image:
       linear-gradient(rgba(16, 31, 31, 0.08) 1px, transparent 1px),
       linear-gradient(90deg, rgba(16, 31, 31, 0.05) 1px, transparent 1px);
     background-size: 100% 28px, 28px 100%;
+  }
+
+  .recipe-card--full {
+    @apply rounded-md;
   }
 
   .recipe-card::after {
@@ -70,7 +78,7 @@ code {
   }
 
   .receipt-lines {
-    @apply grid gap-0 border-b-2 border-dashed border-ink py-1 font-mono text-sm;
+    @apply grid gap-0 border-b-2 border-dashed border-ink py-1 font-mono text-xs;
   }
 
   .receipt-lines div {
@@ -102,12 +110,12 @@ code {
   }
 
   .photo-sheet {
-    @apply relative bg-white p-4 pb-3;
+    @apply relative bg-white p-3 pb-2;
     transform: rotate(calc(var(--tilt) * -1.2));
   }
 
   .fruit-sticker {
-    @apply absolute z-20 grid min-h-16 min-w-16 place-items-center rounded-full border-2 border-ink px-3 text-center text-[0.65rem] font-black uppercase leading-tight shadow-sticker;
+    @apply absolute z-20 grid min-h-12 min-w-12 place-items-center rounded-full border-2 border-ink px-2.5 text-center text-[0.6rem] font-black uppercase leading-tight shadow-sticker;
   }
 
   .fruit-sticker span {
