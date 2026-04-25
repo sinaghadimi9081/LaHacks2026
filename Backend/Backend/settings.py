@@ -46,7 +46,7 @@ INSTALLED_APPS = [
     "allauth.socialaccount",
     "dj_rest_auth",
     "dj_rest_auth.registration",
-    "api",
+    "receipts.apps.ReceiptsConfig",
 ]
 
 MIDDLEWARE = [
@@ -61,7 +61,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "Backend.urls"
+ROOT_URLCONF = "backend.urls"
 
 TEMPLATES = [
     {
@@ -78,7 +78,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "Backend.wsgi.application"
+WSGI_APPLICATION = "backend.wsgi.application"
 
 
 DATABASES = {
@@ -112,6 +112,8 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 SITE_ID = 1
@@ -148,3 +150,12 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
+
+RECEIPT_PROCESSING_PROVIDER = os.getenv("RECEIPT_PROCESSING_PROVIDER", "auto")
+VERYFI_API_URL = os.getenv("VERYFI_API_URL", "https://api.veryfi.com")
+VERYFI_CLIENT_ID = os.getenv("VERYFI_CLIENT_ID", "")
+VERYFI_CLIENT_SECRET = os.getenv("VERYFI_CLIENT_SECRET", "")
+VERYFI_USERNAME = os.getenv("VERYFI_USERNAME", "")
+VERYFI_API_KEY = os.getenv("VERYFI_API_KEY", "")
+VERYFI_AUTO_DELETE = env_flag("VERYFI_AUTO_DELETE", True)
+VERYFI_COMPUTE = env_flag("VERYFI_COMPUTE", True)
