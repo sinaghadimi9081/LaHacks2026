@@ -1,88 +1,126 @@
+import FoodItem from './component/FoodItem'
+
+const foodItems = [
+  {
+    name: 'Honeycrisp apples',
+    quantity: '8 apples',
+    expiration_date: '2026-05-02',
+    estimated_price: 6.75,
+    status: 'fresh',
+    owner_name: 'Anthony',
+    created_at: '2026-04-25',
+    image:
+      'https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    name: 'Rainbow carrots',
+    quantity: '1 bunch',
+    expiration_date: '2026-04-29',
+    estimated_price: 4.25,
+    status: 'use soon',
+    owner_name: 'Maya',
+    created_at: '2026-04-24',
+    image:
+      'https://images.unsplash.com/photo-1447175008436-054170c2e979?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    name: 'Basil bouquet',
+    quantity: '2 cups',
+    expiration_date: '2026-04-27',
+    estimated_price: 3.5,
+    status: 'use soon',
+    owner_name: 'Shared Shelf',
+    created_at: '2026-04-23',
+    image:
+      'https://images.unsplash.com/photo-1618375569909-3c8616cf7733?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    name: 'Greek yogurt',
+    quantity: '32 oz tub',
+    expiration_date: '2026-05-06',
+    estimated_price: 5.99,
+    status: 'fresh',
+    owner_name: 'Leo',
+    created_at: '2026-04-22',
+    image:
+      'https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    name: 'Sourdough starter',
+    quantity: '1 jar',
+    expiration_date: '2026-04-26',
+    estimated_price: 2.0,
+    status: 'feed today',
+    owner_name: 'Anthony',
+    created_at: '2026-04-20',
+    image:
+      'https://images.unsplash.com/photo-1586444248902-2f64eddc13df?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    name: 'Cherry tomatoes',
+    quantity: '1 pint',
+    expiration_date: '2026-04-25',
+    estimated_price: 4.75,
+    status: 'critical',
+    owner_name: 'Shared Shelf',
+    created_at: '2026-04-21',
+    image:
+      'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=800&q=80',
+  },
+]
+
 function App() {
-  const apiBaseUrl =
-    import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000/api'
+  const totalValue = foodItems.reduce(
+    (sum, item) => sum + item.estimated_price,
+    0,
+  )
+  const soonCount = foodItems.filter((item) => item.status !== 'fresh').length
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(191,90,54,0.15),_transparent_40%),linear-gradient(180deg,_#fff8f0_0%,_#f7f1e8_100%)] px-6 py-12 text-ink">
-      <div className="mx-auto flex max-w-6xl flex-col gap-10">
-        <section className="overflow-hidden rounded-[2rem] border border-white/60 bg-white/85 shadow-card backdrop-blur">
-          <div className="grid gap-8 px-8 py-10 md:grid-cols-[1.2fr_0.8fr] md:px-12 md:py-14">
-            <div className="space-y-6">
-              <span className="inline-flex rounded-full border border-ember/20 bg-ember/10 px-4 py-1 text-sm font-semibold uppercase tracking-[0.2em] text-ember">
-                LA Hacks 2026 starter
-              </span>
-              <div className="space-y-4">
-                <h1 className="max-w-xl text-4xl font-extrabold tracking-tight md:text-6xl">
-                  React + Tailwind in front, Django REST behind it.
-                </h1>
-                <p className="max-w-2xl text-lg leading-8 text-slate-600">
-                  This frontend is wired to a backend starter with DRF, JWT auth,
-                  registration endpoints, and CORS set up for local React
-                  development.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-3 text-sm font-medium text-slate-700">
-                <span className="rounded-full bg-slate-900 px-4 py-2 text-white">
-                  Vite + React
-                </span>
-                <span className="rounded-full bg-white px-4 py-2 ring-1 ring-slate-200">
-                  Tailwind CSS
-                </span>
-                <span className="rounded-full bg-white px-4 py-2 ring-1 ring-slate-200">
-                  API ready
-                </span>
-              </div>
-            </div>
+    <main className="min-h-screen overflow-hidden bg-cream text-ink">
+      <section className="relative border-b-4 border-ink bg-petal px-5 py-8 md:px-10">
+        <div className="sticker sticker-star left-[6%] top-7 bg-moonstone" />
+        <div className="sticker sticker-circle right-[9%] top-12 bg-tomato" />
+        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+          <div>
+            <p className="mb-4 w-fit rounded-full border-2 border-ink bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.18em] shadow-sticker">
+              shared kitchen inventory
+            </p>
+            <h1 className="max-w-3xl text-6xl font-black uppercase leading-[0.85] md:text-8xl">
+              Pantry pop
+            </h1>
+            <p className="mt-5 max-w-2xl text-lg font-bold leading-8 text-ink/75">
+              A bright ingredient board for tracking what is fresh, what needs
+              attention, and who claimed the last heroic jar of basil.
+            </p>
+          </div>
 
-            <div className="rounded-[1.5rem] bg-slate-950 p-6 text-left text-sm text-slate-200">
-              <p className="mb-4 font-semibold text-slate-100">Local API target</p>
-              <code className="block overflow-x-auto rounded-xl bg-black/30 p-4 text-emerald-300">
-                {apiBaseUrl}
-              </code>
-              <div className="mt-6 space-y-3 text-slate-300">
-                <p>`GET /health/` confirms the API is running.</p>
-                <p>`POST /auth/login/` returns JWT tokens.</p>
-                <p>`POST /auth/registration/` creates accounts.</p>
-              </div>
+          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+            <div className="metric-card bg-phthalo text-white">
+              <span>Items</span>
+              <strong>{foodItems.length}</strong>
+            </div>
+            <div className="metric-card bg-mustard text-white">
+              <span>Watch list</span>
+              <strong>{soonCount}</strong>
+            </div>
+            <div className="metric-card bg-white text-ink">
+              <span>Value</span>
+              <strong>${totalValue.toFixed(2)}</strong>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section className="grid gap-6 md:grid-cols-3">
-          {[
-            {
-              title: 'Backend setup',
-              command: 'cd Backend && ./setup.sh',
-              detail: 'Creates the Python virtualenv, installs Django packages, runs migrations, and starts the server.',
-            },
-            {
-              title: 'Frontend setup',
-              command: 'cd Frontend && ./setup.sh',
-              detail: 'Installs npm dependencies, loads the local env file, and launches the Vite dev server.',
-            },
-            {
-              title: 'Shared workflow',
-              command: 'pull changes, then rerun setup',
-              detail: 'Each setup script is safe to rerun after dependency or config updates land in git.',
-            },
-          ].map((item) => (
-            <article
-              key={item.title}
-              className="rounded-[1.5rem] border border-slate-200 bg-white/80 p-6 shadow-card"
-            >
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-ember">
-                {item.title}
-              </p>
-              <code className="mt-4 block rounded-2xl bg-sand px-4 py-3 text-sm font-semibold text-slate-800">
-                {item.command}
-              </code>
-              <p className="mt-4 text-sm leading-7 text-slate-600">
-                {item.detail}
-              </p>
-            </article>
-          ))}
-        </section>
-      </div>
+      <section className="mx-auto grid max-w-7xl gap-5 px-5 py-8 md:grid-cols-2 md:px-10 xl:grid-cols-3">
+        {foodItems.map((item, index) => (
+          <FoodItem
+            index={index}
+            item={item}
+            key={`${item.name}-${item.created_at}`}
+          />
+        ))}
+      </section>
     </main>
   )
 }
