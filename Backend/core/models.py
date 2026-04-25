@@ -24,6 +24,13 @@ class FoodItem(models.Model):
     image_url = models.URLField(max_length=500, blank=True, null=True)
     image_file = models.ImageField(upload_to='food_images/', blank=True, null=True)
     description = models.TextField(blank=True, null=True)
+    household = models.ForeignKey(
+        'households.Household',
+        on_delete=models.CASCADE,
+        related_name='food_items',
+        null=True,
+        blank=True
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -118,3 +125,17 @@ class ImpactLog(models.Model):
 
     def __str__(self):
         return f"{self.action} - ${self.dollars_saved}"
+
+class Notification(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='notifications'
+    )
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.title} for {self.user.username}"
