@@ -2,7 +2,7 @@ const statusStyles = {
   fresh: 'bg-phthalo text-white',
   'use soon': 'bg-moonstone text-ink',
   'feed today': 'bg-mustard text-white',
-  critical: 'bg-tomato text-white',
+  critical: 'bg-danger text-white',
 }
 
 const noteStyles = ['bg-citrus', 'bg-petal', 'bg-moonstone']
@@ -17,10 +17,13 @@ function formatDate(date) {
 
 function FoodItemNoImage({ item, index }) {
   const tilt = index % 2 === 0 ? '1deg' : '-1.2deg'
+  const isCritical = item.status === 'critical'
+  const isUseSoon = item.status === 'use soon'
+  const isFeedToday = item.status === 'feed today'
 
   return (
     <article
-      className="ingredient-card ingredient-card--text-only"
+      className={`ingredient-card ingredient-card--text-only ${isCritical ? 'ingredient-card--critical' : ''} ${isUseSoon ? 'ingredient-card--use-soon' : ''} ${isFeedToday ? 'ingredient-card--feed-today' : ''}`}
       style={{ '--tilt': tilt }}
     >
       <div className="recipe-card recipe-card--full">
@@ -34,7 +37,7 @@ function FoodItemNoImage({ item, index }) {
             </h2>
           </div>
           <span
-            className={`shrink-0 rounded-full border-2 border-ink px-2.5 py-1.5 text-[0.65rem] font-black uppercase shadow-sticker ${statusStyles[item.status]}`}
+            className={`shrink-0 rounded-full border border-ink/15 px-2.5 py-1.5 text-[0.65rem] font-black uppercase shadow-sticker ${statusStyles[item.status]}`}
           >
             {item.status}
           </span>
@@ -58,7 +61,7 @@ function FoodItemNoImage({ item, index }) {
         <div className="mt-3 grid gap-2">
           {item.notes.map((note, noteIndex) => (
             <p
-              className={`rounded-md border-2 border-ink px-3 py-2 text-sm font-extrabold leading-5 shadow-sticker ${noteStyles[noteIndex % noteStyles.length]}`}
+              className={`rounded-xl border border-ink/15 px-3 py-2 text-sm font-extrabold leading-5 shadow-sticker ${noteStyles[noteIndex % noteStyles.length]}`}
               key={note}
             >
               {note}

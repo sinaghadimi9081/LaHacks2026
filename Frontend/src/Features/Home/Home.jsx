@@ -18,10 +18,10 @@ export default function Home() {
   return (
     <main className="pantry-shell">
       <div className="flex flex-col gap-8">
-        <section className="overflow-hidden rounded-md border-4 border-ink bg-white shadow-paper">
+        <section className="overflow-hidden rounded-2xl border border-ink/15 bg-white/80 shadow-paper backdrop-blur-md">
           <div className="grid gap-8 px-6 py-8 md:grid-cols-[1.15fr_0.85fr] md:px-10">
             <div className="space-y-6">
-              <span className="inline-flex rounded-full border-2 border-ink bg-citrus px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-ink shadow-sticker">
+              <span className="inline-flex rounded-full border border-ink/15 bg-citrus px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-ink shadow-sticker">
                 Frontend foundation
               </span>
 
@@ -66,7 +66,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="rounded-md border-[3px] border-ink bg-phthalo p-5 text-sm text-white shadow-pop">
+            <div className="rounded-2xl border border-white/10 bg-phthalo p-5 text-sm text-white shadow-pop">
               <p className="mb-4 text-xs font-black uppercase tracking-[0.18em] text-citrus">
                 Session snapshot
               </p>

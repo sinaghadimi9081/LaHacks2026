@@ -1,10 +1,10 @@
 .nav-pill {
-  border: 2px solid #101f1f;
+  border: 1px solid rgba(18, 49, 42, 0.18);
   border-radius: 9999px;
   padding: 0.7rem 1rem;
-  background: #fff;
-  box-shadow: 4px 4px 0 #101f1f;
-  color: #101f1f;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 12px 24px -22px rgba(18, 49, 42, 0.45);
+  color: #12312a;
   font-size: 0.8rem;
   font-weight: 900;
   letter-spacing: 0.08em;
@@ -18,20 +18,20 @@
 
 .nav-pill:hover {
   transform: translateY(-1px);
-  background: #f4d35e;
+  background: rgba(217, 232, 114, 0.82);
 }
 
 .nav-pill.active {
-  background: #82b3c3;
-  color: #101f1f;
+  background: rgba(159, 207, 178, 0.9);
+  color: #12312a;
 }
 
 .nav-pill-strong {
-  background: #193d30;
+  background: #174733;
   color: #fff;
 }
 
 .nav-pill-strong:hover {
-  background: #e84636;
+  background: #2f7d4f;
   color: #fff;
 }

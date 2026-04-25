@@ -87,7 +87,7 @@ export default function Profile() {
         <div className="space-y-6">
           <ProfileCard title="User summary">
             <div className="space-y-5">
-              <div className="rounded-md border-[3px] border-ink bg-phthalo p-6 text-white shadow-pop">
+              <div className="rounded-2xl border border-white/10 bg-phthalo p-6 text-white shadow-pop">
                 <p className="text-3xl font-black">
                   {user?.display_name || user?.username}
                 </p>
@@ -98,7 +98,7 @@ export default function Profile() {
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-md border-2 border-ink bg-citrus p-4 shadow-sticker">
+                <div className="rounded-xl border border-ink/15 bg-citrus p-4 shadow-sticker">
                   <p className="text-xs font-black uppercase tracking-[0.14em] text-ink/70">
                     Default household
                   </p>
@@ -107,7 +107,7 @@ export default function Profile() {
                   </p>
                 </div>
 
-                <div className="rounded-md border-2 border-ink bg-moonstone p-4 shadow-sticker">
+                <div className="rounded-xl border border-ink/15 bg-moonstone p-4 shadow-sticker">
                   <p className="text-xs font-black uppercase tracking-[0.14em] text-ink/70">
                     Known households
                   </p>
@@ -218,7 +218,7 @@ export default function Profile() {
               {householdOptions.map((household) => (
                 <div
                   key={household.id}
-                  className="rounded-md border-2 border-ink bg-white p-4 shadow-sticker"
+                  className="rounded-xl border border-ink/15 bg-white/85 p-4 shadow-sticker"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>

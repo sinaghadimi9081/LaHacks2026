@@ -9,7 +9,7 @@ export default function RequireAuth({ children }) {
   if (status === 'idle' || status === 'loading') {
     return (
       <div className="pantry-shell flex min-h-[50vh] items-center justify-center">
-        <div className="rounded-md border-2 border-ink bg-white px-6 py-5 text-sm font-black uppercase tracking-[0.14em] text-ink shadow-sticker">
+        <div className="rounded-xl border border-ink/15 bg-white/80 px-6 py-5 text-sm font-black uppercase tracking-[0.14em] text-ink shadow-sticker backdrop-blur">
           Checking your session...
         </div>
       </div>
