@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "corsheaders",
     "rest_framework",
+    "receipts.apps.ReceiptsConfig",
     "rest_framework_simplejwt.token_blacklist",
     "users",
     "households",
