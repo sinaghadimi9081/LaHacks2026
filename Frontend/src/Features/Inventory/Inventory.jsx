@@ -163,6 +163,31 @@ export default function Inventory() {
   return (
     <main className="min-h-screen overflow-hidden text-ink">
       <section className="pantry-dot-grid relative border-b-4 border-ink bg-moonstone px-5 py-8 md:px-10">
+        <div className="plant-trail" aria-hidden="true">
+          {[0, 1, 2, 3, 4].map((leaf) => (
+            <svg
+              className="plant-trail__leaf"
+              fill="none"
+              key={leaf}
+              viewBox="0 0 64 64"
+            >
+              <path
+                d="M32 55C25 42 19 27 33 10c16 9 18 27 5 41"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="4"
+              />
+              <path
+                d="M32 55c1-14 2-25 9-36"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeWidth="4"
+              />
+            </svg>
+          ))}
+        </div>
+
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
           <div>
             <p className="mb-4 w-fit rounded-full border border-ink/15 bg-white/80 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] shadow-sticker backdrop-blur">
