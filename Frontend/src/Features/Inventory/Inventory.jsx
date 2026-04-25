@@ -3,16 +3,33 @@ import { useCallback, useMemo, useState } from 'react'
 import FoodItem from './components/FoodItem.jsx'
 import FoodItemNoImage from './components/FoodItemNoImage.jsx'
 import { foodItems, pantryNotes } from './inventoryData.js'
+import SharePostModal from '../Marketplace/components/SharePostModal.jsx'
 
 const filterOptions = ['all', 'fresh', 'use soon', 'feed today', 'critical']
+
+const blankSellForm = {
+  foodItemName: '',
+  title: '',
+  description: '',
+  pickup_location: '',
+}
+
+function getItemKey(item) {
+  return item.id || `${item.name}-${item.created_at || item.expiration_date}`
+}
 
 export default function Inventory() {
   const [searchTerm, setSearchTerm] = useState('')
   const [activeFilter, setActiveFilter] = useState('all')
-  const [inventoryItems] = useState(() => [
+  const [inventoryItems, setInventoryItems] = useState(() => [
     ...foodItems,
     ...pantryNotes,
   ])
+  const [editingItem, setEditingItem] = useState(null)
+  const [editedQuantity, setEditedQuantity] = useState('')
+  const [sellItem, setSellItem] = useState(null)
+  const [sellForm, setSellForm] = useState(blankSellForm)
+  const [verificationImage, setVerificationImage] = useState('')
 
   const totalValue = inventoryItems.reduce(
     (sum, item) => sum + Number(item.estimated_price || 0),
@@ -51,6 +68,107 @@ export default function Inventory() {
     [inventoryItems, matchesSearchAndFilter],
   )
   const visibleCount = filteredInventoryItems.length
+  const sellFoodItems = useMemo(
+    () =>
+      inventoryItems.map((item) => ({
+        ...item,
+        image: item.image || foodItems[0].image,
+        recipe_uses: item.recipe_uses || item.notes || [],
+      })),
+    [inventoryItems],
+  )
+  const selectedSellItem = useMemo(
+    () =>
+      sellFoodItems.find((item) => item.name === sellForm.foodItemName) ||
+      sellItem ||
+      sellFoodItems[0],
+    [sellFoodItems, sellForm.foodItemName, sellItem],
+  )
+  const reverifiedFoodItem = useMemo(
+    () =>
+      selectedSellItem
+        ? {
+            ...selectedSellItem,
+            image:
+              verificationImage || selectedSellItem.image || foodItems[0].image,
+          }
+        : foodItems[0],
+    [selectedSellItem, verificationImage],
+  )
+
+  function openEditQuantity(item) {
+    setEditingItem(item)
+    setEditedQuantity(item.quantity)
+  }
+
+  function handleEditQuantity(event) {
+    event.preventDefault()
+
+    if (!editingItem || !editedQuantity.trim()) {
+      return
+    }
+
+    const newQuantity = editedQuantity.trim()
+    const isZero = newQuantity === '0' || newQuantity.startsWith('0 ') || newQuantity.toLowerCase() === 'none'
+    
+    if (isZero) {
+      if (window.confirm(`It looks like you're out of ${editingItem.name}. Would you like to delete this item?`)) {
+        handleDeleteItem(editingItem)
+        setEditingItem(null)
+        setEditedQuantity('')
+        return
+      }
+    }
+
+    const editingKey = getItemKey(editingItem)
+    setInventoryItems((currentItems) =>
+      currentItems.map((item) =>
+        getItemKey(item) === editingKey
+          ? { ...item, quantity: newQuantity }
+          : item,
+      ),
+    )
+    setEditingItem(null)
+    setEditedQuantity('')
+  }
+
+  function handleDeleteItem(itemToDelete) {
+    const deleteKey = getItemKey(itemToDelete)
+    setInventoryItems((currentItems) =>
+      currentItems.filter((item) => getItemKey(item) !== deleteKey),
+    )
+  }
+
+  function openSellItem(item) {
+    setSellItem({
+      ...item,
+      image: item.image || foodItems[0].image,
+      recipe_uses: item.recipe_uses || item.notes || [],
+    })
+    setSellForm({
+      foodItemName: item.name,
+      title: item.name,
+      description: `${item.quantity} available.`,
+      pickup_location: '',
+    })
+    setVerificationImage('')
+  }
+
+  function updateSellForm(field, value) {
+    setSellForm((currentForm) => ({ ...currentForm, [field]: value }))
+  }
+
+  function handleSellImageUpload(event) {
+    const file = event.target.files?.[0]
+    setVerificationImage(file ? URL.createObjectURL(file) : '')
+  }
+
+  function handleSellSubmit(event) {
+    event.preventDefault()
+    setSellItem(null)
+    setSellForm(blankSellForm)
+    setVerificationImage('')
+  }
 
   return (
     <main className="min-h-screen overflow-hidden text-ink">
@@ -155,19 +273,25 @@ export default function Inventory() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-4 px-5 py-8 sm:grid-cols-2 md:px-10 lg:grid-cols-3 xl:grid-cols-4">
+      <section className="mx-auto grid max-w-7xl gap-4 px-5 py-8 sm:grid-cols-2 md:px-10 lg:grid-cols-3 xl:grid-cols-4 grid-flow-row-dense">
         {filteredInventoryItems.map((item, index) =>
           item.image ? (
             <FoodItem
               index={index}
               item={item}
-              key={item.id || `${item.name}-${item.created_at}`}
+              key={getItemKey(item)}
+              onDelete={handleDeleteItem}
+              onEditQuantity={openEditQuantity}
+              onSell={openSellItem}
             />
           ) : (
             <FoodItemNoImage
               index={index}
               item={item}
-              key={item.id || `${item.name}-${item.expiration_date}`}
+              key={getItemKey(item)}
+              onDelete={handleDeleteItem}
+              onEditQuantity={openEditQuantity}
+              onSell={openSellItem}
             />
           ),
         )}
@@ -177,6 +301,81 @@ export default function Inventory() {
           </p>
         )}
       </section>
+
+      {editingItem && (
+        <div className="market-modal" role="dialog" aria-modal="true">
+          <button
+            aria-label="Close edit amount form"
+            className="market-modal__scrim"
+            onClick={() => setEditingItem(null)}
+            type="button"
+          />
+
+          <form
+            className="market-modal__panel pantry-card grid gap-4"
+            onSubmit={handleEditQuantity}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="pantry-label">edit amount</p>
+                <h2 className="mt-2 text-4xl font-black uppercase leading-none">
+                  {editingItem.name}
+                </h2>
+              </div>
+              <button
+                className="pantry-filter-button shrink-0"
+                onClick={() => setEditingItem(null)}
+                type="button"
+              >
+                Close
+              </button>
+            </div>
+
+            <label className="block">
+              <span className="pantry-field-label">Food left</span>
+              <input
+                className="pantry-input"
+                onChange={(event) => setEditedQuantity(event.target.value)}
+                required
+                type="text"
+                value={editedQuantity}
+              />
+            </label>
+
+            <div className="grid grid-cols-2 gap-3 mt-2">
+              <button
+                className="pantry-button !bg-petal !text-danger !border-danger/20"
+                onClick={() => {
+                  if (window.confirm(`Are you sure you want to delete ${editingItem.name}?`)) {
+                    handleDeleteItem(editingItem)
+                    setEditingItem(null)
+                    setEditedQuantity('')
+                  }
+                }}
+                type="button"
+              >
+                Delete
+              </button>
+              <button className="pantry-button" type="submit">
+                Save amount
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {sellItem && selectedSellItem && (
+        <SharePostModal
+          foodItems={sellFoodItems}
+          form={sellForm}
+          onClose={() => setSellItem(null)}
+          onImageUpload={handleSellImageUpload}
+          onSubmit={handleSellSubmit}
+          onUpdateForm={updateSellForm}
+          reverifiedFoodItem={reverifiedFoodItem}
+          selectedInventoryItem={selectedSellItem}
+        />
+      )}
     </main>
   )
 }
