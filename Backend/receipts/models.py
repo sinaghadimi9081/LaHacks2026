@@ -21,6 +21,9 @@ class ParsedReceiptItem(models.Model):
         related_name="parsed_items",
     )
     name = models.CharField(max_length=100)
+    standardized_name = models.CharField(max_length=100, blank=True)
+    category_tag = models.CharField(max_length=50, blank=True)
+    expiration_days = models.IntegerField(null=True, blank=True)
     estimated_price = models.DecimalField(
         max_digits=6,
         decimal_places=2,

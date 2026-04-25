@@ -8,7 +8,16 @@ from .models import ParsedReceiptItem, Receipt
 class ParsedReceiptItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = ParsedReceiptItem
-        fields = ("id", "name", "estimated_price", "quantity", "selected")
+        fields = (
+            "id",
+            "name",
+            "standardized_name",
+            "category_tag",
+            "expiration_days",
+            "estimated_price",
+            "quantity",
+            "selected",
+        )
         read_only_fields = fields
 
 
