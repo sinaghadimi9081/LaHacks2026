@@ -12,6 +12,7 @@ venv/
 env/
 Backend/.env
 Backend/db.sqlite3
+Backend/media/
 
 # Node
 node_modules/

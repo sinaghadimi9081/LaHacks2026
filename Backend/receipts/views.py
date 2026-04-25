@@ -6,6 +6,10 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from .models import ParsedReceiptItem, Receipt
+from datetime import timedelta
+from django.utils import timezone
+from core.models import FoodItem
+from core.services.item_verifier import verify_and_enrich_items
 from .receipt_parser import (
     extract_receipt_total,
     extract_store_name,
@@ -56,6 +60,7 @@ def upload_receipt(request):
 
     try:
         processing_result = process_receipt_image(receipt.image.path)
+        processing_result.parsed_items = verify_and_enrich_items(processing_result.parsed_items, receipt.store_name)
     except ReceiptProcessingError as exc:
         _delete_receipt_image(receipt)
         return Response({"detail": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -78,8 +83,13 @@ def upload_receipt(request):
             ParsedReceiptItem(
                 receipt=receipt,
                 name=item["name"],
-                estimated_price=item["estimated_price"],
-                quantity=item["quantity"],
+                standardized_name=item.get("standardized_name", ""),
+                category_tag=item.get("category_tag", ""),
+                expiration_days=item.get("expiration_days"),
+                estimated_price=item.get("estimated_price"),
+                image_url=item.get("image_url", ""),
+                description=item.get("description", ""),
+                quantity=item.get("quantity", 1),
             )
             for item in processing_result.parsed_items
         ]
@@ -111,3 +121,44 @@ def receipt_detail(request, receipt_id):
         },
     )
     return Response(serializer.data)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def confirm_receipt(request, receipt_id):
+    receipt = get_object_or_404(Receipt, pk=receipt_id)
+    items_data = request.data.get("items", [])
+    
+    if not items_data:
+        return Response({"detail": "No items provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+    food_items = []
+    today = timezone.now().date()
+
+    for item_data in items_data:
+        exp_days = item_data.get("expiration_days")
+        exp_date = today + timedelta(days=int(exp_days)) if exp_days is not None else None
+        
+        # Convert estimated_price carefully
+        est_price = item_data.get("estimated_price")
+        if est_price is None or str(est_price).strip() == "":
+            est_price = 0.00
+            
+        food_items.append(
+            FoodItem(
+                name=item_data.get("standardized_name") or item_data.get("name") or "Unknown Item",
+                quantity=int(item_data.get("quantity", 1)),
+                expiration_date=exp_date,
+                estimated_price=est_price,
+                image_url=item_data.get("image_url", ""),
+                description=item_data.get("description", ""),
+                owner_name="Anonymous",
+            )
+        )
+    
+    FoodItem.objects.bulk_create(food_items)
+    
+    return Response(
+        {"detail": f"Successfully added {len(food_items)} items to pantry."}, 
+        status=status.HTTP_201_CREATED
+    )
