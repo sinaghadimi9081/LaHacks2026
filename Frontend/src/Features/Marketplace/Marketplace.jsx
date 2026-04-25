@@ -207,6 +207,7 @@ export default function Marketplace() {
   const [form, setForm] = useState(blankForm)
   const [verificationImage, setVerificationImage] = useState('')
   const [cartPostIds, setCartPostIds] = useState([])
+  const [isCartOpen, setIsCartOpen] = useState(false)
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
 
   const selectedInventoryItem = useMemo(
@@ -488,12 +489,14 @@ export default function Marketplace() {
         </div>
       </section>
 
-      <div className="mx-auto max-w-7xl px-5 pb-8 md:px-10 xl:fixed xl:right-6 xl:top-24 xl:z-30 xl:w-80 xl:p-0">
+      <div className="mx-auto max-w-7xl px-5 pb-8 md:px-10 xl:fixed xl:bottom-6 xl:right-6 xl:top-24 xl:z-30 xl:w-80 xl:p-0">
         <MarketplaceCart
           cartPosts={cartPosts}
+          isOpen={isCartOpen}
           onAddPost={addPostToCart}
           onClaimCart={claimCart}
           onRemovePost={removePostFromCart}
+          onToggleOpen={() => setIsCartOpen((currentValue) => !currentValue)}
         />
       </div>
 

@@ -79,8 +79,10 @@ function BasketFoodSlip({ index, onInsertPost, onRemovePost, post }) {
 
 function MarketplaceCart({
   cartPosts,
+  isOpen,
   onAddPost,
   onClaimCart,
+  onToggleOpen,
   onRemovePost,
 }) {
   const [{ isOver, canDrop }, dropRef] = useDrop(
@@ -106,12 +108,15 @@ function MarketplaceCart({
   const isCartTargeted = isOver && canDrop
 
   return (
-    <aside className="market-cart pantry-card">
-      <div className="flex items-start justify-between gap-4">
-        <div>
+    <aside
+      className={`market-cart-shell ${isOpen ? 'market-cart-shell--open' : ''}`}
+      ref={dropRef}
+    >
+      <div className="market-cart-shell__header">
+        <div className="min-w-0">
           <p className="pantry-label">meetup cart</p>
           <h2 className="mt-2 text-4xl font-black uppercase leading-none">
-            Pickup basket
+            Basket
           </h2>
         </div>
         <span className="grid h-12 min-w-12 place-items-center rounded-full border border-ink/15 bg-white text-lg font-black shadow-sticker">
@@ -119,43 +124,54 @@ function MarketplaceCart({
         </span>
       </div>
 
-      <div
-        aria-label="Drop available food items into the pickup basket"
-        className={`market-basket ${isCartTargeted ? 'market-basket--targeted' : ''}`}
-        ref={dropRef}
-        role="region"
-      >
-        <div className="market-basket__handle" aria-hidden="true" />
-        <div className="market-basket__rim" aria-hidden="true" />
-        <div className="market-basket__slots" aria-hidden="true" />
-
-        <div className="market-basket__contents">
-          {cartPosts.length === 0 ? (
-            <div className="market-basket__empty">
-              <p>Drag available items here</p>
-            </div>
-          ) : (
-            cartPosts.map((post, index) => (
-              <BasketFoodSlip
-                key={post.id}
-                index={index}
-                onInsertPost={onAddPost}
-                onRemovePost={onRemovePost}
-                post={post}
-              />
-            ))
-          )}
-        </div>
-      </div>
-
       <button
-        className="pantry-button w-full"
-        disabled={cartPosts.length === 0}
-        onClick={onClaimCart}
+        className="market-cart-toggle"
+        onClick={onToggleOpen}
         type="button"
       >
-        Request meetup
+        {isOpen ? 'Close basket' : 'Open basket'}
       </button>
+
+      {isOpen && (
+        <>
+          <div
+            aria-label="Drop available food items into the pickup basket"
+            className={`market-basket ${isCartTargeted ? 'market-basket--targeted' : ''}`}
+            role="region"
+          >
+            <div className="market-basket__handle" aria-hidden="true" />
+            <div className="market-basket__rim" aria-hidden="true" />
+            <div className="market-basket__slots" aria-hidden="true" />
+
+            <div className="market-basket__contents">
+              {cartPosts.length === 0 ? (
+                <div className="market-basket__empty">
+                  <p>Drag available items here</p>
+                </div>
+              ) : (
+                cartPosts.map((post, index) => (
+                  <BasketFoodSlip
+                    key={post.id}
+                    index={index}
+                    onInsertPost={onAddPost}
+                    onRemovePost={onRemovePost}
+                    post={post}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+
+          <button
+            className="pantry-button w-full"
+            disabled={cartPosts.length === 0}
+            onClick={onClaimCart}
+            type="button"
+          >
+            Request meetup
+          </button>
+        </>
+      )}
     </aside>
   )
 }
