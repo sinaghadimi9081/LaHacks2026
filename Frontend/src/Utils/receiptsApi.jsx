@@ -1,11 +1,7 @@
 import { apiFetch } from './apiFetch.jsx'
 
 export function uploadReceipt(formData) {
-  return apiFetch('/receipts/upload/', 'POST', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  })
+  return apiFetch('/receipts/upload/', 'POST', formData)
 }
 
 export function fetchReceipt(receiptId) {

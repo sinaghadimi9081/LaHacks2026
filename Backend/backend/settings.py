@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "corsheaders",
     "rest_framework",
+    "receipts.apps.ReceiptsConfig",
     "rest_framework_simplejwt.token_blacklist",
     "users",
     "households",
@@ -114,6 +115,8 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 AUTH_USER_MODEL = "users.User"
@@ -134,3 +137,12 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
+
+RECEIPT_PROCESSING_PROVIDER = os.getenv("RECEIPT_PROCESSING_PROVIDER", "auto")
+VERYFI_API_URL = os.getenv("VERYFI_API_URL", "https://api.veryfi.com")
+VERYFI_CLIENT_ID = os.getenv("VERYFI_CLIENT_ID", "")
+VERYFI_CLIENT_SECRET = os.getenv("VERYFI_CLIENT_SECRET", "")
+VERYFI_USERNAME = os.getenv("VERYFI_USERNAME", "")
+VERYFI_API_KEY = os.getenv("VERYFI_API_KEY", "")
+VERYFI_AUTO_DELETE = env_flag("VERYFI_AUTO_DELETE", True)
+VERYFI_COMPUTE = env_flag("VERYFI_COMPUTE", True)
