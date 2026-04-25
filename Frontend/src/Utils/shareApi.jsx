@@ -1,5 +1,17 @@
 import { apiFetch } from './apiFetch.jsx'
 
+function buildRequestConfig(payload) {
+  if (!(payload instanceof FormData)) {
+    return {}
+  }
+
+  return {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }
+}
+
 function buildShareQuery(params = {}) {
   const searchParams = new URLSearchParams()
 
@@ -25,7 +37,11 @@ function buildShareQuery(params = {}) {
 }
 
 export function createSharePost(payload) {
-  return apiFetch('/share/', 'POST', payload)
+  return apiFetch('/share/', 'POST', payload, buildRequestConfig(payload))
+}
+
+export function resolveShareLocation(payload) {
+  return apiFetch('/share/location/resolve/', 'POST', payload)
 }
 
 export function fetchShareFeed(params = {}) {
@@ -41,7 +57,7 @@ export function fetchSharePost(sharePostId) {
 }
 
 export function updateSharePost(sharePostId, payload) {
-  return apiFetch(`/share/${sharePostId}/`, 'PATCH', payload)
+  return apiFetch(`/share/${sharePostId}/`, 'PATCH', payload, buildRequestConfig(payload))
 }
 
 export function deleteSharePost(sharePostId) {

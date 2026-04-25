@@ -2,11 +2,14 @@ import shutil
 import tempfile
 from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
+
+from households.models import Household, HouseholdMembership
 
 from .models import ParsedReceiptItem, Receipt
 from .receipt_processing import (
@@ -18,6 +21,8 @@ from .receipt_parser import (
     extract_store_name,
     parse_receipt_text,
 )
+
+User = get_user_model()
 
 TARGET_RECEIPT_RAW_TEXT = "\n".join(
     [
@@ -359,11 +364,49 @@ class ReceiptApiTests(APITestCase):
         self.media_root = tempfile.mkdtemp()
         self.override = override_settings(MEDIA_ROOT=self.media_root)
         self.override.enable()
+        self.user = User.objects.create_user(
+            username="receipt-user",
+            email="receipt@example.com",
+            password="StrongPass123!",
+            display_name="Receipt User",
+        )
+        self.household = Household.objects.create(
+            name="Receipt Household",
+            created_by=self.user,
+        )
+        HouseholdMembership.objects.create(
+            user=self.user,
+            household=self.household,
+            role=HouseholdMembership.Role.OWNER,
+            status=HouseholdMembership.Status.ACTIVE,
+            can_upload_receipts=True,
+            can_post_share=True,
+            can_manage_members=True,
+        )
+        self.user.default_household = self.household
+        self.user.save(update_fields=["default_household"])
+        self.client.force_authenticate(self.user)
 
     def tearDown(self):
         self.override.disable()
         shutil.rmtree(self.media_root, ignore_errors=True)
         super().tearDown()
+
+    def test_receipt_upload_requires_authenticated_user(self):
+        self.client.force_authenticate(user=None)
+        upload = SimpleUploadedFile(
+            "receipt.jpg",
+            b"fake-image-bytes",
+            content_type="image/jpeg",
+        )
+
+        response = self.client.post(
+            reverse("receipt-upload"),
+            {"image": upload},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_upload_receipt_requires_image(self):
         response = self.client.post(reverse("receipt-upload"), {}, format="multipart")
@@ -415,6 +458,8 @@ class ReceiptApiTests(APITestCase):
         receipt = Receipt.objects.get()
         parsed_item = receipt.parsed_items.get()
 
+        self.assertEqual(receipt.uploaded_by, self.user)
+        self.assertEqual(receipt.household, self.household)
         self.assertEqual(receipt.raw_text, "TARGET\n2 BANANAS 1.99\nTOTAL 1.99")
         self.assertEqual(receipt.store_name, "Target")
         self.assertEqual(str(receipt.detected_total_amount), "1.99")
@@ -432,6 +477,8 @@ class ReceiptApiTests(APITestCase):
 
     def test_receipt_detail_returns_nested_items(self):
         receipt = Receipt.objects.create(
+            uploaded_by=self.user,
+            household=self.household,
             image="receipts/test-receipt.jpg",
             store_name="",
             detected_total_amount="4.99",
@@ -454,6 +501,8 @@ class ReceiptApiTests(APITestCase):
 
     def test_receipt_detail_backfills_store_name_for_existing_rows(self):
         receipt = Receipt.objects.create(
+            uploaded_by=self.user,
+            household=self.household,
             image="receipts/test-receipt.jpg",
             store_name="",
             detected_total_amount=None,
@@ -474,6 +523,8 @@ class ReceiptApiTests(APITestCase):
         from datetime import date, timedelta
         
         receipt = Receipt.objects.create(
+            uploaded_by=self.user,
+            household=self.household,
             image="receipts/test-receipt.jpg",
             store_name="Target",
             detected_total_amount="4.99",
@@ -514,5 +565,8 @@ class ReceiptApiTests(APITestCase):
         self.assertEqual(float(food.estimated_price), 4.99)
         self.assertEqual(food.image_url, "http://example.com/spinach.jpg")
         self.assertEqual(food.description, "Fresh leafy greens")
+        self.assertEqual(food.household, self.household)
+        self.assertEqual(food.created_by, self.user)
+        self.assertEqual(food.owner_name, self.user.full_display_name)
         expected_date = date.today() + timedelta(days=7)
         self.assertEqual(food.expiration_date, expected_date)

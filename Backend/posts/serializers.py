@@ -1,24 +1,27 @@
 from rest_framework import serializers
 
-from .models import FoodItem, Notification, SharePost
+from core.models import FoodItem, Notification
+
+from .location_services import GeocodingError, geocode_address, reverse_geocode
+from .models import Post
 
 
-class SharePostOwnerSerializer(serializers.Serializer):
+class PostOwnerSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
     username = serializers.CharField(read_only=True)
     display_name = serializers.CharField(read_only=True)
     full_name = serializers.CharField(source="full_display_name", read_only=True)
 
 
-class SharePostReadSerializer(serializers.ModelSerializer):
-    owner = SharePostOwnerSerializer(read_only=True)
+class PostReadSerializer(serializers.ModelSerializer):
+    owner = PostOwnerSerializer(read_only=True)
     claimed_by = serializers.SerializerMethodField()
     food_item = serializers.SerializerMethodField()
     distance_miles = serializers.SerializerMethodField()
     is_owner = serializers.SerializerMethodField()
 
     class Meta:
-        model = SharePost
+        model = Post
         fields = [
             "id",
             "owner",
@@ -100,7 +103,7 @@ class SharePostReadSerializer(serializers.ModelSerializer):
         return bool(request and request.user.is_authenticated and obj.owner_id == request.user.id)
 
 
-class SharePostWriteSerializer(serializers.ModelSerializer):
+class PostWriteSerializer(serializers.ModelSerializer):
     food_item_id = serializers.PrimaryKeyRelatedField(
         source="food_item",
         queryset=FoodItem.objects.all(),
@@ -118,7 +121,7 @@ class SharePostWriteSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = SharePost
+        model = Post
         fields = [
             "food_item_id",
             "item_name",
@@ -141,17 +144,15 @@ class SharePostWriteSerializer(serializers.ModelSerializer):
             "estimated_price": {"required": False},
             "image_url": {"required": False, "allow_blank": True, "allow_null": True},
             "description": {"required": False, "allow_blank": True, "allow_null": True},
-            "pickup_location": {"required": True},
+            "pickup_location": {"required": False, "allow_blank": True},
             "status": {"required": False},
         }
 
     def _clean_tags(self, value):
         if value is None:
             return []
-
         if isinstance(value, str):
             value = value.split(",")
-
         if not isinstance(value, list):
             raise serializers.ValidationError("Tags must be a list of strings.")
 
@@ -175,7 +176,6 @@ class SharePostWriteSerializer(serializers.ModelSerializer):
 
         food_item = attrs.get("food_item")
         item_name = attrs.get("item_name")
-
         if self.instance is not None:
             food_item = food_item if "food_item" in attrs else self.instance.food_item
             item_name = item_name if "item_name" in attrs else self.instance.item_name
@@ -185,24 +185,10 @@ class SharePostWriteSerializer(serializers.ModelSerializer):
                 {"item_name": "Provide an item_name or a food_item_id."}
             )
 
-        latitude = attrs.get("pickup_latitude")
-        longitude = attrs.get("pickup_longitude")
-        if self.instance is not None:
-            latitude = latitude if "pickup_latitude" in attrs else self.instance.pickup_latitude
-            longitude = longitude if "pickup_longitude" in attrs else self.instance.pickup_longitude
-
-        if (latitude is None) != (longitude is None):
-            raise serializers.ValidationError(
-                "pickup_latitude and pickup_longitude must be provided together."
-            )
-
-        if latitude is not None and not (-90 <= latitude <= 90):
-            raise serializers.ValidationError({"pickup_latitude": "Latitude must be between -90 and 90."})
-
-        if longitude is not None and not (-180 <= longitude <= 180):
-            raise serializers.ValidationError(
-                {"pickup_longitude": "Longitude must be between -180 and 180."}
-            )
+        try:
+            self._resolve_location(attrs)
+        except GeocodingError as exc:
+            raise serializers.ValidationError({"pickup_location": str(exc)}) from exc
 
         return attrs
 
@@ -217,15 +203,58 @@ class SharePostWriteSerializer(serializers.ModelSerializer):
         validated_data.setdefault("image_url", food_item.image_url)
         return validated_data
 
+    def _resolve_location(self, attrs):
+        location_fields = {"pickup_location", "pickup_latitude", "pickup_longitude"}
+        if self.instance is not None and not any(field in attrs for field in location_fields):
+            return attrs
+
+        pickup_location = attrs.get("pickup_location")
+        pickup_location = pickup_location.strip() if isinstance(pickup_location, str) else pickup_location
+        latitude = attrs.get("pickup_latitude")
+        longitude = attrs.get("pickup_longitude")
+
+        if self.instance is not None:
+            if pickup_location is None:
+                pickup_location = self.instance.pickup_location
+            if "pickup_latitude" not in attrs:
+                latitude = self.instance.pickup_latitude
+            if "pickup_longitude" not in attrs:
+                longitude = self.instance.pickup_longitude
+
+        if (latitude is None) != (longitude is None):
+            raise serializers.ValidationError(
+                "pickup_latitude and pickup_longitude must be provided together."
+            )
+
+        if latitude is not None and not (-90 <= latitude <= 90):
+            raise serializers.ValidationError({"pickup_latitude": "Latitude must be between -90 and 90."})
+        if longitude is not None and not (-180 <= longitude <= 180):
+            raise serializers.ValidationError({"pickup_longitude": "Longitude must be between -180 and 180."})
+
+        if pickup_location and latitude is not None and longitude is not None:
+            attrs["pickup_location"] = pickup_location
+            return attrs
+        if pickup_location:
+            attrs.update(geocode_address(pickup_location))
+            return attrs
+        if latitude is not None and longitude is not None:
+            attrs.update(reverse_geocode(latitude, longitude))
+            return attrs
+
+        raise serializers.ValidationError(
+            {"pickup_location": "Enter an address or use your current location."}
+        )
+
     def create(self, validated_data):
         validated_data = self._fill_from_food_item(validated_data)
         validated_data.setdefault("owner", self.context["request"].user)
-        validated_data.setdefault("status", SharePost.Status.AVAILABLE)
+        validated_data.setdefault("status", Post.Status.AVAILABLE)
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
         validated_data = self._fill_from_food_item(validated_data)
         return super().update(instance, validated_data)
+
 
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:

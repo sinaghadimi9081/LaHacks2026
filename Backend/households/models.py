@@ -43,7 +43,7 @@ class HouseholdMembership(models.Model):
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.MEMBER)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
     can_upload_receipts = models.BooleanField(default=True)
-    can_post_share = models.BooleanField(default=False)
+    can_post_share = models.BooleanField(default=True)
     can_manage_members = models.BooleanField(default=False)
     joined_at = models.DateTimeField(auto_now_add=True)
 

@@ -36,7 +36,7 @@ class Migration(migrations.Migration):
                 ('estimated_price', models.DecimalField(blank=True, decimal_places=2, max_digits=6, null=True)),
                 ('quantity', models.IntegerField(default=1)),
                 ('selected', models.BooleanField(default=True)),
-                ('receipt', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='parsed_items', to='api.receipt')),
+                ('receipt', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='parsed_items', to='receipts.receipt')),
             ],
         ),
     ]
