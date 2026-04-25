@@ -24,6 +24,9 @@ class ParsedReceiptItem(models.Model):
     standardized_name = models.CharField(max_length=100, blank=True)
     category_tag = models.CharField(max_length=50, blank=True)
     expiration_days = models.IntegerField(null=True, blank=True)
+    image_url = models.URLField(max_length=500, blank=True, null=True)
+    image_file = models.ImageField(upload_to='receipt_items/', blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
     estimated_price = models.DecimalField(
         max_digits=6,
         decimal_places=2,

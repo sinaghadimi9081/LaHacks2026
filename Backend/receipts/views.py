@@ -60,7 +60,7 @@ def upload_receipt(request):
 
     try:
         processing_result = process_receipt_image(receipt.image.path)
-        processing_result.parsed_items = verify_and_enrich_items(processing_result.parsed_items)
+        processing_result.parsed_items = verify_and_enrich_items(processing_result.parsed_items, receipt.store_name)
     except ReceiptProcessingError as exc:
         _delete_receipt_image(receipt)
         return Response({"detail": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -87,6 +87,8 @@ def upload_receipt(request):
                 category_tag=item.get("category_tag", ""),
                 expiration_days=item.get("expiration_days"),
                 estimated_price=item.get("estimated_price"),
+                image_url=item.get("image_url", ""),
+                description=item.get("description", ""),
                 quantity=item.get("quantity", 1),
             )
             for item in processing_result.parsed_items
@@ -148,6 +150,8 @@ def confirm_receipt(request, receipt_id):
                 quantity=int(item_data.get("quantity", 1)),
                 expiration_date=exp_date,
                 estimated_price=est_price,
+                image_url=item_data.get("image_url", ""),
+                description=item_data.get("description", ""),
                 owner_name="Anonymous",
             )
         )

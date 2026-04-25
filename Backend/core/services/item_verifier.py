@@ -6,7 +6,7 @@ from google.genai import types
 from duckduckgo_search import DDGS
 from core.models import ExpirationKnowledge
 
-def verify_and_enrich_items(raw_items: list[dict]) -> list[dict]:
+def verify_and_enrich_items(raw_items: list[dict], store_name: str = "") -> list[dict]:
     """
     Takes a list of raw parsed receipt items (dicts), standardizes their names,
     estimates their categories and expiration dates using Gemini and DDG,
@@ -28,6 +28,8 @@ def verify_and_enrich_items(raw_items: list[dict]) -> list[dict]:
                 item["standardized_name"] = kb_match.food_name
                 item["category_tag"] = kb_match.category_tag
                 item["expiration_days"] = kb_match.expiration_days
+                item["image_url"] = kb_match.image_url
+                item["description"] = kb_match.description
                 enriched_items.append(item)
             else:
                 items_to_verify.append(item)
@@ -45,6 +47,8 @@ def verify_and_enrich_items(raw_items: list[dict]) -> list[dict]:
             item["standardized_name"] = item.get("name", "")
             item["category_tag"] = "unknown"
             item["expiration_days"] = 7
+            item["image_url"] = ""
+            item["description"] = ""
             enriched_items.append(item)
         return enriched_items
 
@@ -57,7 +61,7 @@ def verify_and_enrich_items(raw_items: list[dict]) -> list[dict]:
         if len(name) < 6 and name.strip():
             try:
                 with DDGS() as ddgs:
-                    results = list(ddgs.text(f"grocery item {name}", max_results=1))
+                    results = list(ddgs.text(f"{store_name} grocery item {name}".strip(), max_results=1))
                     if results:
                         item["ddg_context"] = results[0].get("title", "")
             except Exception:
@@ -65,14 +69,16 @@ def verify_and_enrich_items(raw_items: list[dict]) -> list[dict]:
 
     # 4. Gemini Processing
     prompt = (
-        "You are an AI grocery assistant. I will provide a JSON array of raw receipt items. "
+        "You are an AI grocery assistant. I will provide a JSON array of raw receipt items"
+        f" from the store '{store_name}'. " if store_name else ". "
         "For each item, provide a 'standardized_name' (clear, capitalized food name), "
         "a 'category_tag' (e.g., 'dairy', 'produce', 'meat', 'pantry', 'frozen', 'bakery'), "
         "an 'expiration_days' integer (estimated shelf life in days from purchase), "
-        "and an 'estimated_price' float (if you know it, otherwise keep the provided one or 0.00).\n\n"
+        "an 'estimated_price' float (if you know it, otherwise keep the provided one or 0.00), "
+        "and a 'description' (a helpful 1-sentence description of the food item).\n\n"
         f"Input items:\n{json.dumps(items_to_verify)}\n\n"
         "Return a JSON array of objects strictly following this schema: "
-        "[{'name': 'original raw name', 'standardized_name': '...', 'category_tag': '...', 'expiration_days': 14, 'estimated_price': 4.99}]"
+        "[{'name': 'original raw name', 'standardized_name': '...', 'category_tag': '...', 'expiration_days': 14, 'estimated_price': 4.99, 'description': '...'}]"
     )
 
     try:
@@ -92,6 +98,18 @@ def verify_and_enrich_items(raw_items: list[dict]) -> list[dict]:
             item["standardized_name"] = verified.get("standardized_name", name)
             item["category_tag"] = verified.get("category_tag", "unknown")
             item["expiration_days"] = verified.get("expiration_days", 7)
+            item["description"] = verified.get("description", "")
+            
+            # Fetch Image using DDG
+            item["image_url"] = ""
+            search_query = f"{store_name} {item['standardized_name']}".strip()
+            try:
+                with DDGS() as ddgs:
+                    results = list(ddgs.images(search_query, max_results=1))
+                    if results:
+                        item["image_url"] = results[0].get("image", "")
+            except Exception:
+                pass
             
             # If the OCR didn't catch a price but Gemini estimated one
             est_price = verified.get("estimated_price")
@@ -108,7 +126,9 @@ def verify_and_enrich_items(raw_items: list[dict]) -> list[dict]:
                     defaults={
                         "category_tag": item["category_tag"],
                         "expiration_days": item["expiration_days"],
-                        "price": float(item.get("estimated_price") or 0.0)
+                        "price": float(item.get("estimated_price") or 0.0),
+                        "description": item.get("description", ""),
+                        "image_url": item.get("image_url", "")
                     }
                 )
             except Exception:
@@ -121,6 +141,8 @@ def verify_and_enrich_items(raw_items: list[dict]) -> list[dict]:
             item["standardized_name"] = item.get("name", "")
             item["category_tag"] = "unknown"
             item["expiration_days"] = 7
+            item["image_url"] = ""
+            item["description"] = ""
             enriched_items.append(item)
 
     return enriched_items

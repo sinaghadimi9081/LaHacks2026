@@ -15,6 +15,9 @@ class ParsedReceiptItemSerializer(serializers.ModelSerializer):
             "category_tag",
             "expiration_days",
             "estimated_price",
+            "image_url",
+            "image_file",
+            "description",
             "quantity",
             "selected",
         )

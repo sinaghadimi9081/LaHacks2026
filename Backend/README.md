@@ -107,6 +107,7 @@ PATCH /api/households/me/
 
 ## Notes
 
+- **Troubleshooting Database/Migrations**: See [`docs/database_troubleshooting.md`](./docs/database_troubleshooting.md) for how to fix DB errors or safely reset your SQLite database.
 - Add new apps beside `backend/`, for example `Users/`, `app1/`, and `app2/`.
 - After creating an app, add it to `INSTALLED_APPS` in [`backend/settings.py`](./backend/settings.py).
 - Cookie auth uses HttpOnly JWT cookies. For `PATCH`, `POST`, and `DELETE` requests from the frontend, send the CSRF token returned by `/api/auth/csrf/`, `/api/auth/login/`, or `/api/auth/me/`.
