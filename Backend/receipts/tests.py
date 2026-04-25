@@ -371,8 +371,9 @@ class ReceiptApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("image", response.data["detail"])
 
+    @patch("receipts.views.verify_and_enrich_items")
     @patch("receipts.views.process_receipt_image")
-    def test_upload_receipt_creates_draft_items(self, process_receipt_image_mock):
+    def test_upload_receipt_creates_draft_items(self, process_receipt_image_mock, verify_mock):
         process_receipt_image_mock.return_value = ReceiptProcessingResult(
             raw_text="TARGET\n2 BANANAS 1.99\nTOTAL 1.99",
             store_name="Target",
@@ -385,6 +386,16 @@ class ReceiptApiTests(APITestCase):
                 }
             ],
         )
+        verify_mock.return_value = [
+            {
+                "name": "BANANAS",
+                "standardized_name": "Bananas",
+                "category_tag": "produce",
+                "expiration_days": 5,
+                "estimated_price": "1.99",
+                "quantity": 2,
+            }
+        ]
         upload = SimpleUploadedFile(
             "receipt.jpg",
             b"fake-image-bytes",
@@ -408,6 +419,9 @@ class ReceiptApiTests(APITestCase):
         self.assertEqual(receipt.store_name, "Target")
         self.assertEqual(str(receipt.detected_total_amount), "1.99")
         self.assertEqual(parsed_item.name, "BANANAS")
+        self.assertEqual(parsed_item.standardized_name, "Bananas")
+        self.assertEqual(parsed_item.category_tag, "produce")
+        self.assertEqual(parsed_item.expiration_days, 5)
         self.assertEqual(str(parsed_item.estimated_price), "1.99")
         self.assertEqual(parsed_item.quantity, 2)
         self.assertEqual(response.data["receipt_id"], receipt.id)
@@ -454,3 +468,51 @@ class ReceiptApiTests(APITestCase):
         self.assertEqual(response.data["detected_total"], "4.99")
         self.assertEqual(receipt.store_name, "Target")
         self.assertEqual(str(receipt.detected_total_amount), "4.99")
+
+    def test_confirm_receipt_creates_food_items(self):
+        from core.models import FoodItem
+        from datetime import date, timedelta
+        
+        receipt = Receipt.objects.create(
+            image="receipts/test-receipt.jpg",
+            store_name="Target",
+            detected_total_amount="4.99",
+            raw_text="SPINACH 4.99",
+        )
+        item1 = ParsedReceiptItem.objects.create(
+            receipt=receipt,
+            name="SPINACH",
+            standardized_name="Spinach",
+            category_tag="produce",
+            expiration_days=7,
+            estimated_price="4.99",
+            quantity=1,
+            image_url="http://example.com/spinach.jpg",
+            description="Fresh leafy greens",
+        )
+        
+        response = self.client.post(
+            reverse("receipt-confirm", args=[receipt.id]),
+            {"items": [{
+                "id": item1.id, 
+                "selected": True,
+                "name": item1.name,
+                "standardized_name": item1.standardized_name,
+                "quantity": item1.quantity,
+                "estimated_price": item1.estimated_price,
+                "expiration_days": item1.expiration_days,
+                "image_url": item1.image_url,
+                "description": item1.description
+            }]},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(FoodItem.objects.count(), 1)
+        
+        food = FoodItem.objects.first()
+        self.assertEqual(food.name, "Spinach")
+        self.assertEqual(float(food.estimated_price), 4.99)
+        self.assertEqual(food.image_url, "http://example.com/spinach.jpg")
+        self.assertEqual(food.description, "Fresh leafy greens")
+        expected_date = date.today() + timedelta(days=7)
+        self.assertEqual(food.expiration_date, expected_date)
