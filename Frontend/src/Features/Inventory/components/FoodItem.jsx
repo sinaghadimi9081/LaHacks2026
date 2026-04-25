@@ -5,12 +5,6 @@ const statusStyles = {
   critical: 'bg-danger text-white',
 }
 
-const stickerStyles = [
-  'bg-citrus rotate-[-8deg]',
-  'bg-petal rotate-[7deg]',
-  'bg-moonstone rotate-[-5deg]',
-]
-
 function formatDate(date) {
   return new Intl.DateTimeFormat('en', {
     month: 'short',
@@ -19,7 +13,7 @@ function formatDate(date) {
   }).format(new Date(`${date}T12:00:00`))
 }
 
-function FoodItem({ item, index }) {
+function FoodItem({ item, index, onDelete, onEditQuantity, onSell }) {
   const tilt = index % 2 === 0 ? '-1.4deg' : '1.2deg'
   const isCritical = item.status === 'critical'
   const isUseSoon = item.status === 'use soon'
@@ -78,17 +72,30 @@ function FoodItem({ item, index }) {
 
         <div className="mt-4">
           <p className="text-[0.65rem] font-black uppercase tracking-[0.14em] text-ink/55">
-            recipe ideas
+            item actions
           </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {item.recipe_uses.map((use, useIndex) => (
-              <span
-                className={`rounded-full border border-ink/15 px-2.5 py-1 text-[0.65rem] font-black uppercase shadow-sticker ${stickerStyles[useIndex % stickerStyles.length]}`}
-                key={use}
-              >
-                {use}
-              </span>
-            ))}
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <button
+              className="rotate-[-8deg] rounded-full border border-ink/15 bg-citrus px-2.5 py-2 text-[0.65rem] font-black uppercase text-ink shadow-sticker transition hover:-translate-y-0.5 hover:rotate-0"
+              onClick={() => onEditQuantity(item)}
+              type="button"
+            >
+              Edit
+            </button>
+            <button
+              className="rotate-[7deg] rounded-full border border-ink/15 bg-petal px-2.5 py-2 text-[0.65rem] font-black uppercase text-danger shadow-sticker transition hover:-translate-y-0.5 hover:rotate-0"
+              onClick={() => onDelete(item)}
+              type="button"
+            >
+              Delete
+            </button>
+            <button
+              className="rotate-[-5deg] rounded-full border border-ink/15 bg-moonstone px-2.5 py-2 text-[0.65rem] font-black uppercase text-ink shadow-sticker transition hover:-translate-y-0.5 hover:rotate-0"
+              onClick={() => onSell(item)}
+              type="button"
+            >
+              Sell
+            </button>
           </div>
         </div>
       </div>
