@@ -48,6 +48,74 @@ code {
     background-size: 20px 20px;
   }
 
+  .marketplace-page {
+    position: relative;
+    background-image:
+      linear-gradient(90deg, transparent 0, transparent calc(100% - 25rem), rgba(47, 125, 79, 0.18) calc(100% - 25rem), transparent calc(100% - 24.9rem)),
+      linear-gradient(rgba(47, 125, 79, 0.16) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(47, 125, 79, 0.16) 1px, transparent 1px);
+    background-position:
+      0 0,
+      calc(100% - 24rem) 0,
+      calc(100% - 24rem) 0;
+    background-size:
+      100% 100%,
+      2rem 2rem,
+      2rem 2rem;
+  }
+
+  .marketplace-sticker-pattern {
+    @apply pointer-events-none absolute inset-0 z-0 hidden overflow-hidden xl:block;
+  }
+
+  .marketplace-sticker {
+    @apply absolute grid place-items-center border-4 border-citrus text-xs font-black uppercase leading-none text-ink opacity-75 shadow-sticker;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+  }
+
+  .marketplace-sticker--fresh {
+    @apply right-20 top-[36rem] h-20 w-32 rounded-[48%] bg-citrus;
+    transform: rotate(-11deg);
+  }
+
+  .marketplace-sticker--local {
+    @apply right-8 top-[46rem] h-24 w-24 rounded-full bg-feed-soft text-danger;
+    transform: rotate(13deg);
+  }
+
+  .marketplace-sticker--ripe {
+    @apply right-24 top-[58rem] h-20 w-24 rounded-[42%] bg-petal text-phthalo;
+    transform: rotate(8deg);
+  }
+
+  .marketplace-sticker--share {
+    @apply right-6 top-[68rem] h-20 w-32 rounded-[50%] bg-danger-soft text-danger;
+    transform: rotate(-7deg);
+  }
+
+  @screen xl {
+    .marketplace-page {
+      background-image:
+        linear-gradient(90deg, transparent 0, transparent calc(100% - 25rem), rgba(245, 249, 237, 0.62) calc(100% - 25rem), rgba(245, 249, 237, 0.62) 100%),
+        linear-gradient(rgba(47, 125, 79, 0.2) 2px, transparent 2px),
+        linear-gradient(90deg, rgba(47, 125, 79, 0.2) 2px, transparent 2px),
+        linear-gradient(rgba(217, 232, 114, 0.62) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(217, 232, 114, 0.62) 1px, transparent 1px);
+      background-position:
+        0 0,
+        calc(100% - 24rem) 0,
+        calc(100% - 24rem) 0,
+        calc(100% - 23rem) 1rem,
+        calc(100% - 23rem) 1rem;
+      background-size:
+        100% 100%,
+        4rem 4rem,
+        4rem 4rem,
+        2rem 2rem,
+        2rem 2rem;
+    }
+  }
+
   .pantry-shell {
     @apply mx-auto w-full max-w-7xl px-5 py-8 md:px-10;
   }
@@ -229,6 +297,199 @@ code {
 
   .fruit-sticker span {
     @apply block max-w-20;
+  }
+
+  .market-cart-shell {
+    @apply relative isolate grid overflow-hidden rounded-2xl border border-ink/15 bg-white/80 p-5 shadow-paper backdrop-blur-md;
+  }
+
+  .market-cart-shell--open {
+    @apply bg-white/80;
+  }
+
+  .market-cart-shell__header {
+    @apply relative z-10 mb-4 flex items-start justify-between gap-4;
+  }
+
+  .market-cart-toggle {
+    @apply relative z-10 mb-4 inline-flex items-center justify-center rounded-full border border-ink/15 bg-white/90 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-ink shadow-sticker transition hover:-translate-y-0.5 hover:bg-citrus;
+  }
+
+  .market-cart-shell--open {
+    max-height: calc(100vh - 7.5rem);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .market-basket {
+    @apply relative isolate h-[26rem] overflow-hidden rounded-[2rem] border-4 border-phthalo bg-phthalo p-7 shadow-pop transition;
+    background-image:
+      radial-gradient(circle at 24% 18%, rgba(217, 232, 114, 0.42), transparent 24%),
+      linear-gradient(135deg, rgba(255, 255, 255, 0.22), transparent 36%),
+      linear-gradient(180deg, #5ea872 0%, #2f7d4f 48%, #174733 100%);
+    box-shadow:
+      inset 0 0 0 8px rgba(255, 255, 255, 0.18),
+      inset 0 0 0 14px rgba(217, 232, 114, 0.18),
+      0 28px 70px -42px rgba(18, 49, 42, 0.55);
+  }
+
+  .market-basket--targeted {
+    @apply border-citrus;
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 0 0 8px rgba(255, 255, 255, 0.32),
+      inset 0 0 0 14px rgba(217, 232, 114, 0.28),
+      0 26px 60px -34px rgba(18, 49, 42, 0.64);
+  }
+
+  .market-basket__handle {
+    @apply absolute inset-x-12 top-6 z-10 h-3 rounded-full bg-ink/70;
+    box-shadow:
+      -1.3rem 0.35rem 0 -0.18rem rgba(217, 232, 114, 0.86),
+      1.3rem 0.35rem 0 -0.18rem rgba(217, 232, 114, 0.86);
+  }
+
+  .market-basket__rim {
+    @apply pointer-events-none absolute inset-3 rounded-[1.55rem] border-[7px] border-citrus/40;
+    box-shadow:
+      inset 0 0 0 4px rgba(18, 49, 42, 0.18),
+      0 0 0 2px rgba(255, 255, 255, 0.2);
+  }
+
+  .market-basket__slots {
+    @apply pointer-events-none absolute inset-8 rounded-[1.25rem] opacity-80;
+    background-image:
+      repeating-linear-gradient(90deg, transparent 0 0.85rem, rgba(245, 249, 237, 0.9) 0.85rem 1.12rem, transparent 1.12rem 1.95rem),
+      repeating-linear-gradient(0deg, transparent 0 0.95rem, rgba(217, 232, 114, 0.76) 0.95rem 1.18rem, transparent 1.18rem 2rem);
+    mask-image:
+      linear-gradient(90deg, #000 0 18%, transparent 18% 82%, #000 82% 100%),
+      linear-gradient(0deg, #000 0 19%, transparent 19% 81%, #000 81% 100%);
+    mask-composite: add;
+  }
+
+  .market-basket__contents {
+    @apply relative z-20 grid h-full content-start gap-3 overflow-y-auto rounded-[1.4rem] border border-citrus/45 bg-white/10 p-4 pt-10 backdrop-blur-[1px];
+    scrollbar-color: rgba(217, 232, 114, 0.86) rgba(255, 255, 255, 0.18);
+    scrollbar-width: thin;
+  }
+
+  .market-basket__contents::-webkit-scrollbar {
+    width: 0.55rem;
+  }
+
+  .market-basket__contents::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+  }
+
+  .market-basket__contents::-webkit-scrollbar-thumb {
+    background: rgba(217, 232, 114, 0.86);
+    border-radius: 999px;
+  }
+
+  .market-basket__empty {
+    @apply grid min-h-[10rem] place-items-center rounded-2xl border-2 border-dashed border-citrus/80 bg-white/20 p-5 text-center;
+  }
+
+  .market-basket__empty p {
+    @apply max-w-44 text-sm font-black uppercase tracking-[0.14em] text-white;
+    text-shadow: 0 2px 10px rgba(18, 49, 42, 0.35);
+  }
+
+  .market-basket__food-slip {
+    @apply relative grid grid-cols-[3.5rem_minmax(0,1fr)_2rem] items-center gap-3 rounded-xl border border-ink/15 bg-white/90 p-2.5 shadow-sticker;
+    transform: rotate(var(--slip-tilt));
+  }
+
+  .market-basket__food-slip--before::before,
+  .market-basket__food-slip--after::after {
+    content: '';
+    position: absolute;
+    left: 0.75rem;
+    right: 0.75rem;
+    height: 0.28rem;
+    border-radius: 999px;
+    background: #d9e872;
+    box-shadow: 0 0 0 2px rgba(18, 49, 42, 0.18);
+  }
+
+  .market-basket__food-slip--before::before {
+    top: -0.48rem;
+  }
+
+  .market-basket__food-slip--after::after {
+    bottom: -0.48rem;
+  }
+
+  .market-basket__food-image {
+    @apply h-14 w-14 rounded-lg border border-ink/15 object-cover;
+  }
+
+  .market-basket__remove {
+    @apply grid h-8 w-8 place-items-center rounded-full border border-ink/15 bg-citrus text-sm font-black uppercase text-ink shadow-sticker transition hover:-translate-y-0.5 hover:bg-white;
+  }
+
+  .market-post-card {
+    @apply h-full;
+  }
+
+  .market-post-card--dragging {
+    @apply opacity-45;
+  }
+
+  .market-post-card .recipe-card {
+    @apply h-full content-start;
+  }
+
+  .market-post-card__description {
+    display: -webkit-box;
+    min-height: 5.25rem;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  .market-modal {
+    @apply fixed inset-0 z-50 grid place-items-center px-5 py-6;
+  }
+
+  .market-modal__scrim {
+    @apply absolute inset-0 bg-ink/55 backdrop-blur-sm;
+  }
+
+  .market-modal__panel {
+    @apply relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto;
+  }
+
+  .market-drag-preview-wrap {
+    @apply pointer-events-none fixed inset-0 z-[80];
+  }
+
+  .market-drag-preview {
+    @apply grid w-56 grid-cols-[4.75rem_minmax(0,1fr)] items-center gap-3 rounded-xl border-2 border-phthalo bg-white/95 p-2.5 shadow-pop;
+  }
+
+  .market-drag-preview__image {
+    @apply aspect-[4/3] w-full rounded-lg border border-ink/15 object-cover shadow-sticker;
+  }
+
+  .market-drag-preview p {
+    @apply truncate text-sm font-black uppercase text-ink;
+  }
+
+  .market-drag-preview span {
+    @apply mt-1 block text-[0.65rem] font-black uppercase tracking-[0.14em] text-ink/55;
+  }
+
+  @screen xl {
+    .market-basket {
+      @apply min-h-0;
+      height: clamp(18rem, calc(100vh - 20rem), 26rem);
+    }
+
+    .market-basket__contents {
+      @apply min-h-0;
+      height: 100%;
+    }
   }
 }
 

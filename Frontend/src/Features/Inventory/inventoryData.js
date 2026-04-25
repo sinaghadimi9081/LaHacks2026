@@ -1,0 +1,109 @@
+export const foodItems = [
+  {
+    name: 'Honeycrisp apples',
+    quantity: '8 apples',
+    expiration_date: '2026-05-02',
+    estimated_price: 6.75,
+    status: 'fresh',
+    owner_name: 'Anthony',
+    created_at: '2026-04-25',
+    recipe_uses: ['snack plates', 'salads', 'crumble'],
+    image:
+      'https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    name: 'Rainbow carrots',
+    quantity: '1 bunch',
+    expiration_date: '2026-04-29',
+    estimated_price: 4.25,
+    status: 'use soon',
+    owner_name: 'Maya',
+    created_at: '2026-04-24',
+    recipe_uses: ['roast trays', 'slaw', 'stock'],
+    image:
+      'https://images.unsplash.com/photo-1447175008436-054170c2e979?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    name: 'Basil bouquet',
+    quantity: '2 cups',
+    expiration_date: '2026-04-27',
+    estimated_price: 3.5,
+    status: 'use soon',
+    owner_name: 'Shared Shelf',
+    created_at: '2026-04-23',
+    recipe_uses: ['pesto', 'pasta', 'grain bowls'],
+    image:
+      'https://images.unsplash.com/photo-1618375569909-3c8616cf7733?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    name: 'Greek yogurt',
+    quantity: '32 oz tub',
+    expiration_date: '2026-05-06',
+    estimated_price: 5.99,
+    status: 'fresh',
+    owner_name: 'Leo',
+    created_at: '2026-04-22',
+    recipe_uses: ['marinades', 'breakfast bowls', 'sauces'],
+    image:
+      'https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    name: 'Sourdough starter',
+    quantity: '1 jar',
+    expiration_date: '2026-04-26',
+    estimated_price: 2.0,
+    status: 'feed today',
+    owner_name: 'Anthony',
+    created_at: '2026-04-20',
+    recipe_uses: ['bread', 'pancakes', 'pizza dough'],
+    image:
+      'https://images.unsplash.com/photo-1586444248902-2f64eddc13df?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    name: 'Cherry tomatoes',
+    quantity: '1 pint',
+    expiration_date: '2026-04-25',
+    estimated_price: 4.75,
+    status: 'critical',
+    owner_name: 'Shared Shelf',
+    created_at: '2026-04-21',
+    recipe_uses: ['salsa', 'pasta', 'sheet pans'],
+    image:
+      'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=800&q=80',
+  },
+]
+
+export const pantryNotes = [
+  {
+    name: 'Rolled oats',
+    quantity: '3 cups',
+    expiration_date: '2026-06-15',
+    status: 'fresh',
+    owner_name: 'Shared Shelf',
+    notes: ['bulk bin refill', 'breakfast jars', 'cookie backup'],
+  },
+  {
+    name: 'Red lentils',
+    quantity: '1.5 cups',
+    expiration_date: '2026-05-10',
+    status: 'use soon',
+    owner_name: 'Maya',
+    notes: ['soup night', 'pairs with carrots', 'quick protein'],
+  },
+  {
+    name: 'Pizza dough',
+    quantity: '2 balls',
+    expiration_date: '2026-04-26',
+    status: 'feed today',
+    owner_name: 'Anthony',
+    notes: ['defrost tonight', 'use basil', 'sheet pan dinner'],
+  },
+  {
+    name: 'Lime wedges',
+    quantity: '6 wedges',
+    expiration_date: '2026-04-25',
+    status: 'critical',
+    owner_name: 'Leo',
+    notes: ['taco topping', 'make dressing', 'juice before bed'],
+  },
+]
