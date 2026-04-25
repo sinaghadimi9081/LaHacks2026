@@ -93,7 +93,14 @@ class SharePostApiTests(TestCase):
         self.claimer_client = APIClient()
         self.claimer_client.force_authenticate(self.claimer)
 
-    def test_create_and_list_my_posts(self):
+    @patch("core.serializers.geocode_address")
+    def test_create_and_list_my_posts(self, mock_geocode_address):
+        mock_geocode_address.return_value = {
+            "pickup_location": "Westwood community fridge, Los Angeles, CA",
+            "pickup_latitude": "34.063500",
+            "pickup_longitude": "-118.445500",
+        }
+
         response = self.owner_client.post(
             "/api/share/",
             {
@@ -103,8 +110,6 @@ class SharePostApiTests(TestCase):
                 "title": "Carrots for soup night",
                 "description": "Still crisp. Please pick up after 5pm.",
                 "pickup_location": "Westwood community fridge",
-                "pickup_latitude": "34.063500",
-                "pickup_longitude": "-118.445500",
                 "tags": ["soup", "roast trays"],
             },
             format="json",
@@ -113,6 +118,9 @@ class SharePostApiTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["item_name"], "Rainbow carrots")
         self.assertEqual(response.data["food_item"]["recipe_uses"], ["soup", "roast trays"])
+        self.assertEqual(response.data["pickup_location"], "Westwood community fridge, Los Angeles, CA")
+        self.assertEqual(response.data["pickup_latitude"], "34.063500")
+        self.assertEqual(response.data["pickup_longitude"], "-118.445500")
 
         my_posts_response = self.owner_client.get("/api/share/mine/")
         self.assertEqual(my_posts_response.status_code, status.HTTP_200_OK)
@@ -204,3 +212,25 @@ class SharePostApiTests(TestCase):
         self.assertEqual(claim_response.status_code, status.HTTP_200_OK)
         self.assertEqual(claim_response.data["status"], SharePost.Status.CLAIMED)
         self.assertEqual(claim_response.data["claimed_by"], self.claimer.full_display_name)
+
+    @patch("core.views.reverse_geocode")
+    def test_location_resolve_supports_browser_coordinates(self, mock_reverse_geocode):
+        mock_reverse_geocode.return_value = {
+            "pickup_location": "Bruin Plaza, Los Angeles, CA",
+            "pickup_latitude": "34.071234",
+            "pickup_longitude": "-118.444321",
+        }
+
+        response = self.owner_client.post(
+            "/api/share/location/resolve/",
+            {
+                "latitude": "34.071234",
+                "longitude": "-118.444321",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["pickup_location"], "Bruin Plaza, Los Angeles, CA")
+        self.assertEqual(response.data["pickup_latitude"], "34.071234")
+        self.assertEqual(response.data["pickup_longitude"], "-118.444321")

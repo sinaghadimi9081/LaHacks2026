@@ -15,6 +15,7 @@ import {
   createSharePost,
   deleteSharePost,
   fetchMySharePosts,
+  resolveShareLocation,
   updateSharePost,
 } from '../../Utils/shareApi.jsx'
 
@@ -67,6 +68,21 @@ function toPostForm(post) {
   }
 }
 
+function locationRequestPromise() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Geolocation is not supported in this browser.'))
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 60000,
+    })
+  })
+}
+
 function ProfileCard({ title, children }) {
   return (
     <section className="pantry-card">
@@ -101,6 +117,8 @@ export default function Profile() {
   const [postForm, setPostForm] = useState(emptyPostForm)
   const [editingPostId, setEditingPostId] = useState(null)
   const [editingPostForm, setEditingPostForm] = useState(emptyPostForm)
+  const [locatingPost, setLocatingPost] = useState(false)
+  const [locatingEditPostId, setLocatingEditPostId] = useState(null)
 
   const householdOptions = useMemo(() => user?.households ?? [], [user?.households])
   const activeMembership = useMemo(
@@ -250,12 +268,24 @@ export default function Profile() {
 
   const handlePostFormChange = (event) => {
     const { name, value } = event.target
-    setPostForm((current) => ({ ...current, [name]: value }))
+    setPostForm((current) => ({
+      ...current,
+      [name]: value,
+      ...(name === 'pickup_location'
+        ? { pickup_latitude: '', pickup_longitude: '' }
+        : {}),
+    }))
   }
 
   const handleEditingPostChange = (event) => {
     const { name, value } = event.target
-    setEditingPostForm((current) => ({ ...current, [name]: value }))
+    setEditingPostForm((current) => ({
+      ...current,
+      [name]: value,
+      ...(name === 'pickup_location'
+        ? { pickup_latitude: '', pickup_longitude: '' }
+        : {}),
+    }))
   }
 
   const submitProfile = async (event) => {
@@ -379,6 +409,56 @@ export default function Profile() {
     }
 
     return payload
+  }
+
+  const useCurrentLocation = async (mode) => {
+    if (mode === 'edit' && !editingPostId) {
+      return
+    }
+
+    if (mode === 'create') {
+      setLocatingPost(true)
+    } else {
+      setLocatingEditPostId(editingPostId)
+    }
+
+    try {
+      const position = await locationRequestPromise()
+      const location = await resolveShareLocation({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      })
+
+      if (mode === 'create') {
+        setPostForm((current) => ({
+          ...current,
+          pickup_location: location.pickup_location,
+          pickup_latitude: location.pickup_latitude,
+          pickup_longitude: location.pickup_longitude,
+        }))
+      } else {
+        setEditingPostForm((current) => ({
+          ...current,
+          pickup_location: location.pickup_location,
+          pickup_latitude: location.pickup_latitude,
+          pickup_longitude: location.pickup_longitude,
+        }))
+      }
+
+      toast.success('Location added from OpenStreetMap.')
+    } catch (error) {
+      const message =
+        error?.response?.data?.detail ||
+        error?.message ||
+        'Unable to use your current location.'
+      toast.error(message)
+    } finally {
+      if (mode === 'create') {
+        setLocatingPost(false)
+      } else {
+        setLocatingEditPostId(null)
+      }
+    }
   }
 
   const submitPost = async (event) => {
@@ -838,17 +918,31 @@ export default function Profile() {
 
                 <label className="block">
                   <span className="pantry-field-label">
-                    Pickup location
+                    Pickup address
                   </span>
                   <input
                     className="pantry-input"
                     name="pickup_location"
                     onChange={handlePostFormChange}
-                    placeholder="Community fridge, porch cooler..."
+                    placeholder="Enter an address or use your location"
                     required
                     value={postForm.pickup_location}
                   />
                 </label>
+
+                <div className="block">
+                  <span className="pantry-field-label">
+                    Location helper
+                  </span>
+                  <button
+                    className="pantry-button pantry-button--light w-full"
+                    disabled={locatingPost}
+                    onClick={() => void useCurrentLocation('create')}
+                    type="button"
+                  >
+                    {locatingPost ? 'Finding your location...' : 'Use my location'}
+                  </button>
+                </div>
 
                 <label className="block">
                   <span className="pantry-field-label">
@@ -866,36 +960,6 @@ export default function Profile() {
                   />
                 </label>
 
-                <label className="block">
-                  <span className="pantry-field-label">
-                    Latitude
-                  </span>
-                  <input
-                    className="pantry-input"
-                    name="pickup_latitude"
-                    onChange={handlePostFormChange}
-                    placeholder="34.0635"
-                    step="0.000001"
-                    type="number"
-                    value={postForm.pickup_latitude}
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="pantry-field-label">
-                    Longitude
-                  </span>
-                  <input
-                    className="pantry-input"
-                    name="pickup_longitude"
-                    onChange={handlePostFormChange}
-                    placeholder="-118.4455"
-                    step="0.000001"
-                    type="number"
-                    value={postForm.pickup_longitude}
-                  />
-                </label>
-
                 <label className="block md:col-span-2">
                   <span className="pantry-field-label">
                     Tags
@@ -908,7 +972,7 @@ export default function Profile() {
                     value={postForm.tags}
                   />
                   <p className="mt-2 text-sm font-bold text-ink/55">
-                    Use the same short recipe-style tags you use in inventory cards.
+                    Use the same short recipe-style tags you use in inventory cards. We keep the map point behind the scenes once the address is resolved.
                   </p>
                 </label>
 
@@ -988,7 +1052,7 @@ export default function Profile() {
 
                             <label className="block">
                               <span className="pantry-field-label">
-                                Pickup location
+                                Pickup address
                               </span>
                               <input
                                 className="pantry-input"
@@ -997,6 +1061,20 @@ export default function Profile() {
                                 value={activeForm.pickup_location}
                               />
                             </label>
+
+                            <div className="block">
+                              <span className="pantry-field-label">
+                                Location helper
+                              </span>
+                              <button
+                                className="pantry-button pantry-button--light w-full"
+                                disabled={locatingEditPostId === post.id}
+                                onClick={() => void useCurrentLocation('edit')}
+                                type="button"
+                              >
+                                {locatingEditPostId === post.id ? 'Finding your location...' : 'Use my location'}
+                              </button>
+                            </div>
 
                             <label className="block">
                               <span className="pantry-field-label">
@@ -1009,34 +1087,6 @@ export default function Profile() {
                                 step="0.01"
                                 type="number"
                                 value={activeForm.estimated_price}
-                              />
-                            </label>
-
-                            <label className="block">
-                              <span className="pantry-field-label">
-                                Latitude
-                              </span>
-                              <input
-                                className="pantry-input"
-                                name="pickup_latitude"
-                                onChange={handleEditingPostChange}
-                                step="0.000001"
-                                type="number"
-                                value={activeForm.pickup_latitude}
-                              />
-                            </label>
-
-                            <label className="block">
-                              <span className="pantry-field-label">
-                                Longitude
-                              </span>
-                              <input
-                                className="pantry-input"
-                                name="pickup_longitude"
-                                onChange={handleEditingPostChange}
-                                step="0.000001"
-                                type="number"
-                                value={activeForm.pickup_longitude}
                               />
                             </label>
 
@@ -1105,11 +1155,9 @@ export default function Profile() {
                               </div>
                             </dl>
 
-                            {post.pickup_latitude && post.pickup_longitude ? (
-                              <p className="text-sm font-bold text-ink/55">
-                                Point: {post.pickup_latitude}, {post.pickup_longitude}
-                              </p>
-                            ) : null}
+                            <p className="text-sm font-bold text-ink/55">
+                              Stored as an address with a hidden map point for later marketplace distance filters.
+                            </p>
 
                             {(post.tags || []).length ? (
                               <div className="flex flex-wrap gap-2">

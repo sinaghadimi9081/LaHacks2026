@@ -28,6 +28,10 @@ export function createSharePost(payload) {
   return apiFetch('/share/', 'POST', payload)
 }
 
+export function resolveShareLocation(payload) {
+  return apiFetch('/share/location/resolve/', 'POST', payload)
+}
+
 export function fetchShareFeed(params = {}) {
   return apiFetch(`/share/feed/${buildShareQuery(params)}`, 'GET')
 }

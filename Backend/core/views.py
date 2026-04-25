@@ -1,11 +1,13 @@
 from math import asin, cos, radians, sin, sqrt
 
+from django.db import DatabaseError
 from django.db.models import Q
 from rest_framework import generics, permissions, status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .location_services import GeocodingError, geocode_address, reverse_geocode
 from .models import ImpactLog, SharePost
 from .serializers import SharePostReadSerializer, SharePostWriteSerializer
 
@@ -42,7 +44,7 @@ def _serializer_context(request):
 
 
 def _filtered_posts(request, base_queryset):
-    queryset = base_queryset.select_related("owner", "food_item", "claimed_by_user")
+    queryset = base_queryset.select_related("owner", "claimed_by_user")
 
     status_value = request.query_params.get("status")
     if status_value:
@@ -157,7 +159,7 @@ class MySharePostListView(generics.ListAPIView):
 
 
 class SharePostDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = SharePost.objects.select_related("owner", "food_item", "claimed_by_user")
+    queryset = SharePost.objects.select_related("owner", "claimed_by_user")
 
     def get_serializer_class(self):
         if self.request.method in permissions.SAFE_METHODS:
@@ -204,7 +206,7 @@ class SharePostDetailView(generics.RetrieveUpdateDestroyAPIView):
 class SharePostClaimView(APIView):
     def patch(self, request, share_post_id):
         share_post = generics.get_object_or_404(
-            SharePost.objects.select_related("owner", "food_item", "claimed_by_user"),
+            SharePost.objects.select_related("owner", "claimed_by_user"),
             pk=share_post_id,
         )
 
@@ -219,14 +221,38 @@ class SharePostClaimView(APIView):
         share_post.claimed_by = request.user.full_display_name
         share_post.save(update_fields=["status", "claimed_by_user", "claimed_by", "updated_at"])
 
-        ImpactLog.objects.create(
-            food_item=share_post.food_item,
-            action="share_post_claimed",
-            dollars_saved=share_post.resolved_estimated_price,
-        )
+        try:
+            ImpactLog.objects.create(
+                food_item=share_post.food_item,
+                action="share_post_claimed",
+                dollars_saved=share_post.resolved_estimated_price,
+            )
+        except DatabaseError:
+            pass
 
         serializer = SharePostReadSerializer(
             share_post,
             context=_serializer_context(request),
         )
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ShareLocationResolveView(APIView):
+    def post(self, request):
+        address = request.data.get("pickup_location") or request.data.get("address")
+        latitude = request.data.get("pickup_latitude") or request.data.get("latitude")
+        longitude = request.data.get("pickup_longitude") or request.data.get("longitude")
+
+        try:
+            if address:
+                location = geocode_address(address)
+            else:
+                if latitude in (None, "") or longitude in (None, ""):
+                    raise ValidationError(
+                        {"detail": "Provide an address or both latitude and longitude."}
+                    )
+                location = reverse_geocode(latitude, longitude)
+        except GeocodingError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+
+        return Response(location, status=status.HTTP_200_OK)
