@@ -2,7 +2,7 @@ const statusStyles = {
   fresh: 'bg-phthalo text-white',
   'use soon': 'bg-moonstone text-ink',
   'feed today': 'bg-mustard text-white',
-  critical: 'bg-tomato text-white',
+  critical: 'bg-danger text-white',
 }
 
 const stickerStyles = [
@@ -21,18 +21,24 @@ function formatDate(date) {
 
 function FoodItem({ item, index }) {
   const tilt = index % 2 === 0 ? '-1.4deg' : '1.2deg'
+  const isCritical = item.status === 'critical'
+  const isUseSoon = item.status === 'use soon'
+  const isFeedToday = item.status === 'feed today'
 
   return (
-    <article className="ingredient-card" style={{ '--tilt': tilt }}>
+    <article
+      className={`ingredient-card ${isCritical ? 'ingredient-card--critical' : ''} ${isUseSoon ? 'ingredient-card--use-soon' : ''} ${isFeedToday ? 'ingredient-card--feed-today' : ''}`}
+      style={{ '--tilt': tilt }}
+    >
       <div className="paper-clip" aria-hidden="true" />
 
-      <div className="photo-sheet z-10 drop-shadow-lg">
-        <div className="fruit-sticker right-3 top-4 bg-citrus">
+      <div className="photo-sheet z-10">
+        <div className="fruit-sticker right-3 top-4 bg-citrus rotate-6">
           <span>{item.quantity}</span>
         </div>
         <img
           alt={`${item.name} ingredient`}
-          className="h-40 w-full rounded-md border-[3px] border-ink object-cover shadow-pop sm:h-44"
+          className="h-40 w-full rounded-xl border border-ink/15 object-cover shadow-pop sm:h-44"
           loading="lazy"
           src={item.image}
         />
@@ -49,7 +55,7 @@ function FoodItem({ item, index }) {
             </h2>
           </div>
           <span
-            className={`shrink-0 rounded-full border-2 border-ink px-2.5 py-1.5 text-[0.65rem] font-black uppercase shadow-sticker ${statusStyles[item.status]}`}
+            className={`shrink-0 rounded-full border border-ink/15 px-2.5 py-1.5 text-[0.65rem] font-black uppercase shadow-sticker ${statusStyles[item.status]}`}
           >
             {item.status}
           </span>
@@ -77,7 +83,7 @@ function FoodItem({ item, index }) {
           <div className="mt-3 flex flex-wrap gap-2">
             {item.recipe_uses.map((use, useIndex) => (
               <span
-                className={`rounded-full border-2 border-ink px-2.5 py-1 text-[0.65rem] font-black uppercase shadow-sticker ${stickerStyles[useIndex % stickerStyles.length]}`}
+                className={`rounded-full border border-ink/15 px-2.5 py-1 text-[0.65rem] font-black uppercase shadow-sticker ${stickerStyles[useIndex % stickerStyles.length]}`}
                 key={use}
               >
                 {use}
