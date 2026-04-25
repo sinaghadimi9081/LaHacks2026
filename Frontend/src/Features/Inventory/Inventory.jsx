@@ -9,12 +9,16 @@ const filterOptions = ['all', 'fresh', 'use soon', 'feed today', 'critical']
 export default function Inventory() {
   const [searchTerm, setSearchTerm] = useState('')
   const [activeFilter, setActiveFilter] = useState('all')
+  const [inventoryItems] = useState(() => [
+    ...foodItems,
+    ...pantryNotes,
+  ])
 
-  const totalValue = foodItems.reduce(
-    (sum, item) => sum + item.estimated_price,
+  const totalValue = inventoryItems.reduce(
+    (sum, item) => sum + Number(item.estimated_price || 0),
     0,
   )
-  const soonCount = foodItems.filter((item) => item.status !== 'fresh').length
+  const soonCount = inventoryItems.filter((item) => item.status !== 'fresh').length
   const normalizedSearch = searchTerm.trim().toLowerCase()
 
   const matchesSearchAndFilter = useCallback(
@@ -24,6 +28,7 @@ export default function Inventory() {
         item.quantity,
         item.status,
         item.owner_name,
+        item.expiration_date,
         ...(item.recipe_uses || []),
         ...(item.notes || []),
       ]
@@ -41,15 +46,11 @@ export default function Inventory() {
     [activeFilter, normalizedSearch],
   )
 
-  const filteredFoodItems = useMemo(
-    () => foodItems.filter(matchesSearchAndFilter),
-    [matchesSearchAndFilter],
+  const filteredInventoryItems = useMemo(
+    () => inventoryItems.filter(matchesSearchAndFilter),
+    [inventoryItems, matchesSearchAndFilter],
   )
-  const filteredPantryNotes = useMemo(
-    () => pantryNotes.filter(matchesSearchAndFilter),
-    [matchesSearchAndFilter],
-  )
-  const visibleCount = filteredFoodItems.length + filteredPantryNotes.length
+  const visibleCount = filteredInventoryItems.length
 
   return (
     <main className="min-h-screen overflow-hidden text-ink">
@@ -96,7 +97,7 @@ export default function Inventory() {
           <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
             <div className="metric-card bg-phthalo text-white">
               <span>Items</span>
-              <strong>{foodItems.length}</strong>
+              <strong>{inventoryItems.length}</strong>
             </div>
             <div className="metric-card bg-mustard text-white">
               <span>Watch list</span>
@@ -111,7 +112,7 @@ export default function Inventory() {
       </section>
 
       <section className="mx-auto grid max-w-7xl gap-4 px-5 pt-8 md:px-10">
-        <div className="pantry-card grid gap-4 lg:grid-cols-[minmax(220px,1fr)_auto] lg:items-end">
+        <div className="pantry-card grid gap-4 lg:grid-cols-[minmax(220px,1fr)_auto_auto] lg:items-end">
           <label className="block">
             <span className="pantry-field-label">Search inventory</span>
             <input
@@ -141,53 +142,40 @@ export default function Inventory() {
             </div>
           </div>
 
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-ink/55 lg:col-span-2">
-            Showing {visibleCount} of {foodItems.length + pantryNotes.length}
+          <button
+            className="pantry-button h-fit"
+            type="button"
+          >
+            Add items
+          </button>
+
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-ink/55 lg:col-span-3">
+            Showing {visibleCount} of {inventoryItems.length}
           </p>
         </div>
       </section>
 
       <section className="mx-auto grid max-w-7xl gap-4 px-5 py-8 sm:grid-cols-2 md:px-10 lg:grid-cols-3 xl:grid-cols-4">
-        {filteredFoodItems.map((item, index) => (
-          <FoodItem
-            index={index}
-            item={item}
-            key={`${item.name}-${item.created_at}`}
-          />
-        ))}
-        {filteredFoodItems.length === 0 && (
-          <p className="pantry-card text-sm font-black uppercase tracking-[0.14em] text-ink/60 sm:col-span-2 lg:col-span-3 xl:col-span-4">
-            No image cards match this search.
-          </p>
-        )}
-      </section>
-
-      <section className="mx-auto grid max-w-7xl gap-4 px-5 pb-10 md:px-10">
-        <div className="flex items-end justify-between gap-4 border-b-4 border-ink pb-3">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-tomato">
-              no image cards
-            </p>
-            <h2 className="text-4xl font-black uppercase leading-none">
-              Pantry notes
-            </h2>
-          </div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {filteredPantryNotes.map((item, index) => (
+        {filteredInventoryItems.map((item, index) =>
+          item.image ? (
+            <FoodItem
+              index={index}
+              item={item}
+              key={item.id || `${item.name}-${item.created_at}`}
+            />
+          ) : (
             <FoodItemNoImage
               index={index}
               item={item}
-              key={`${item.name}-${item.expiration_date}`}
+              key={item.id || `${item.name}-${item.expiration_date}`}
             />
-          ))}
-          {filteredPantryNotes.length === 0 && (
-            <p className="pantry-card text-sm font-black uppercase tracking-[0.14em] text-ink/60 sm:col-span-2 lg:col-span-4">
-              No pantry notes match this search.
-            </p>
-          )}
-        </div>
+          ),
+        )}
+        {filteredInventoryItems.length === 0 && (
+          <p className="pantry-card text-sm font-black uppercase tracking-[0.14em] text-ink/60 sm:col-span-2 lg:col-span-3 xl:col-span-4">
+            No inventory items match this search.
+          </p>
+        )}
       </section>
     </main>
   )
