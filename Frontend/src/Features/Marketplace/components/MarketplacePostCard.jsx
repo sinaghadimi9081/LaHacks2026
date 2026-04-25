@@ -7,6 +7,19 @@ const postStatusStyles = {
   claimed: 'bg-phthalo text-white',
 }
 
+const foodStatusStyles = {
+  fresh: 'bg-phthalo text-white',
+  'use soon': 'bg-moonstone text-ink',
+  'feed today': 'bg-mustard text-white',
+  critical: 'bg-danger text-white',
+}
+
+const foodStatusCardClasses = {
+  critical: 'ingredient-card--critical',
+  'feed today': 'ingredient-card--feed-today',
+  'use soon': 'ingredient-card--use-soon',
+}
+
 function formatPostDate(date) {
   return new Intl.DateTimeFormat('en', {
     month: 'short',
@@ -23,6 +36,7 @@ function MarketplacePostCard({
 }) {
   const tilt = index % 2 === 0 ? '-1.2deg' : '1deg'
   const isClaimed = post.status === 'claimed'
+  const foodStatusClass = foodStatusCardClasses[post.food_item.status] || ''
   const [{ isDragging }, dragRef, previewRef] = useDrag(
     () => ({
       canDrag: !isClaimed,
@@ -41,7 +55,7 @@ function MarketplacePostCard({
 
   return (
     <article
-      className={`market-post-card ingredient-card ${
+      className={`market-post-card ingredient-card ${foodStatusClass} ${
         isClaimed ? 'opacity-75' : 'cursor-grab active:cursor-grabbing'
       } ${isDragging ? 'market-post-card--dragging' : ''}`}
       ref={dragRef}
@@ -53,6 +67,12 @@ function MarketplacePostCard({
         <div className="fruit-sticker right-3 top-4 bg-citrus rotate-6">
           <span>{post.food_item.quantity}</span>
         </div>
+        <span
+          className={`absolute right-0 top-14 -rotate-6 z-20 rounded-full border border-ink/15 px-2.5 py-1.5 text-[0.65rem] font-black uppercase leading-none shadow-sticker ${foodStatusStyles[post.food_item.status] || 'bg-white text-ink'}`}
+        >
+          {post.food_item.status}
+        </span>
+
         <img
           alt={`${post.food_item.name} shared food`}
           className="food-item-image"
@@ -71,11 +91,13 @@ function MarketplacePostCard({
               {post.title}
             </h2>
           </div>
-          <span
-            className={`shrink-0 rounded-full border border-ink/15 px-2.5 py-1.5 text-[0.65rem] font-black uppercase shadow-sticker ${postStatusStyles[post.status]}`}
-          >
-            {post.status === 'claimed' ? 'requested' : post.status}
-          </span>
+          <div className="flex shrink-0 flex-col items-end gap-2">
+            <span
+              className={`rounded-full border border-ink/15 px-2.5 py-1.5 text-[0.65rem] font-black uppercase shadow-sticker ${postStatusStyles[post.status]}`}
+            >
+              {post.status === 'claimed' ? 'requested' : post.status}
+            </span>
+          </div>
         </div>
 
         <p className="market-post-card__description text-sm font-bold leading-7 text-ink/75">

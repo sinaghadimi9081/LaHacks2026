@@ -64,33 +64,60 @@ code {
       2rem 2rem;
   }
 
+  .marketplace-page > section {
+    @apply relative z-10;
+  }
+
   .marketplace-sticker-pattern {
     @apply pointer-events-none absolute inset-0 z-0 hidden overflow-hidden xl:block;
   }
 
   .marketplace-sticker {
     @apply absolute grid place-items-center border-4 border-citrus text-xs font-black uppercase leading-none text-ink opacity-75 shadow-sticker;
+    left: var(--sticker-left);
+    top: var(--sticker-top);
+    transform: rotate(var(--sticker-rotate));
     text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
   }
 
+  .marketplace-sticker--oval {
+    @apply h-20 w-32 rounded-[48%];
+  }
+
+  .marketplace-sticker--circle {
+    @apply h-24 w-24 rounded-full;
+  }
+
+  .marketplace-sticker--squircle {
+    @apply h-20 w-28 rounded-[42%];
+  }
+
   .marketplace-sticker--fresh {
-    @apply right-20 top-[36rem] h-20 w-32 rounded-[48%] bg-citrus;
-    transform: rotate(-11deg);
+    @apply bg-citrus text-ink;
   }
 
   .marketplace-sticker--local {
-    @apply right-8 top-[46rem] h-24 w-24 rounded-full bg-feed-soft text-danger;
-    transform: rotate(13deg);
+    @apply bg-feed-soft text-danger;
   }
 
   .marketplace-sticker--ripe {
-    @apply right-24 top-[58rem] h-20 w-24 rounded-[42%] bg-petal text-phthalo;
-    transform: rotate(8deg);
+    @apply bg-petal text-phthalo;
   }
 
   .marketplace-sticker--share {
-    @apply right-6 top-[68rem] h-20 w-32 rounded-[50%] bg-danger-soft text-danger;
-    transform: rotate(-7deg);
+    @apply bg-danger-soft text-danger;
+  }
+
+  .marketplace-sticker--apple {
+    @apply bg-petal text-danger;
+  }
+
+  .marketplace-sticker--basil {
+    @apply bg-[#d9f0cf] text-phthalo;
+  }
+
+  .marketplace-sticker--paper {
+    @apply bg-white text-phthalo;
   }
 
   @screen xl {
@@ -303,12 +330,49 @@ code {
     @apply relative isolate grid overflow-hidden rounded-2xl border border-ink/15 bg-white/80 p-5 shadow-paper backdrop-blur-md;
   }
 
+  .market-cart-shell:not(.market-cart-shell--open)::before {
+    content: '';
+    position: absolute;
+    inset: auto -0.8rem -1.35rem auto;
+    z-index: -1;
+    width: 9.5rem;
+    height: 8rem;
+    opacity: 0.16;
+    transform: rotate(-7deg);
+    background-color: #25bd2c;
+    mask:
+      radial-gradient(circle at 24% 82%, transparent 0 0.62rem, #000 0.66rem 1.08rem, transparent 1.12rem),
+      radial-gradient(circle at 76% 82%, transparent 0 0.62rem, #000 0.66rem 1.08rem, transparent 1.12rem),
+      linear-gradient(#000 0 0) 19% 38% / 64% 34% no-repeat,
+      linear-gradient(#000 0 0) 11% 18% / 11% 53% no-repeat,
+      linear-gradient(#000 0 0) 17% 17% / 69% 10% no-repeat;
+    mask-composite: add;
+    pointer-events: none;
+  }
+
+  .market-cart-dock {
+    @apply fixed bottom-4 right-4 z-30 w-[min(20rem,calc(100vw-2rem))] p-0 md:bottom-6 md:right-6;
+  }
+
+  .market-cart-dock--moved {
+    @apply fixed left-0 top-0 z-30 w-[min(20rem,calc(100vw-1.5rem))] max-w-none p-0;
+    bottom: auto;
+    right: auto;
+    will-change: transform;
+  }
+
   .market-cart-shell--open {
     @apply bg-white/80;
   }
 
   .market-cart-shell__header {
-    @apply relative z-10 mb-4 flex items-start justify-between gap-4;
+    @apply relative z-10 mb-4 flex cursor-move touch-none select-none items-start justify-between gap-4;
+  }
+
+  .is-moving-market-basket,
+  .is-moving-market-basket * {
+    cursor: grabbing !important;
+    user-select: none;
   }
 
   .market-cart-toggle {
