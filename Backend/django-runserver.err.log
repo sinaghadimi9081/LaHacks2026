@@ -1,0 +1,12 @@
+Watching for file changes with StatReloader
+[25/Apr/2026 03:14:49] "GET /api/auth/csrf/ HTTP/1.1" 200 80
+[25/Apr/2026 03:14:49] "GET /api/auth/csrf/ HTTP/1.1" 200 80
+Unauthorized: /api/auth/me/
+Unauthorized: /api/auth/me/
+[25/Apr/2026 03:14:49] "GET /api/auth/me/ HTTP/1.1" 401 58
+[25/Apr/2026 03:14:49] "GET /api/auth/me/ HTTP/1.1" 401 58
+Bad Request: /api/auth/refresh/
+Bad Request: /api/auth/refresh/
+[25/Apr/2026 03:14:49] "POST /api/auth/refresh/ HTTP/1.1" 400 40
+[25/Apr/2026 03:14:49] "POST /api/auth/refresh/ HTTP/1.1" 400 40
+[25/Apr/2026 03:20:10] "POST /api/auth/signup/ HTTP/1.1" 201 500
