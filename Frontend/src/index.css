@@ -48,6 +48,74 @@ code {
     background-size: 20px 20px;
   }
 
+  .marketplace-page {
+    position: relative;
+    background-image:
+      linear-gradient(90deg, transparent 0, transparent calc(100% - 25rem), rgba(47, 125, 79, 0.18) calc(100% - 25rem), transparent calc(100% - 24.9rem)),
+      linear-gradient(rgba(47, 125, 79, 0.16) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(47, 125, 79, 0.16) 1px, transparent 1px);
+    background-position:
+      0 0,
+      calc(100% - 24rem) 0,
+      calc(100% - 24rem) 0;
+    background-size:
+      100% 100%,
+      2rem 2rem,
+      2rem 2rem;
+  }
+
+  .marketplace-sticker-pattern {
+    @apply pointer-events-none absolute inset-0 z-0 hidden overflow-hidden xl:block;
+  }
+
+  .marketplace-sticker {
+    @apply absolute grid place-items-center border-4 border-citrus text-xs font-black uppercase leading-none text-ink opacity-75 shadow-sticker;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+  }
+
+  .marketplace-sticker--fresh {
+    @apply right-20 top-[36rem] h-20 w-32 rounded-[48%] bg-citrus;
+    transform: rotate(-11deg);
+  }
+
+  .marketplace-sticker--local {
+    @apply right-8 top-[46rem] h-24 w-24 rounded-full bg-feed-soft text-danger;
+    transform: rotate(13deg);
+  }
+
+  .marketplace-sticker--ripe {
+    @apply right-24 top-[58rem] h-20 w-24 rounded-[42%] bg-petal text-phthalo;
+    transform: rotate(8deg);
+  }
+
+  .marketplace-sticker--share {
+    @apply right-6 top-[68rem] h-20 w-32 rounded-[50%] bg-danger-soft text-danger;
+    transform: rotate(-7deg);
+  }
+
+  @screen xl {
+    .marketplace-page {
+      background-image:
+        linear-gradient(90deg, transparent 0, transparent calc(100% - 25rem), rgba(245, 249, 237, 0.62) calc(100% - 25rem), rgba(245, 249, 237, 0.62) 100%),
+        linear-gradient(rgba(47, 125, 79, 0.2) 2px, transparent 2px),
+        linear-gradient(90deg, rgba(47, 125, 79, 0.2) 2px, transparent 2px),
+        linear-gradient(rgba(217, 232, 114, 0.62) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(217, 232, 114, 0.62) 1px, transparent 1px);
+      background-position:
+        0 0,
+        calc(100% - 24rem) 0,
+        calc(100% - 24rem) 0,
+        calc(100% - 23rem) 1rem,
+        calc(100% - 23rem) 1rem;
+      background-size:
+        100% 100%,
+        4rem 4rem,
+        4rem 4rem,
+        2rem 2rem,
+        2rem 2rem;
+    }
+  }
+
   .pantry-shell {
     @apply mx-auto w-full max-w-7xl px-5 py-8 md:px-10;
   }
@@ -232,7 +300,7 @@ code {
   }
 
   .market-cart-shell {
-    @apply grid overflow-hidden rounded-2xl border border-ink/15 bg-white/80 p-5 shadow-paper backdrop-blur-md;
+    @apply relative isolate grid overflow-hidden rounded-2xl border border-ink/15 bg-white/80 p-5 shadow-paper backdrop-blur-md;
   }
 
   .market-cart-shell--open {
@@ -240,11 +308,11 @@ code {
   }
 
   .market-cart-shell__header {
-    @apply mb-4 flex items-start justify-between gap-4;
+    @apply relative z-10 mb-4 flex items-start justify-between gap-4;
   }
 
   .market-cart-toggle {
-    @apply mb-4 inline-flex items-center justify-center rounded-full border border-ink/15 bg-white/90 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-ink shadow-sticker transition hover:-translate-y-0.5 hover:bg-citrus;
+    @apply relative z-10 mb-4 inline-flex items-center justify-center rounded-full border border-ink/15 bg-white/90 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-ink shadow-sticker transition hover:-translate-y-0.5 hover:bg-citrus;
   }
 
   .market-cart-shell--open {

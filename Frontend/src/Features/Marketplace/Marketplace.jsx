@@ -364,7 +364,21 @@ export default function Marketplace() {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <main className="min-h-screen overflow-hidden text-ink">
+      <main className="marketplace-page min-h-screen overflow-hidden text-ink">
+        <div className="marketplace-sticker-pattern" aria-hidden="true">
+          <span className="marketplace-sticker marketplace-sticker--fresh">
+            Fresh
+          </span>
+          <span className="marketplace-sticker marketplace-sticker--local">
+            Local
+          </span>
+          <span className="marketplace-sticker marketplace-sticker--ripe">
+            Ripe
+          </span>
+          <span className="marketplace-sticker marketplace-sticker--share">
+            Share
+          </span>
+        </div>
         <MarketplaceDragLayer />
       <section className="pantry-dot-grid relative border-b-4 border-ink bg-moonstone px-5 py-8 md:px-10">
         <div className="plant-trail" aria-hidden="true">
