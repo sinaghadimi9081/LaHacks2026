@@ -45,26 +45,26 @@ export default function Signup() {
   }
 
   return (
-    <section className="px-6 py-10">
-      <div className="mx-auto max-w-2xl rounded-[2rem] border border-white/70 bg-white/85 p-8 shadow-card backdrop-blur md:p-10">
-        <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-700">
+    <section className="pantry-shell">
+      <div className="pantry-card mx-auto max-w-2xl">
+        <p className="pantry-label">
           Create account
         </p>
-        <h1 className="mt-4 text-4xl font-black tracking-tight text-slate-950">
+        <h1 className="mt-4 text-4xl font-black uppercase leading-none text-ink">
           Start with a personal household, then expand later.
         </h1>
-        <p className="mt-4 max-w-2xl text-base leading-8 text-slate-600">
+        <p className="pantry-copy mt-4 max-w-2xl">
           This form matches the backend signup endpoint and automatically creates
           the user&apos;s default fridge household.
         </p>
 
         <form className="mt-8 grid gap-5 md:grid-cols-2" onSubmit={handleSubmit}>
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-700">
+            <span className="pantry-field-label">
               Username
             </span>
             <input
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className="pantry-input"
               name="username"
               onChange={handleChange}
               required
@@ -73,11 +73,11 @@ export default function Signup() {
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-700">
+            <span className="pantry-field-label">
               Email
             </span>
             <input
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className="pantry-input"
               name="email"
               onChange={handleChange}
               required
@@ -87,11 +87,11 @@ export default function Signup() {
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-700">
+            <span className="pantry-field-label">
               Display name
             </span>
             <input
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className="pantry-input"
               name="display_name"
               onChange={handleChange}
               placeholder="Optional"
@@ -100,11 +100,11 @@ export default function Signup() {
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-700">
+            <span className="pantry-field-label">
               Household name
             </span>
             <input
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className="pantry-input"
               name="household_name"
               onChange={handleChange}
               placeholder="Optional"
@@ -113,11 +113,11 @@ export default function Signup() {
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-700">
+            <span className="pantry-field-label">
               Password
             </span>
             <input
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className="pantry-input"
               name="password"
               onChange={handleChange}
               required
@@ -127,11 +127,11 @@ export default function Signup() {
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-700">
+            <span className="pantry-field-label">
               Confirm password
             </span>
             <input
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className="pantry-input"
               name="password_confirm"
               onChange={handleChange}
               required
@@ -142,7 +142,7 @@ export default function Signup() {
 
           <div className="md:col-span-2">
             <button
-              className="w-full rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+              className="pantry-button w-full"
               disabled={submitting}
               type="submit"
             >

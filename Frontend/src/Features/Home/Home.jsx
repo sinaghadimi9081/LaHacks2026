@@ -16,20 +16,20 @@ export default function Home() {
   const { user, isAuthed, status } = useAuth()
 
   return (
-    <main className="px-6 py-10">
-      <div className="mx-auto flex max-w-6xl flex-col gap-8">
-        <section className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/85 shadow-card backdrop-blur">
-          <div className="grid gap-10 px-8 py-10 md:grid-cols-[1.15fr_0.85fr] md:px-12 md:py-12">
+    <main className="pantry-shell">
+      <div className="flex flex-col gap-8">
+        <section className="overflow-hidden rounded-md border-4 border-ink bg-white shadow-paper">
+          <div className="grid gap-8 px-6 py-8 md:grid-cols-[1.15fr_0.85fr] md:px-10">
             <div className="space-y-6">
-              <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1 text-xs font-black uppercase tracking-[0.25em] text-emerald-700">
+              <span className="inline-flex rounded-full border-2 border-ink bg-citrus px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-ink shadow-sticker">
                 Frontend foundation
               </span>
 
               <div className="space-y-4">
-                <h1 className="max-w-2xl text-4xl font-black tracking-tight text-slate-950 md:text-6xl">
+                <h1 className="pantry-heading max-w-3xl">
                   Modular React structure that matches your existing project style.
                 </h1>
-                <p className="max-w-2xl text-lg leading-8 text-slate-600">
+                <p className="pantry-copy max-w-2xl">
                   NeighborFridge now has `App`, `Auth`, `Features`, and `Utils`
                   folders, plus reusable backend client helpers for auth,
                   profile, households, receipts, pantry items, sharing, and
@@ -41,13 +41,13 @@ export default function Home() {
                 {!isAuthed && (
                   <>
                     <Link
-                      className="rounded-full bg-slate-950 px-6 py-3 text-sm font-bold text-white no-underline transition hover:-translate-y-0.5"
+                      className="pantry-button no-underline"
                       to="/signup"
                     >
                       Create account
                     </Link>
                     <Link
-                      className="rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 no-underline transition hover:-translate-y-0.5"
+                      className="pantry-button pantry-button--light no-underline"
                       to="/login"
                     >
                       Sign in
@@ -57,7 +57,7 @@ export default function Home() {
 
                 {isAuthed && (
                   <Link
-                    className="rounded-full bg-slate-950 px-6 py-3 text-sm font-bold text-white no-underline transition hover:-translate-y-0.5"
+                    className="pantry-button no-underline"
                     to="/profile"
                   >
                     Open profile
@@ -66,33 +66,33 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="rounded-[1.75rem] bg-slate-950 p-6 text-sm text-slate-200">
-              <p className="mb-4 text-xs font-black uppercase tracking-[0.25em] text-emerald-300">
+            <div className="rounded-md border-[3px] border-ink bg-phthalo p-5 text-sm text-white shadow-pop">
+              <p className="mb-4 text-xs font-black uppercase tracking-[0.18em] text-citrus">
                 Session snapshot
               </p>
 
               <div className="space-y-4">
-                <div className="rounded-2xl bg-white/5 p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                <div className="rounded-md border-2 border-white/40 bg-white/10 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-white/60">
                     Auth status
                   </p>
                   <p className="mt-2 text-lg font-bold text-white">{status}</p>
                 </div>
 
-                <div className="rounded-2xl bg-white/5 p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                <div className="rounded-md border-2 border-white/40 bg-white/10 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-white/60">
                     Current user
                   </p>
                   <p className="mt-2 text-lg font-bold text-white">
                     {user?.display_name || user?.username || 'Not signed in'}
                   </p>
-                  <p className="mt-1 text-slate-400">
+                  <p className="mt-1 text-white/60">
                     {user?.email || 'Use the auth pages to test cookie login.'}
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-white/5 p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                <div className="rounded-md border-2 border-white/40 bg-white/10 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-white/60">
                     Default household
                   </p>
                   <p className="mt-2 text-lg font-bold text-white">
@@ -108,12 +108,12 @@ export default function Home() {
           {serviceModules.map((moduleName) => (
             <article
               key={moduleName}
-              className="rounded-[1.5rem] border border-slate-200 bg-white/80 p-6 shadow-card"
+              className="pantry-card"
             >
-              <p className="text-sm font-black uppercase tracking-[0.18em] text-emerald-700">
+              <p className="pantry-label">
                 Utils/{moduleName}.jsx
               </p>
-              <p className="mt-4 text-sm leading-7 text-slate-600">
+              <p className="mt-4 text-sm font-bold leading-7 text-ink/70">
                 Centralized endpoint helpers so feature code can import stable
                 functions instead of rebuilding request details inline.
               </p>

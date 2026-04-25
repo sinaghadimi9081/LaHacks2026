@@ -5,8 +5,8 @@ import { useAuth } from '../../Auth/useAuth.jsx'
 
 function ProfileCard({ title, children }) {
   return (
-    <section className="rounded-[1.75rem] border border-slate-200 bg-white/85 p-6 shadow-card">
-      <p className="text-xs font-black uppercase tracking-[0.24em] text-emerald-700">
+    <section className="pantry-card">
+      <p className="pantry-label">
         {title}
       </p>
       <div className="mt-5">{children}</div>
@@ -82,36 +82,36 @@ export default function Profile() {
   }
 
   return (
-    <main className="px-6 py-10">
-      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+    <main className="pantry-shell">
+      <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
         <div className="space-y-6">
           <ProfileCard title="User summary">
             <div className="space-y-5">
-              <div className="rounded-[1.5rem] bg-slate-950 p-6 text-slate-100">
+              <div className="rounded-md border-[3px] border-ink bg-phthalo p-6 text-white shadow-pop">
                 <p className="text-3xl font-black">
                   {user?.display_name || user?.username}
                 </p>
-                <p className="mt-2 text-slate-300">{user?.email}</p>
-                <p className="mt-4 text-sm text-slate-400">
+                <p className="mt-2 font-bold text-white/80">{user?.email}</p>
+                <p className="mt-4 text-sm font-bold text-white/60">
                   Signed in with cookie-based JWT auth.
                 </p>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-2xl bg-emerald-50 p-4">
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">
+                <div className="rounded-md border-2 border-ink bg-citrus p-4 shadow-sticker">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-ink/70">
                     Default household
                   </p>
-                  <p className="mt-2 text-lg font-bold text-slate-900">
+                  <p className="mt-2 text-lg font-black text-ink">
                     {user?.default_household?.name}
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-slate-100 p-4">
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">
+                <div className="rounded-md border-2 border-ink bg-moonstone p-4 shadow-sticker">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-ink/70">
                     Known households
                   </p>
-                  <p className="mt-2 text-lg font-bold text-slate-900">
+                  <p className="mt-2 text-lg font-black text-ink">
                     {householdOptions.length}
                   </p>
                 </div>
@@ -122,11 +122,11 @@ export default function Profile() {
           <ProfileCard title="Profile settings">
             <form className="grid gap-4 md:grid-cols-2" onSubmit={submitProfile}>
               <label className="block">
-                <span className="mb-2 block text-sm font-bold text-slate-700">
+                <span className="pantry-field-label">
                   Display name
                 </span>
                 <input
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-emerald-500 focus:bg-white"
+                  className="pantry-input"
                   name="display_name"
                   onChange={handleProfileChange}
                   value={profileForm.display_name}
@@ -134,11 +134,11 @@ export default function Profile() {
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-bold text-slate-700">
+                <span className="pantry-field-label">
                   Default household
                 </span>
                 <select
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-emerald-500 focus:bg-white"
+                  className="pantry-input"
                   name="default_household_id"
                   onChange={handleProfileChange}
                   value={profileForm.default_household_id}
@@ -152,11 +152,11 @@ export default function Profile() {
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-bold text-slate-700">
+                <span className="pantry-field-label">
                   First name
                 </span>
                 <input
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-emerald-500 focus:bg-white"
+                  className="pantry-input"
                   name="first_name"
                   onChange={handleProfileChange}
                   value={profileForm.first_name}
@@ -164,11 +164,11 @@ export default function Profile() {
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-bold text-slate-700">
+                <span className="pantry-field-label">
                   Last name
                 </span>
                 <input
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-emerald-500 focus:bg-white"
+                  className="pantry-input"
                   name="last_name"
                   onChange={handleProfileChange}
                   value={profileForm.last_name}
@@ -177,7 +177,7 @@ export default function Profile() {
 
               <div className="md:col-span-2">
                 <button
-                  className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="pantry-button"
                   disabled={savingProfile}
                   type="submit"
                 >
@@ -192,11 +192,11 @@ export default function Profile() {
           <ProfileCard title="Household settings">
             <form className="space-y-4" onSubmit={submitHousehold}>
               <label className="block">
-                <span className="mb-2 block text-sm font-bold text-slate-700">
+                <span className="pantry-field-label">
                   Household name
                 </span>
                 <input
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-emerald-500 focus:bg-white"
+                  className="pantry-input"
                   name="name"
                   onChange={handleHouseholdChange}
                   value={householdForm.name}
@@ -204,7 +204,7 @@ export default function Profile() {
               </label>
 
               <button
-                className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                className="pantry-button pantry-button--accent"
                 disabled={savingHousehold}
                 type="submit"
               >
@@ -218,18 +218,18 @@ export default function Profile() {
               {householdOptions.map((household) => (
                 <div
                   key={household.id}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                  className="rounded-md border-2 border-ink bg-white p-4 shadow-sticker"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-lg font-bold text-slate-900">
+                      <p className="text-lg font-black text-ink">
                         {household.name}
                       </p>
-                      <p className="mt-1 text-sm text-slate-500">
+                      <p className="mt-1 text-sm font-bold text-ink/60">
                         Role: {household.role || 'member'}
                       </p>
                     </div>
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+                    <span className="rounded-full border-2 border-ink bg-petal px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-ink">
                       {household.status || 'active'}
                     </span>
                   </div>

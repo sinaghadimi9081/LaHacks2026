@@ -36,8 +36,62 @@ code {
 }
 
 @layer components {
+  .pantry-page {
+    @apply min-h-screen bg-cream text-ink;
+  }
+
+  .pantry-dot-grid {
+    background-color: #fff7dc;
+    background-image: radial-gradient(
+      circle,
+      rgba(16, 31, 31, 0.18) 1.2px,
+      transparent 1.2px
+    );
+    background-size: 18px 18px;
+  }
+
+  .pantry-shell {
+    @apply mx-auto w-full max-w-7xl px-5 py-8 md:px-10;
+  }
+
+  .pantry-card {
+    @apply rounded-md border-[3px] border-ink bg-white p-5 shadow-paper;
+  }
+
+  .pantry-label {
+    @apply text-xs font-black uppercase tracking-[0.18em] text-tomato;
+  }
+
+  .pantry-heading {
+    @apply text-4xl font-black uppercase leading-none text-ink md:text-6xl;
+  }
+
+  .pantry-copy {
+    @apply text-base font-bold leading-8 text-ink/70;
+  }
+
+  .pantry-button {
+    @apply inline-flex items-center justify-center rounded-full border-2 border-ink bg-phthalo px-5 py-3 text-sm font-black uppercase text-white shadow-sticker transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .pantry-button--light {
+    @apply bg-white text-ink;
+  }
+
+  .pantry-button--accent {
+    @apply bg-citrus text-ink;
+  }
+
+  .pantry-field-label {
+    @apply mb-2 block text-xs font-black uppercase tracking-[0.14em] text-ink/70;
+  }
+
+  .pantry-input {
+    @apply w-full rounded-md border-2 border-ink bg-white px-4 py-3 font-bold text-ink outline-none shadow-sticker transition focus:-translate-y-0.5 focus:bg-citrus/20;
+  }
+
   .metric-card {
-    @apply rounded-md border-4 border-ink p-4 shadow-pop;
+    @apply min-w-0 rounded-md border-4 border-ink p-4 shadow-pop;
   }
 
   .metric-card span {
@@ -45,7 +99,8 @@ code {
   }
 
   .metric-card strong {
-    @apply mt-2 block text-5xl font-black leading-none;
+    @apply mt-2 block whitespace-nowrap font-black leading-none;
+    font-size: clamp(2.25rem, 8vw, 3rem);
   }
 
   .ingredient-card {

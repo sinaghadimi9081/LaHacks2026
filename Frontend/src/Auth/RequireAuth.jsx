@@ -8,8 +8,8 @@ export default function RequireAuth({ children }) {
 
   if (status === 'idle' || status === 'loading') {
     return (
-      <div className="mx-auto flex min-h-[50vh] max-w-6xl items-center justify-center px-6">
-        <div className="rounded-3xl bg-white/80 px-6 py-5 text-sm font-semibold text-slate-500 shadow-card">
+      <div className="pantry-shell flex min-h-[50vh] items-center justify-center">
+        <div className="rounded-md border-2 border-ink bg-white px-6 py-5 text-sm font-black uppercase tracking-[0.14em] text-ink shadow-sticker">
           Checking your session...
         </div>
       </div>

@@ -119,9 +119,8 @@ export default function Inventory() {
   const soonCount = foodItems.filter((item) => item.status !== 'fresh').length
 
   return (
-    <main className="min-h-screen overflow-hidden bg-cream text-ink">
-      <section className="relative border-b-4 border-ink bg-petal px-5 py-8 md:px-10">
-        <div className="sticker sticker-circle right-[9%] top-12 bg-tomato" />
+    <main className="min-h-screen overflow-hidden text-ink">
+      <section className="pantry-dot-grid relative border-b-4 border-ink bg-[#82b3c3] px-5 py-8 md:px-10">
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
           <div>
             <p className="mb-4 w-fit rounded-full border-2 border-ink bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.18em] shadow-sticker">
