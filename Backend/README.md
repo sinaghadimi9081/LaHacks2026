@@ -78,7 +78,35 @@ Collect static files:
 python manage.py collectstatic
 ```
 
+## Auth Endpoints
+
+Bootstrap CSRF for cookie-authenticated requests:
+
+```bash
+GET /api/auth/csrf/
+```
+
+Auth:
+
+```bash
+POST /api/auth/signup/
+POST /api/auth/login/
+POST /api/auth/logout/
+POST /api/auth/refresh/
+GET  /api/auth/me/
+```
+
+User and household profile:
+
+```bash
+GET   /api/users/me/
+PATCH /api/users/me/
+GET   /api/households/me/
+PATCH /api/households/me/
+```
+
 ## Notes
 
 - Add new apps beside `backend/`, for example `Users/`, `app1/`, and `app2/`.
 - After creating an app, add it to `INSTALLED_APPS` in [`backend/settings.py`](./backend/settings.py).
+- Cookie auth uses HttpOnly JWT cookies. For `PATCH`, `POST`, and `DELETE` requests from the frontend, send the CSRF token returned by `/api/auth/csrf/`, `/api/auth/login/`, or `/api/auth/me/`.
