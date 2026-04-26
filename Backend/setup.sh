@@ -42,16 +42,11 @@ if [[ ! -f .env ]]; then
 fi
 
 if [[ "$FRESH_DB" == true ]]; then
-  echo "--fresh: removing db.sqlite3 and any auto-generated migration files."
+  echo "--fresh: removing db.sqlite3 only."
   rm -f db.sqlite3
-  find users households core posts receipts \
-    -path "*/migrations/*.py" -not -name "__init__.py" -delete 2>/dev/null || true
-  find users households core posts receipts \
-    -path "*/migrations/*.pyc" -delete 2>/dev/null || true
 fi
 
 python scripts/rename_receipts_app.py
-python manage.py makemigrations users households core posts receipts
 ensure_tesseract() {
   if command -v tesseract >/dev/null 2>&1; then
     echo "tesseract already installed: $(tesseract --version 2>&1 | head -n 1)"
@@ -94,6 +89,9 @@ ensure_tesseract() {
 ensure_tesseract
 
 python manage.py migrate
+
+echo "Using committed Django migrations from the repo."
+echo "If you are actively changing models, run 'python manage.py makemigrations' manually."
 
 echo "Backend dependencies are installed and migrations are up to date."
 echo "Use 'source $VENV_DIR/bin/activate' if you want the virtualenv in your shell."

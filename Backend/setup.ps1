@@ -73,22 +73,13 @@ if (-not (Test-Path ".env")) {
 }
 
 if ($fresh) {
-    Write-Host "--fresh: removing db.sqlite3 and any auto-generated migration files."
+    Write-Host "--fresh: removing db.sqlite3 only."
     if (Test-Path "db.sqlite3") {
         Remove-Item "db.sqlite3" -Force
-    }
-    foreach ($app in @("users", "households", "core", "posts", "receipts")) {
-        $migrationsDir = Join-Path $app "migrations"
-        if (Test-Path $migrationsDir) {
-            Get-ChildItem -Path $migrationsDir -File |
-                Where-Object { $_.Name -ne "__init__.py" } |
-                Remove-Item -Force
-        }
     }
 }
 
 Invoke-Checked $venvPython scripts/rename_receipts_app.py
-Invoke-Checked $venvPython manage.py makemigrations users households core posts receipts
 function Ensure-Tesseract {
     $existing = Get-Command tesseract -ErrorAction SilentlyContinue
     if ($existing) {
@@ -138,6 +129,9 @@ function Ensure-Tesseract {
 Ensure-Tesseract
 
 Invoke-Checked $venvPython manage.py migrate
+
+Write-Host "Using committed Django migrations from the repo."
+Write-Host "If you are actively changing models, run 'python manage.py makemigrations' manually."
 
 Write-Host "Backend dependencies are installed and migrations are up to date."
 Write-Host "Use '.\$venvDir\Scripts\Activate.ps1' if you want the virtualenv in your shell."

@@ -88,6 +88,60 @@ class NotificationService:
         NotificationService._send_email(owner, title, message)
 
     @staticmethod
+    def notify_marketplace_request(post, requester):
+        owner = post.owner
+        if not owner:
+            return
+
+        title = "New marketplace request"
+        message = (
+            f"Hi {owner.full_display_name},\n\n"
+            f'{requester.full_display_name} requested your listing "{post.title}".\n\n'
+            f"  Pickup: {post.pickup_location}\n"
+            f"  Item: {post.resolved_item_name}\n\n"
+            "Open NeighborFridge to approve or decline the request.\n\n"
+            "- The NeighborFridge Team"
+        )
+        NotificationService._send_website_notification(owner, title, message)
+        NotificationService._send_email(owner, title, message)
+
+    @staticmethod
+    def notify_marketplace_request_approved(post_request):
+        requester = post_request.requester
+        post = post_request.post
+        if not requester:
+            return
+
+        title = "Marketplace request approved"
+        message = (
+            f"Hi {requester.full_display_name},\n\n"
+            f'Your request for "{post.title}" was approved.\n\n'
+            f"  Pickup: {post.pickup_location}\n"
+            f"  Item: {post.resolved_item_name}\n\n"
+            "Open NeighborFridge to view the exact pickup details and coordinate pickup.\n\n"
+            "- The NeighborFridge Team"
+        )
+        NotificationService._send_website_notification(requester, title, message)
+        NotificationService._send_email(requester, title, message)
+
+    @staticmethod
+    def notify_marketplace_request_declined(post_request):
+        requester = post_request.requester
+        post = post_request.post
+        if not requester:
+            return
+
+        title = "Marketplace request declined"
+        message = (
+            f"Hi {requester.full_display_name},\n\n"
+            f'Your request for "{post.title}" was declined.\n\n'
+            "You can keep browsing the marketplace for other nearby food listings.\n\n"
+            "- The NeighborFridge Team"
+        )
+        NotificationService._send_website_notification(requester, title, message)
+        NotificationService._send_email(requester, title, message)
+
+    @staticmethod
     def _send_website_notification(user, title, message):
         Notification.objects.create(user=user, title=title, message=message)
 
