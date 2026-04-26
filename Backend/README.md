@@ -28,6 +28,71 @@ Install dependencies without starting the server:
 ./setup.sh --no-run
 ```
 
+Enable local Ollama + Gemma 2 setup during backend bootstrap:
+
+```bash
+./setup.sh --with-ollama --no-run
+```
+
+Windows PowerShell:
+
+```powershell
+.\setup.ps1 --with-ollama -NoRun
+```
+
+## Ollama / Gemma 2
+
+NeighborFridge uses local Ollama as an optional fallback for receipt item enrichment and inventory tips. The backend already expects:
+
+- `OLLAMA_URL=http://localhost:11434`
+- `OLLAMA_MODEL=gemma2`
+
+That means yes: each teammate who wants local Gemma 2 needs Ollama installed on their own laptop.
+
+Official install docs:
+
+- macOS: [docs.ollama.com/macos](https://docs.ollama.com/macos)
+- Windows: [docs.ollama.com/windows](https://docs.ollama.com/windows)
+- Linux: [docs.ollama.com/linux](https://docs.ollama.com/linux)
+- Gemma 2 model page: [ollama.com/library/gemma2](https://ollama.com/library/gemma2)
+
+Fastest teammate flow:
+
+```bash
+cd Backend
+./setup.sh --with-ollama --no-run
+python scripts/setup_ollama.py
+```
+
+Or on Windows:
+
+```powershell
+cd Backend
+.\setup.ps1 --with-ollama -NoRun
+python scripts/setup_ollama.py
+```
+
+What the helper does:
+
+- reads `OLLAMA_URL` and `OLLAMA_MODEL` from `.env`
+- checks whether the `ollama` CLI is installed
+- checks whether the Ollama server is reachable
+- optionally runs `ollama pull <model>`
+
+What `--with-ollama` now does:
+
+- macOS: tries `brew install --cask ollama`, then launches the app
+- Linux: tries Ollama's official install script, then starts `ollama serve`
+- Windows PowerShell: tries `winget install Ollama.Ollama`, then launches the app
+
+If automatic install fails, the scripts fall back to the official Ollama docs links above.
+
+If a laptop cannot comfortably run the default 9B model, set this in `.env` before pulling:
+
+```env
+OLLAMA_MODEL=gemma2:2b
+```
+
 ## Email Setup
 
 NeighborFridge now defaults to Django's console email backend in local dev, so teammates can run the app without SMTP credentials.
