@@ -24,6 +24,7 @@ function Invoke-Checked {
 
 $noRun = $NoRunFlag -or $args -contains "--no-run" -or $args -contains "-NoRun"
 $fresh = $FreshFlag -or $args -contains "--fresh" -or $args -contains "-Fresh"
+$withOllama = $args -contains "--with-ollama" -or $args -contains "-WithOllama"
 
 if ($env:PYTHON_BIN) {
     $pythonBin = $env:PYTHON_BIN
@@ -79,6 +80,44 @@ if ($fresh) {
 }
 
 Invoke-Checked $venvPython scripts/rename_receipts_app.py
+function Ensure-Ollama {
+    $existing = Get-Command ollama -ErrorAction SilentlyContinue
+    if ($existing) {
+        Write-Host "ollama already installed at $($existing.Source)"
+        return
+    }
+
+    Write-Host "ollama not found."
+
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        Write-Host "Installing Ollama via winget..."
+        try {
+            winget install -e --id Ollama.Ollama --accept-source-agreements --accept-package-agreements
+        } catch {
+            Write-Warning "winget install failed: $_"
+            Write-Warning "Install Ollama manually from https://docs.ollama.com/windows"
+            return
+        }
+    } else {
+        Write-Warning "winget is not available."
+        Write-Warning "Install Ollama manually from https://docs.ollama.com/windows"
+        return
+    }
+
+    $ollamaExeCandidates = @(
+        "$env:LOCALAPPDATA\Programs\Ollama\Ollama.exe",
+        "$env:ProgramFiles\Ollama\Ollama.exe"
+    )
+    foreach ($candidate in $ollamaExeCandidates) {
+        if (Test-Path $candidate) {
+            Write-Host "Launching Ollama..."
+            Start-Process -FilePath $candidate | Out-Null
+            Start-Sleep -Seconds 3
+            return
+        }
+    }
+}
+
 function Ensure-Tesseract {
     $existing = Get-Command tesseract -ErrorAction SilentlyContinue
     if ($existing) {
@@ -131,6 +170,17 @@ Invoke-Checked $venvPython manage.py migrate
 
 Write-Host "Using committed Django migrations from the repo."
 Write-Host "If you are actively changing models, run 'python manage.py makemigrations' manually."
+
+if ($withOllama) {
+    Ensure-Ollama
+    try {
+        Invoke-Checked $venvPython scripts/setup_ollama.py --pull
+    } catch {
+        Write-Warning "Ollama setup did not complete. Local LLM enrichment will stay disabled until Ollama is installed and running."
+    }
+} else {
+    Write-Host "Optional local LLM setup: run '.\setup.ps1 --with-ollama -NoRun' or 'python scripts/setup_ollama.py --pull'."
+}
 
 Write-Host "Backend dependencies are installed and migrations are up to date."
 Write-Host "Use '.\$venvDir\Scripts\Activate.ps1' if you want the virtualenv in your shell."
