@@ -149,60 +149,6 @@ function normalizePost(post, userLocation) {
   }
 }
 
-<<<<<<< HEAD
-function normalizeRequest(request, userLocation) {
-  return {
-    ...request,
-    delivery_quote: request?.delivery_quote || null,
-    post: request?.post ? normalizePost(request.post, userLocation) : null,
-  }
-}
-
-function getRequestStatusLabel(status) {
-  if (status === 'approved') {
-    return 'matched'
-  }
-  if (status === 'declined') {
-    return 'declined'
-  }
-  return 'pending approval'
-}
-
-function getSelectedPostStatusClass(status) {
-  if (status === 'claimed') {
-    return 'bg-phthalo text-white'
-  }
-  if (status === 'pending') {
-    return 'bg-mustard text-white'
-  }
-  return 'bg-citrus text-ink'
-}
-
-function getRequestValue(post) {
-  if (post.viewer_request_status === 'approved') {
-    return 'matched'
-  }
-  if (post.viewer_request_status === 'pending') {
-    return 'pending approval'
-  }
-  if (post.status === 'pending') {
-    return 'owner reviewing'
-  }
-  if (post.status === 'claimed') {
-    return post.claimed_by || 'matched'
-  }
-  return post.claimed_by || 'open'
-}
-
-function getFulfillmentLabel(fulfillmentMethod) {
-  if (fulfillmentMethod === 'delivery') {
-    return 'Simulated delivery'
-  }
-  return 'Pickup'
-}
-
-=======
->>>>>>> origin/main
 export default function Marketplace() {
   const { isAuthed, status } = useAuth()
   const [sharePosts, setSharePosts] = useState([])
@@ -211,11 +157,6 @@ export default function Marketplace() {
   const [selectedPostDetail, setSelectedPostDetail] = useState(null)
   const [, setSelectedPostDetailState] = useState('idle')
   const [selectedPostDetailError, setSelectedPostDetailError] = useState('')
-<<<<<<< HEAD
-  const [requestActionId, setRequestActionId] = useState(null)
-  const [requestMode, setRequestMode] = useState('pickup')
-=======
->>>>>>> origin/main
   const [searchTerm, setSearchTerm] = useState('')
   const [activeFilter, setActiveFilter] = useState('all')
   const [form, setForm] = useState(blankForm)
