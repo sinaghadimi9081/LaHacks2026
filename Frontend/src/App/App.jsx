@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { BrowserRouter, Link, NavLink, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Link, NavLink, Route, Routes, useNavigate } from 'react-router-dom'
 import { ToastContainer } from 'react-toastify'
 
 import RequireAuth from '../Auth/RequireAuth.jsx'
@@ -24,6 +24,7 @@ import 'react-toastify/dist/ReactToastify.css'
 
 function NavBar() {
   const { isAuthed, user, logout, status } = useAuth()
+  const navigate = useNavigate()
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
   const userMenuRef = useRef(null)
@@ -173,9 +174,10 @@ function NavBar() {
                   <button
                     className="nav-menu-item nav-menu-item--danger"
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
                       closeMenus()
-                      logout()
+                      await logout()
+                      navigate('/', { replace: true })
                     }}
                   >
                     Logout

@@ -37,7 +37,7 @@ export default function Signup() {
 
     try {
       await signup(form)
-      navigate('/profile', { replace: true })
+      navigate('/', { replace: true })
     } catch (error) {
       const detail =
         error?.response?.data?.detail ||
