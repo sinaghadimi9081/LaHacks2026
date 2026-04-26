@@ -131,7 +131,7 @@ function MarketplacePostCard({
         <div className="flex items-start justify-between gap-3 border-b-2 border-moonstone pb-3">
           <div className="min-w-0">
             <p className="text-[0.65rem] font-black uppercase tracking-[0.14em] text-tomato">
-              {post.food_item.name}
+              {"@" + post.food_item.owner_name || '@ Neighbor'}
             </p>
             <h2 className="mt-1 text-2xl font-black uppercase leading-none">
               {post.title}
