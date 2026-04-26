@@ -8,8 +8,11 @@ This document provides a high-level overview of the NeighborFridge backend archi
 - **Authentication**: JWT stored in HTTP-Only Cookies (via `rest_framework_simplejwt` and custom `users.authentication.CookieJWTAuthentication`)
 - **AI & Integrations**: 
   - OCR: Local Tesseract (`pytesseract`) or Cloud Veryfi API.
-  - LLM: Google AI Studio (Gemini via `google-genai`) for product verification.
-  - Search: DuckDuckGo (`duckduckgo-search`) for live price estimation and disambiguation.
+  - Item Enrichment: 3-tier local pipeline (see below):
+    1. `ExpirationKnowledge` DB cache (instant)
+    2. Local fuzzy matching with 150+ item grocery DB (`grocery_db.py`)
+    3. Ollama local LLM (`gemma2`) for brand-specific/obscure items
+  - No cloud API keys required for item enrichment.
 
 ## Core Apps
 
@@ -44,15 +47,17 @@ This is the central logic app that manages actual pantry items and expiration da
 
 1. **Upload**: User uploads an image via `POST /api/receipts/upload/`.
 2. **OCR Parsing**: `receipt_processing.process_receipt_image` runs (Veryfi or Local OCR) and creates `ParsedReceiptItem` rows.
-3. **Agent Verification (Planned)**: The `ParsedReceiptItem` rows are fed to the Gemini AI Agent (`item_verifier.py`). 
-   - The agent uses DuckDuckGo to search for ambiguous items (e.g., "Trader Joe's Org Mlk").
-   - Gemini standardizes the name, verifies the online price, and assigns a category and expiration estimate.
+3. **Item Enrichment**: The `ParsedReceiptItem` rows are processed by `item_verifier.py` through a 3-tier local pipeline:
+   - **Tier 1**: Check `ExpirationKnowledge` DB for cached results (instant).
+   - **Tier 2**: Fuzzy match against `grocery_db.py` — expands receipt abbreviations (e.g., `HNYCRSP APPL 3LB` → "Honeycrisp Apples") and matches using token overlap + sequence similarity.
+   - **Tier 3**: Send unmatched items to Ollama (`gemma2`) for local LLM identification (e.g., `SIGGI SKYR VAN` → "Siggi's Icelandic Skyr Vanilla").
 4. **User Confirmation**: The enriched items are sent back to the frontend. The user confirms or edits them.
-5. **Pantry Storage**: Confirmed items are saved as `FoodItem` models in the user's pantry, and the `ExpirationKnowledge` table is updated so the AI learns for the future.
+5. **Pantry Storage**: Confirmed items are saved as `FoodItem` models in the user's pantry, and the `ExpirationKnowledge` table is updated for future lookups.
 
 ## Key Environment Variables
 - `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`
-- `GEMINI_API_KEY`: Used by the AI Verification Agent.
+- `OLLAMA_URL` (optional): Ollama server URL. Default: `http://localhost:11434`.
+- `OLLAMA_MODEL` (optional): Ollama model name. Default: `gemma2`.
 - `RECEIPT_PROCESSING_PROVIDER`: `auto`, `veryfi`, or `local`.
 - `VERYFI_CLIENT_ID`, `VERYFI_CLIENT_SECRET`, `VERYFI_USERNAME`, `VERYFI_API_KEY`: Required if using Veryfi.
 
