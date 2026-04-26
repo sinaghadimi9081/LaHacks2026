@@ -4,8 +4,9 @@ from rest_framework import serializers
 
 from core.models import FoodItem
 
+from ..delivery_quotes import build_simulated_delivery_quote
 from ..location_services import GeocodingError, geocode_address, reverse_geocode
-from ..models import Post
+from ..models import Post, PostRequest
 
 
 def _format_coordinate(value):
@@ -35,6 +36,8 @@ class BasePostReadSerializer(serializers.ModelSerializer):
     pickup_location = serializers.SerializerMethodField()
     pickup_latitude = serializers.SerializerMethodField()
     pickup_longitude = serializers.SerializerMethodField()
+    viewer_fulfillment_method = serializers.SerializerMethodField()
+    viewer_delivery_quote = serializers.SerializerMethodField()
 
     class Meta:
         model = Post
@@ -62,6 +65,8 @@ class BasePostReadSerializer(serializers.ModelSerializer):
             "status",
             "claimed_by",
             "viewer_request_status",
+            "viewer_fulfillment_method",
+            "viewer_delivery_quote",
             "exact_location_visible",
             "created_at",
             "updated_at",
@@ -126,6 +131,27 @@ class BasePostReadSerializer(serializers.ModelSerializer):
         if request is None:
             return None
         return obj.get_viewer_request_status(request.user)
+
+    def _get_viewer_request(self, obj):
+        request = self.context.get("request")
+        if request is None:
+            return None
+        return obj.get_request_for_user(request.user)
+
+    def get_viewer_fulfillment_method(self, obj):
+        post_request = self._get_viewer_request(obj)
+        return post_request.fulfillment_method if post_request else None
+
+    def get_viewer_delivery_quote(self, obj):
+        post_request = self._get_viewer_request(obj)
+        if post_request is None:
+            return None
+
+        request = self.context.get("request")
+        return build_simulated_delivery_quote(
+            post_request,
+            reveal_exact_pickup=obj.can_view_exact_location(request.user) if request else False,
+        )
 
     def get_public_pickup_location(self, obj):
         return obj.get_public_pickup_location()
@@ -274,7 +300,7 @@ class PostWriteSerializer(serializers.ModelSerializer):
 
     def _resolve_location(self, attrs):
         location_fields = {"pickup_location", "pickup_latitude", "pickup_longitude"}
-        if self.instance is not None and not any(f in attrs for f in location_fields):
+        if self.instance is not None and not any(field in attrs for field in location_fields):
             return attrs
 
         pickup_location = attrs.get("pickup_location")

@@ -11,6 +11,8 @@ import Profile from '../Features/Profile/Profile.jsx'
 import Inventory from '../Features/Inventory/Inventory.jsx'
 import Marketplace from '../Features/Marketplace/Marketplace.jsx'
 import MarketplaceMapLab from '../Features/Marketplace/MarketplaceMapLab.jsx'
+
+import MarketplaceMatchLab from '../Features/Marketplace/MarketplaceMatchLab.jsx'
 import Lockers from '../Features/Lockers/Lockers.jsx'
 import Impact from '../Features/Impact/Impact.jsx'
 import ReceiptsWorkbench from '../Features/Receipts/ReceiptsWorkbench.jsx'
@@ -78,6 +80,10 @@ function NavBar() {
 
           <NavLink className="nav-pill" to="/marketplace-map-lab">
             Map Lab
+          </NavLink>
+
+          <NavLink className="nav-pill" to="/marketplace-match-lab">
+            Match Lab
           </NavLink>
 
           <NavLink className="nav-pill" to="/impact">
@@ -152,6 +158,7 @@ export default function App() {
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/lockers" element={<Lockers />} />
           <Route path="/marketplace-map-lab" element={<MarketplaceMapLab />} />
+          <Route path="/marketplace-match-lab" element={<MarketplaceMatchLab />} />
           <Route path="/impact" element={<Impact />} />
           <Route path="/receipts" element={<ReceiptsWorkbench />} />
           <Route path="/login" element={<Login />} />

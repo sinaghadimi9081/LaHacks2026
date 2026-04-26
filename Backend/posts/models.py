@@ -204,6 +204,10 @@ class PostRequest(models.Model):
         APPROVED = "approved", "Approved"
         DECLINED = "declined", "Declined"
 
+    class FulfillmentMethod(models.TextChoices):
+        PICKUP = "pickup", "Pickup"
+        DELIVERY = "delivery", "Simulated Delivery"
+
     post = models.ForeignKey(
         Post,
         on_delete=models.CASCADE,
@@ -219,6 +223,14 @@ class PostRequest(models.Model):
         choices=Status.choices,
         default=Status.PENDING,
     )
+    fulfillment_method = models.CharField(
+        max_length=20,
+        choices=FulfillmentMethod.choices,
+        default=FulfillmentMethod.PICKUP,
+    )
+    dropoff_location = models.CharField(max_length=255, blank=True, default="")
+    dropoff_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    dropoff_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     responded_at = models.DateTimeField(null=True, blank=True)
 

@@ -54,7 +54,7 @@ class PostApiTests(TestCase):
         defaults.update(overrides)
         return Post.objects.create(**defaults)
 
-    @patch("posts.serializers.geocode_address")
+    @patch("posts.serializers.post.geocode_address")
     def test_create_and_list_my_posts_return_exact_location_for_owner(self, mock_geocode_address):
         mock_geocode_address.return_value = {
             "pickup_location": "123 Main Street, Los Angeles, CA",
@@ -142,7 +142,7 @@ class PostApiTests(TestCase):
         self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Post.objects.filter(id=post.id).exists())
 
-    @patch("posts.serializers.geocode_address")
+    @patch("posts.serializers.post.geocode_address")
     def test_owner_can_upload_post_image(self, mock_geocode_address):
         mock_geocode_address.return_value = {
             "pickup_location": "123 Main Street, Los Angeles, CA",
@@ -203,6 +203,63 @@ class PostApiTests(TestCase):
         self.assertIsNone(post.claimed_by_user)
         self.assertEqual(post.match_requests.count(), 1)
         self.assertEqual(post.match_requests.first().status, PostRequest.Status.PENDING)
+        self.assertEqual(
+            post.match_requests.first().fulfillment_method,
+            PostRequest.FulfillmentMethod.PICKUP,
+        )
+
+    @patch("posts.serializers.request.reverse_geocode")
+    def test_delivery_request_returns_simulated_quote_and_persists_dropoff(self, mock_reverse_geocode):
+        mock_reverse_geocode.return_value = {
+            "pickup_location": "Bruin Plaza, Los Angeles, CA",
+            "pickup_latitude": "34.071234",
+            "pickup_longitude": "-118.444321",
+        }
+
+        post = self._create_post(title="Pantry soup bundle")
+
+        request_response = self.requester_client.patch(
+            f"/api/share/{post.id}/claim/",
+            {
+                "fulfillment_method": "delivery",
+                "dropoff_latitude": "34.071234",
+                "dropoff_longitude": "-118.444321",
+            },
+            format="json",
+        )
+
+        self.assertEqual(request_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            request_response.data["fulfillment_method"],
+            PostRequest.FulfillmentMethod.DELIVERY,
+        )
+        self.assertEqual(
+            request_response.data["viewer_fulfillment_method"],
+            PostRequest.FulfillmentMethod.DELIVERY,
+        )
+        self.assertIsNotNone(request_response.data["delivery_quote"])
+        self.assertTrue(request_response.data["delivery_quote"]["delivery_available"])
+        self.assertEqual(request_response.data["delivery_quote"]["pickup_location"], "Los Angeles, CA")
+        self.assertEqual(
+            request_response.data["delivery_quote"]["dropoff_location"],
+            "Bruin Plaza, Los Angeles, CA",
+        )
+
+        post_request = PostRequest.objects.get(post=post, requester=self.requester)
+        self.assertEqual(post_request.fulfillment_method, PostRequest.FulfillmentMethod.DELIVERY)
+        self.assertEqual(post_request.dropoff_location, "Bruin Plaza, Los Angeles, CA")
+
+        outgoing_response = self.requester_client.get("/api/share/requests/outgoing/")
+        self.assertEqual(outgoing_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(outgoing_response.data["requests"]), 1)
+        self.assertEqual(
+            outgoing_response.data["requests"][0]["fulfillment_method"],
+            PostRequest.FulfillmentMethod.DELIVERY,
+        )
+        self.assertEqual(
+            outgoing_response.data["requests"][0]["delivery_quote"]["pickup_location"],
+            "Los Angeles, CA",
+        )
 
     def test_owner_can_approve_request_and_requester_gains_exact_access(self):
         post = self._create_post(title="Spinach dropoff")
@@ -244,6 +301,52 @@ class PostApiTests(TestCase):
         self.assertEqual(observer_detail_response.data["pickup_location"], "Los Angeles, CA")
         self.assertFalse(observer_detail_response.data["exact_location_visible"])
 
+    @patch("posts.serializers.request.reverse_geocode")
+    def test_approved_delivery_request_reveals_exact_pickup_in_quote(self, mock_reverse_geocode):
+        mock_reverse_geocode.return_value = {
+            "pickup_location": "UCLA Residence Hall, Los Angeles, CA",
+            "pickup_latitude": "34.072050",
+            "pickup_longitude": "-118.450000",
+        }
+
+        post = self._create_post(title="Late night snacks")
+        self.requester_client.patch(
+            f"/api/share/{post.id}/claim/",
+            {
+                "fulfillment_method": "delivery",
+                "dropoff_latitude": "34.072050",
+                "dropoff_longitude": "-118.450000",
+            },
+            format="json",
+        )
+
+        request_id = PostRequest.objects.get(post=post, requester=self.requester).id
+        approve_response = self.owner_client.patch(
+            f"/api/share/requests/{request_id}/approve/",
+            {},
+            format="json",
+        )
+        self.assertEqual(approve_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            approve_response.data["request"]["delivery_quote"]["pickup_location"],
+            "123 Main Street, Los Angeles, CA",
+        )
+
+        detail_response = self.requester_client.get(f"/api/share/{post.id}/")
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            detail_response.data["viewer_fulfillment_method"],
+            PostRequest.FulfillmentMethod.DELIVERY,
+        )
+        self.assertEqual(
+            detail_response.data["viewer_delivery_quote"]["pickup_location"],
+            "123 Main Street, Los Angeles, CA",
+        )
+        self.assertEqual(
+            detail_response.data["viewer_delivery_quote"]["dropoff_location"],
+            "UCLA Residence Hall, Los Angeles, CA",
+        )
+
     def test_owner_can_decline_request_and_post_returns_to_available(self):
         post = self._create_post(title="Soup base")
         self.requester_client.patch(f"/api/share/{post.id}/claim/", {}, format="json")
@@ -275,7 +378,7 @@ class PostApiTests(TestCase):
         self.assertFalse(detail_response.data["exact_location_visible"])
         self.assertEqual(detail_response.data["viewer_request_status"], PostRequest.Status.DECLINED)
 
-    @patch("posts.views.reverse_geocode")
+    @patch("posts.views.location.reverse_geocode")
     def test_location_resolve_supports_browser_coordinates(self, mock_reverse_geocode):
         mock_reverse_geocode.return_value = {
             "pickup_location": "Bruin Plaza, Los Angeles, CA",
