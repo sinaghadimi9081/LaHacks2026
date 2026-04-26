@@ -697,7 +697,7 @@ export default function Inventory() {
       <InventoryApprovals />
 
       <section className="mx-auto max-w-7xl px-5 pt-8 md:px-10">
-        <div className="flex flex-wrap items-end justify-between gap-4 border-b-2 border-moonstone pb-4">
+        <div className="dashboard-readable-text flex flex-wrap items-end justify-between gap-4 border-b-2 border-moonstone pb-4">
           <div>
             <p className="pantry-label">Marketplace</p>
             <h2 className="mt-2 text-4xl font-black uppercase leading-none">
@@ -817,14 +817,14 @@ export default function Inventory() {
 
               <div className="grid grid-cols-2 gap-2">
                 <button
-                  className="pantry-button pantry-button--light px-3 py-2 text-xs"
+                  className="rotate-[-6deg] rounded-full border border-ink/15 bg-moonstone px-3 py-2 text-xs font-black uppercase text-ink shadow-sticker transition hover:-translate-y-0.5 hover:rotate-0"
                   onClick={() => openEditListing(listing)}
                   type="button"
                 >
                   Edit
                 </button>
                 <button
-                  className="pantry-button px-3 py-2 text-xs !border-danger/20 !bg-petal !text-danger"
+                  className="rotate-[6deg] rounded-full border border-danger/20 bg-petal px-3 py-2 text-xs font-black uppercase text-danger shadow-sticker transition hover:-translate-y-0.5 hover:rotate-0 disabled:opacity-60"
                   disabled={deletingListingId === listing.id}
                   onClick={() => handleDeleteListing(listing)}
                   type="button"
@@ -856,7 +856,7 @@ export default function Inventory() {
       </section>
 
       <section className="mx-auto max-w-7xl px-5 pt-8 md:px-10">
-        <div className="flex flex-wrap items-end justify-between gap-4 border-b-2 border-moonstone pb-4">
+        <div className="dashboard-readable-text flex flex-wrap items-end justify-between gap-4 border-b-2 border-moonstone pb-4">
           <div>
             <p className="pantry-label">Pantry</p>
             <h2 className="mt-2 text-4xl font-black uppercase leading-none">

@@ -203,8 +203,8 @@ export default function Lockers() {
       <div className="mx-auto max-w-6xl px-5 py-10 md:px-10">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-black uppercase">Lockers</h1>
-            <p className="mt-2 text-sm font-bold text-ink/70">
+            <h1 className="dashboard-readable-text text-3xl font-black uppercase z-10">Lockers</h1>
+            <p className="dashboard-readable-text mt-2 text-sm font-bold text-ink/70">
               Proof-of-concept public lockers (demo data). Pay with credits.
             </p>
           </div>

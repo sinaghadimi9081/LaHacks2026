@@ -48,6 +48,25 @@ code {
     background-size: 20px 20px;
   }
 
+  .dashboard-readable-text {
+    @apply relative isolate rounded-2xl;
+    text-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.82),
+      0 4px 14px rgba(245, 249, 237, 0.72),
+      0 14px 32px rgba(245, 249, 237, 0.58);
+  }
+
+  .dashboard-readable-text::before {
+    position: absolute;
+    inset: -0.7rem -1rem;
+    z-index: -1;
+    border-radius: 1.25rem;
+    background: rgba(245, 249, 237, 0.78);
+    content: '';
+    filter: blur(18px);
+    pointer-events: none;
+  }
+
   .marketplace-page {
     position: relative;
     background-image:
