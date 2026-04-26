@@ -58,6 +58,11 @@ if (-not (Test-Path $venvPip)) {
 
 Invoke-Checked $venvPython -m pip install --upgrade pip setuptools wheel
 Invoke-Checked $venvPython -m pip install -r requirements.txt
+try {
+    Invoke-Checked $venvPython scripts/install_python_certificates.py
+} catch {
+    Write-Warning "Python certificate bootstrap failed. SMTP over TLS may fail until certificates are configured."
+}
 
 if (-not (Test-Path ".env")) {
     if (Test-Path ".env.example") {
@@ -84,6 +89,54 @@ if ($fresh) {
 
 Invoke-Checked $venvPython scripts/rename_receipts_app.py
 Invoke-Checked $venvPython manage.py makemigrations users households core posts receipts
+function Ensure-Tesseract {
+    $existing = Get-Command tesseract -ErrorAction SilentlyContinue
+    if ($existing) {
+        Write-Host "tesseract already installed at $($existing.Source)"
+        return
+    }
+
+    # Common Windows install locations that may not be on PATH yet.
+    $candidatePaths = @(
+        "$env:ProgramFiles\Tesseract-OCR\tesseract.exe",
+        "${env:ProgramFiles(x86)}\Tesseract-OCR\tesseract.exe",
+        "$env:LOCALAPPDATA\Programs\Tesseract-OCR\tesseract.exe"
+    )
+    foreach ($candidate in $candidatePaths) {
+        if (Test-Path $candidate) {
+            Write-Host "tesseract already installed at $candidate"
+            Write-Warning "Add the containing folder to PATH so pytesseract can find it (then restart your shell)."
+            return
+        }
+    }
+
+    Write-Host "tesseract not found - required by pytesseract for local receipt OCR."
+
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        Write-Host "Installing tesseract via winget (UB-Mannheim build)..."
+        try {
+            winget install --id UB-Mannheim.TesseractOCR -e --accept-source-agreements --accept-package-agreements
+        } catch {
+            Write-Warning "winget install failed: $_"
+            Write-Warning "Install manually from https://github.com/UB-Mannheim/tesseract/wiki and add Tesseract-OCR to PATH."
+        }
+    } elseif (Get-Command choco -ErrorAction SilentlyContinue) {
+        Write-Host "Installing tesseract via Chocolatey..."
+        try {
+            choco install tesseract -y
+        } catch {
+            Write-Warning "choco install failed: $_"
+            Write-Warning "Install manually from https://github.com/UB-Mannheim/tesseract/wiki and add Tesseract-OCR to PATH."
+        }
+    } else {
+        Write-Warning "Neither winget nor Chocolatey is available."
+        Write-Warning "Install tesseract manually from https://github.com/UB-Mannheim/tesseract/wiki"
+        Write-Warning "Then add 'C:\Program Files\Tesseract-OCR' to your PATH and restart this shell."
+    }
+}
+
+Ensure-Tesseract
+
 Invoke-Checked $venvPython manage.py migrate
 
 Write-Host "Backend dependencies are installed and migrations are up to date."
