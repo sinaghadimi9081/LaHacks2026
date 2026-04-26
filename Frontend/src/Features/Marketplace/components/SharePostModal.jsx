@@ -27,7 +27,10 @@ function SharePostModal({
         type="button"
       />
 
-      <div className="market-modal__panel pantry-card grid gap-4">
+      <form
+        className="market-modal__panel pantry-card grid gap-4"
+        onSubmit={onSubmit}
+      >
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="pantry-label">share from inventory</p>
@@ -35,6 +38,7 @@ function SharePostModal({
               New post
             </h2>
           </div>
+
           <button
             className="pantry-filter-button shrink-0"
             onClick={onClose}
@@ -48,7 +52,9 @@ function SharePostModal({
           <span className="pantry-field-label">Food item</span>
           <select
             className="pantry-input"
-            onChange={(event) => onUpdateForm('foodItemName', event.target.value)}
+            onChange={(event) =>
+              onUpdateForm('foodItemName', event.target.value)
+            }
             value={form.foodItemName}
           >
             {foodItems.map((item) => (
@@ -75,10 +81,25 @@ function SharePostModal({
           <span className="pantry-field-label">Description</span>
           <textarea
             className="pantry-input min-h-28 resize-y"
-            onChange={(event) => onUpdateForm('description', event.target.value)}
+            onChange={(event) =>
+              onUpdateForm('description', event.target.value)
+            }
             placeholder="Condition, timing, and anything a neighbor should know"
             required
             value={form.description}
+          />
+        </label>
+
+        <label className="block">
+          <span className="pantry-field-label">Quantity</span>
+          <input
+            className="pantry-input"
+            min="1"
+            onChange={(event) => onUpdateForm('quantity', event.target.value)}
+            placeholder="1"
+            required
+            type="number"
+            value={form.quantity}
           />
         </label>
 
@@ -98,8 +119,11 @@ function SharePostModal({
                 onClick={onUseCurrentLocationForPost}
                 type="button"
               >
-                {isResolvingLocation ? 'Resolving location...' : 'Use my current location'}
+                {isResolvingLocation
+                  ? 'Resolving location...'
+                  : 'Use my current location'}
               </button>
+
               <button
                 className="pantry-button pantry-button--light"
                 onClick={onResolveTypedAddress}
@@ -114,7 +138,9 @@ function SharePostModal({
             <span className="pantry-field-label">Pickup address</span>
             <input
               className="pantry-input"
-              onChange={(event) => onUpdateForm('pickup_location', event.target.value)}
+              onChange={(event) =>
+                onUpdateForm('pickup_location', event.target.value)
+              }
               placeholder="Community fridge, lobby shelf, porch cooler..."
               required
               type="text"
@@ -133,10 +159,13 @@ function SharePostModal({
               <span>Selected point</span>
               <strong>
                 {form.pickup_latitude && form.pickup_longitude
-                  ? `${Number(form.pickup_latitude).toFixed(5)}, ${Number(form.pickup_longitude).toFixed(5)}`
+                  ? `${Number(form.pickup_latitude).toFixed(5)}, ${Number(
+                      form.pickup_longitude
+                    ).toFixed(5)}`
                   : 'No coordinates yet'}
               </strong>
             </div>
+
             <div>
               <span>Location source</span>
               <strong>
@@ -150,7 +179,9 @@ function SharePostModal({
           </div>
 
           {locationResolutionError && (
-            <p className="market-location-picker__error">{locationResolutionError}</p>
+            <p className="market-location-picker__error">
+              {locationResolutionError}
+            </p>
           )}
         </div>
 
@@ -165,27 +196,30 @@ function SharePostModal({
           />
         </label>
 
-        <div className="grid gap-3 sm:grid-cols-[0.9fr_1.1fr] sm:items-center">
-          <img
-            alt={`${selectedInventoryItem.name} verification preview`}
-            className="aspect-[4/3] w-full rounded-xl border border-ink/15 bg-cream object-cover shadow-pop"
-            src={reverifiedFoodItem.image}
-          />
-          <dl className="receipt-lines">
-            <div>
-              <dt>status</dt>
-              <dd>available</dd>
-            </div>
-            <div>
-              <dt>request</dt>
-              <dd>open</dd>
-            </div>
-            <div>
-              <dt>created</dt>
-              <dd>today</dd>
-            </div>
-          </dl>
-        </div>
+        {reverifiedFoodItem?.image && (
+          <div className="grid gap-3 sm:grid-cols-[0.9fr_1.1fr] sm:items-center">
+            <img
+              alt={`${selectedInventoryItem?.name || 'Food item'} verification preview`}
+              className="aspect-[4/3] w-full rounded-xl border border-ink/15 bg-cream object-cover shadow-pop"
+              src={reverifiedFoodItem.image}
+            />
+
+            <dl className="receipt-lines">
+              <div>
+                <dt>status</dt>
+                <dd>available</dd>
+              </div>
+              <div>
+                <dt>request</dt>
+                <dd>open</dd>
+              </div>
+              <div>
+                <dt>created</dt>
+                <dd>today</dd>
+              </div>
+            </dl>
+          </div>
+        )}
 
         <button className="pantry-button" disabled={isSubmitting} type="submit">
           {isSubmitting ? 'Sharing item...' : 'Share item'}

@@ -44,6 +44,12 @@ class FoodItem(models.Model):
         return f"{self.name} ({self.quantity})"
 
 class ImpactLog(models.Model):
+    class Status(models.TextChoices):
+        AVAILABLE = "available", "Available"
+        CLAIMED = "claimed", "Claimed"
+        EXPIRED = "expired", "Expired"
+        CANCELLED = "cancelled", "Cancelled"
+
     household = models.ForeignKey(
         "households.Household",
         on_delete=models.SET_NULL,
@@ -71,14 +77,20 @@ class ImpactLog(models.Model):
         blank=True,
         related_name="impact_logs",
     )
-    food_item = models.ForeignKey(FoodItem, on_delete=models.SET_NULL, null=True, related_name='impact_logs')
+    food_item = models.ForeignKey(
+        FoodItem,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="impact_logs",
+    )
     action = models.CharField(max_length=100)
     dollars_saved = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.action} - ${self.dollars_saved}"
-
+    
 class Notification(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

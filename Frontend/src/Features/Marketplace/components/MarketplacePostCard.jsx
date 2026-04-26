@@ -17,16 +17,58 @@ const expirationTagStyles = {
   'use soon': 'bg-mustard text-white',
 }
 
-function formatPostDate(date) {
-  const parsedDate =
-    typeof date === 'string' && date.includes('T')
-      ? new Date(date)
-      : new Date(`${date}T12:00:00`)
+const foodStatusCardClasses = {
+  critical: 'ingredient-card--critical',
+  'use soon': 'ingredient-card--use-soon',
+}
 
+function formatPostDate(date) {
   return new Intl.DateTimeFormat('en', {
     month: 'short',
     day: 'numeric',
   }).format(new Date(String(date).includes('T') ? date : `${date}T12:00:00`))
+}
+
+function getDaysUntilExpiration(expirationDate) {
+  if (!expirationDate) {
+    return null
+  }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const expiration = new Date(
+    String(expirationDate).includes('T') ? expirationDate : `${expirationDate}T00:00:00`,
+  )
+  expiration.setHours(0, 0, 0, 0)
+
+  if (Number.isNaN(expiration.getTime())) {
+    return null
+  }
+
+  return Math.ceil((expiration - today) / 86400000)
+}
+
+function getExpirationState(post) {
+  const daysLeft = getDaysUntilExpiration(post.expiration_date || post.food_item?.expiration_date)
+
+  if (daysLeft == null) {
+    return { label: 'low priority', tag: 'low_priority' }
+  }
+
+  if (daysLeft <= 0) {
+    return { label: 'expired', tag: 'expired' }
+  }
+
+  if (daysLeft <= 1) {
+    return { label: 'critical', tag: 'critical' }
+  }
+
+  if (daysLeft <= 3) {
+    return { label: 'use soon', tag: 'use soon' }
+  }
+
+  return { label: 'low priority', tag: 'low_priority' }
 }
 
 function MarketplacePostCard({
@@ -40,7 +82,11 @@ function MarketplacePostCard({
 }) {
   const tilt = index % 2 === 0 ? '-1.2deg' : '1deg'
   const isUnavailable = post.status !== 'available'
-  const foodStatusClass = foodStatusCardClasses[post.food_item.status] || ''
+  const foodItem = post.food_item || {}
+  const expirationState = getExpirationState(post)
+  const foodStatusClass = foodStatusCardClasses[expirationState.tag] || ''
+  const ownerUsername =
+    post.owner?.username || post.owner_username || post.created_by?.username || 'neighbor'
   const requestLabel =
     post.viewer_request_status === 'approved'
       ? 'matched'
@@ -95,7 +141,7 @@ function MarketplacePostCard({
 
       <div className="photo-sheet z-10">
         <div className="fruit-sticker right-3 top-4 bg-citrus rotate-6">
-          <span>{post.food_item.quantity}</span>
+          <span>{post.quantity || post.quantity_label || foodItem.quantity || '1'}</span>
         </div>
         <span
           className={`absolute right-0 top-14 -rotate-6 z-20 rounded-full border border-ink/15 px-2.5 py-1.5 text-[0.65rem] font-black uppercase leading-none shadow-sticker ${expirationTagStyles[expirationState.tag] || 'bg-white text-ink'}`}
@@ -104,10 +150,10 @@ function MarketplacePostCard({
         </span>
 
         <img
-          alt={`${post.food_item.name} shared food`}
+          alt={`${post.title || post.item_name || foodItem.name || 'Food'} shared food`}
           className="food-item-image"
           loading="lazy"
-          src={post.food_item.image || '/favicon.svg'}
+          src={foodItem.image || post.image_url || '/favicon.svg'}
         />
       </div>
 
@@ -118,7 +164,7 @@ function MarketplacePostCard({
               @{ownerUsername}
             </p>
             <h2 className="mt-1 text-2xl font-black uppercase leading-none">
-              {post.title || post.item_name || post.food_item.name}
+              {post.title || post.item_name || foodItem.name || 'Marketplace item'}
             </h2>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2">
@@ -146,6 +192,14 @@ function MarketplacePostCard({
           <div>
             <dt>posted</dt>
             <dd>{formatPostDate(post.created_at)}</dd>
+          </div>
+          <div>
+            <dt>expires</dt>
+            <dd>
+              {post.expiration_date || foodItem.expiration_date
+                ? formatPostDate(post.expiration_date || foodItem.expiration_date)
+                : 'Unknown'}
+            </dd>
           </div>
           <div>
             <dt>distance</dt>

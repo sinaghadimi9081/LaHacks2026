@@ -1,6 +1,7 @@
 from math import asin, cos, radians, sin, sqrt
 
-from django.utils import timezone, transaction
+from django.utils import timezone
+from django.db import transaction
 from django.db.models import Prefetch, Q
 from django.utils import timezone
 from rest_framework import generics, permissions, status
