@@ -4,6 +4,13 @@ import { toast } from 'react-toastify'
 
 import { useAuth } from '../../Auth/useAuth.jsx'
 
+const authStickers = [
+  { label: 'Fresh', color: 'fresh', shape: 'oval', top: '7rem', left: '5%', rotate: '-10deg' },
+  { label: 'Login', color: 'paper', shape: 'circle', top: '18rem', left: '82%', rotate: '12deg' },
+  { label: 'Fridge', color: 'ripe', shape: 'squircle', top: '34rem', left: '8%', rotate: '8deg' },
+  { label: 'Share', color: 'basil', shape: 'oval', top: '47rem', left: '78%', rotate: '-12deg' },
+]
+
 export default function Login() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -34,8 +41,25 @@ export default function Login() {
   }
 
   return (
-    <section className="pantry-shell">
-      <div className="pantry-card mx-auto max-w-xl">
+    <main className="marketplace-page min-h-screen overflow-hidden text-ink">
+      <div className="marketplace-sticker-pattern" aria-hidden="true">
+        {authStickers.map((sticker) => (
+          <div
+            className={`marketplace-sticker marketplace-sticker--${sticker.color} marketplace-sticker--${sticker.shape}`}
+            key={`${sticker.label}-${sticker.top}`}
+            style={{
+              '--sticker-left': sticker.left,
+              '--sticker-rotate': sticker.rotate,
+              '--sticker-top': sticker.top,
+            }}
+          >
+            {sticker.label}
+          </div>
+        ))}
+      </div>
+
+      <section className="pantry-shell relative z-10">
+        <div className="pantry-card mx-auto max-w-xl">
         <p className="pantry-label">
           Sign in
         </p>
@@ -86,6 +110,7 @@ export default function Login() {
           </button>
         </form>
       </div>
-    </section>
+      </section>
+    </main>
   )
 }
