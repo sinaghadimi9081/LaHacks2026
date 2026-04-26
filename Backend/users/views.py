@@ -93,6 +93,11 @@ class SignupView(APIView):
         serializer = SignupSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+
+        # Send welcome email + in-app notification
+        from core.notifications import NotificationService
+        NotificationService.notify_welcome(user)
+
         return auth_response_for_user(user, request, status.HTTP_201_CREATED)
 
 
