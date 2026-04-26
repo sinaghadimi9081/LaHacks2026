@@ -54,7 +54,7 @@ class PostApiTests(TestCase):
         defaults.update(overrides)
         return Post.objects.create(**defaults)
 
-    @patch("posts.serializers.geocode_address")
+    @patch("posts.serializers.post.geocode_address")
     def test_create_and_list_my_posts_return_exact_location_for_owner(self, mock_geocode_address):
         mock_geocode_address.return_value = {
             "pickup_location": "123 Main Street, Los Angeles, CA",
@@ -142,7 +142,7 @@ class PostApiTests(TestCase):
         self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Post.objects.filter(id=post.id).exists())
 
-    @patch("posts.serializers.geocode_address")
+    @patch("posts.serializers.post.geocode_address")
     def test_owner_can_upload_post_image(self, mock_geocode_address):
         mock_geocode_address.return_value = {
             "pickup_location": "123 Main Street, Los Angeles, CA",
@@ -208,7 +208,7 @@ class PostApiTests(TestCase):
             PostRequest.FulfillmentMethod.PICKUP,
         )
 
-    @patch("posts.serializers.reverse_geocode")
+    @patch("posts.serializers.request.reverse_geocode")
     def test_delivery_request_returns_simulated_quote_and_persists_dropoff(self, mock_reverse_geocode):
         mock_reverse_geocode.return_value = {
             "pickup_location": "Bruin Plaza, Los Angeles, CA",
@@ -301,7 +301,7 @@ class PostApiTests(TestCase):
         self.assertEqual(observer_detail_response.data["pickup_location"], "Los Angeles, CA")
         self.assertFalse(observer_detail_response.data["exact_location_visible"])
 
-    @patch("posts.serializers.reverse_geocode")
+    @patch("posts.serializers.request.reverse_geocode")
     def test_approved_delivery_request_reveals_exact_pickup_in_quote(self, mock_reverse_geocode):
         mock_reverse_geocode.return_value = {
             "pickup_location": "UCLA Residence Hall, Los Angeles, CA",
@@ -378,7 +378,7 @@ class PostApiTests(TestCase):
         self.assertFalse(detail_response.data["exact_location_visible"])
         self.assertEqual(detail_response.data["viewer_request_status"], PostRequest.Status.DECLINED)
 
-    @patch("posts.views.reverse_geocode")
+    @patch("posts.views.location.reverse_geocode")
     def test_location_resolve_supports_browser_coordinates(self, mock_reverse_geocode):
         mock_reverse_geocode.return_value = {
             "pickup_location": "Bruin Plaza, Los Angeles, CA",
