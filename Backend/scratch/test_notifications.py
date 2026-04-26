@@ -19,8 +19,12 @@ from django.core.management import call_command
 def test_notification_flow():
     print("Setting up test data...")
     
-    # 1. Create a test user
-    user, _ = User.objects.get_or_create(username="testuser", email="test@example.com")
+    # 1. Create a test user (using your email from .env so you receive it)
+    test_email = os.getenv("EMAIL_HOST_USER", "test@example.com")
+    print(f"Targeting email: {test_email}")
+    user, _ = User.objects.get_or_create(username="testuser", defaults={'email': test_email})
+    user.email = test_email
+    user.save()
     
     # 2. Create a household
     household, _ = Household.objects.get_or_create(name="Test Kitchen")
@@ -45,16 +49,39 @@ def test_notification_flow():
     
     print(f"Created {item.name} expiring on {tomorrow}")
     
-    # 5. Run the check_expirations command
-    print("\nRunning check_expirations command...")
+    # 6. Create a SECOND user for the specific email requested
+    anthony_email = "leanthony2284@gmail.com"
+    print(f"\nAdding second test case for: {anthony_email}")
+    anthony, _ = User.objects.get_or_create(username="anthony_test", defaults={'email': anthony_email})
+    anthony.email = anthony_email
+    anthony.save()
+    
+    # Add Anthony to the same household
+    HouseholdMembership.objects.get_or_create(
+        user=anthony, 
+        household=household,
+        defaults={'role': 'member', 'status': 'active'}
+    )
+    
+    # Create an item expiring today for Anthony
+    today = timezone.now().date()
+    item2 = FoodItem.objects.create(
+        name="Anthony's Eggs",
+        expiration_date=today,
+        household=household,
+        status='available'
+    )
+    print(f"Created {item2.name} expiring today for Anthony")
+
+    # 7. Run the check_expirations command again
+    print("\nRunning check_expirations command for both users...")
     call_command('check_expirations')
     
-    # 6. Verify notification was created
-    notis = Notification.objects.filter(user=user, title__icontains="Test Milk")
-    if notis.exists():
-        print(f"\nSUCCESS: Website notification created: {notis.first().message}")
-    else:
-        print("\nFAILURE: No website notification found.")
+    # 8. Verify notifications were created for both
+    if Notification.objects.filter(user=user, title__icontains="Test Milk").exists():
+        print(f"SUCCESS: Notification created for {user.email}")
+    if Notification.objects.filter(user=anthony, title__icontains="Anthony's Eggs").exists():
+        print(f"SUCCESS: Notification created for {anthony.email}")
 
 if __name__ == "__main__":
     test_notification_flow()
