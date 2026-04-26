@@ -7,12 +7,8 @@ import { toast } from 'react-toastify'
 import 'leaflet/dist/leaflet.css'
 import { useAuth } from '../../Auth/useAuth.jsx'
 import {
-  approveShareRequest,
   claimSharePost,
   createSharePost,
-  declineShareRequest,
-  fetchIncomingShareRequests,
-  fetchOutgoingShareRequests,
   fetchShareFeed,
   fetchSharePost,
   resolveShareLocation,
@@ -153,6 +149,7 @@ function normalizePost(post, userLocation) {
   }
 }
 
+<<<<<<< HEAD
 function normalizeRequest(request, userLocation) {
   return {
     ...request,
@@ -204,20 +201,21 @@ function getFulfillmentLabel(fulfillmentMethod) {
   return 'Pickup'
 }
 
+=======
+>>>>>>> origin/main
 export default function Marketplace() {
   const { isAuthed, status } = useAuth()
   const [sharePosts, setSharePosts] = useState([])
   const [feedState, setFeedState] = useState('idle')
   const [feedError, setFeedError] = useState('')
-  const [requestsState, setRequestsState] = useState('idle')
-  const [requestsError, setRequestsError] = useState('')
-  const [incomingRequests, setIncomingRequests] = useState([])
-  const [outgoingRequests, setOutgoingRequests] = useState([])
   const [selectedPostDetail, setSelectedPostDetail] = useState(null)
-  const [selectedPostDetailState, setSelectedPostDetailState] = useState('idle')
+  const [, setSelectedPostDetailState] = useState('idle')
   const [selectedPostDetailError, setSelectedPostDetailError] = useState('')
+<<<<<<< HEAD
   const [requestActionId, setRequestActionId] = useState(null)
   const [requestMode, setRequestMode] = useState('pickup')
+=======
+>>>>>>> origin/main
   const [searchTerm, setSearchTerm] = useState('')
   const [activeFilter, setActiveFilter] = useState('all')
   const [form, setForm] = useState(blankForm)
@@ -228,6 +226,7 @@ export default function Marketplace() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
   const [isBasketMoving, setIsBasketMoving] = useState(false)
   const [basketPosition, setBasketPosition] = useState(null)
+  const [basketTopOffset, setBasketTopOffset] = useState(24)
   const [selectedPostId, setSelectedPostId] = useState(null)
   const [userLocation, setUserLocation] = useState(null)
   const [locationState, setLocationState] = useState('idle')
@@ -289,7 +288,7 @@ export default function Marketplace() {
         setSelectedPostId((currentSelectedPostId) =>
           posts.some((post) => post.id === currentSelectedPostId)
             ? currentSelectedPostId
-            : posts[0]?.id ?? null,
+            : null,
         )
         setCartPostIds((currentIds) =>
           currentIds.filter((postId) =>
@@ -300,42 +299,6 @@ export default function Marketplace() {
       } catch (error) {
         setFeedState('error')
         setFeedError(getApiErrorMessage(error, 'Could not load the marketplace feed.'))
-      }
-    },
-    [isAuthed, userLocation],
-  )
-
-  const loadRequestQueues = useCallback(
-    async (referenceLocation = userLocation) => {
-      if (!isAuthed) {
-        return
-      }
-
-      setRequestsState('loading')
-      setRequestsError('')
-
-      try {
-        const params = {}
-        if (referenceLocation) {
-          params.lat = referenceLocation[0]
-          params.lng = referenceLocation[1]
-        }
-
-        const [incomingResponse, outgoingResponse] = await Promise.all([
-          fetchIncomingShareRequests(params),
-          fetchOutgoingShareRequests(params),
-        ])
-
-        setIncomingRequests(
-          (incomingResponse.requests || []).map((request) => normalizeRequest(request, referenceLocation)),
-        )
-        setOutgoingRequests(
-          (outgoingResponse.requests || []).map((request) => normalizeRequest(request, referenceLocation)),
-        )
-        setRequestsState('ready')
-      } catch (error) {
-        setRequestsState('error')
-        setRequestsError(getApiErrorMessage(error, 'Could not load marketplace requests.'))
       }
     },
     [isAuthed, userLocation],
@@ -376,11 +339,7 @@ export default function Marketplace() {
     if (!isAuthed) {
       setFeedState('idle')
       setFeedError('')
-      setRequestsState('idle')
-      setRequestsError('')
       setSharePosts([])
-      setIncomingRequests([])
-      setOutgoingRequests([])
       setSelectedPostId(null)
       setSelectedPostDetail(null)
       setSelectedPostDetailState('idle')
@@ -389,8 +348,7 @@ export default function Marketplace() {
     }
 
     void loadShareFeed(userLocation)
-    void loadRequestQueues(userLocation)
-  }, [isAuthed, loadRequestQueues, loadShareFeed, status, userLocation])
+  }, [isAuthed, loadShareFeed, status, userLocation])
 
   useEffect(() => {
     if (!selectedPostId || !isAuthed) {
@@ -410,6 +368,22 @@ export default function Marketplace() {
       }
     }
   }, [verificationImage])
+
+  useEffect(() => {
+    function updateBasketTopOffset() {
+      const navBottom = document.querySelector('header')?.getBoundingClientRect().bottom ?? 0
+      setBasketTopOffset(Math.max(24, Math.round(navBottom + 16)))
+    }
+
+    updateBasketTopOffset()
+    window.addEventListener('resize', updateBasketTopOffset)
+    window.addEventListener('scroll', updateBasketTopOffset, { passive: true })
+
+    return () => {
+      window.removeEventListener('resize', updateBasketTopOffset)
+      window.removeEventListener('scroll', updateBasketTopOffset)
+    }
+  }, [])
 
   const normalizedSearch = searchTerm.trim().toLowerCase()
   const filteredPosts = useMemo(() => {
@@ -461,8 +435,8 @@ export default function Marketplace() {
   }, [activeFilter, normalizedSearch, sharePosts])
 
   const selectedFeedPost = useMemo(
-    () => sharePosts.find((post) => post.id === selectedPostId) || filteredPosts[0] || null,
-    [filteredPosts, selectedPostId, sharePosts],
+    () => sharePosts.find((post) => post.id === selectedPostId) || null,
+    [selectedPostId, sharePosts],
   )
 
   const selectedPost = useMemo(() => {
@@ -472,12 +446,6 @@ export default function Marketplace() {
     return selectedFeedPost
   }, [selectedFeedPost, selectedPostDetail])
 
-  useEffect(() => {
-    if (!selectedFeedPost && filteredPosts[0]) {
-      setSelectedPostId(filteredPosts[0].id)
-    }
-  }, [filteredPosts, selectedFeedPost])
-
   const availableCount = sharePosts.filter((post) => post.status === 'available').length
   const pendingCount = sharePosts.filter((post) => post.status === 'pending').length
   const claimedCount = sharePosts.filter((post) => post.status === 'claimed').length
@@ -485,7 +453,6 @@ export default function Marketplace() {
     .map((postId) => sharePosts.find((post) => post.id === postId))
     .filter(Boolean)
   const nearbyPosts = filteredPosts.filter((post) => post.distance_miles != null).slice(0, 3)
-  const pendingIncomingRequests = incomingRequests.filter((request) => request.status === 'pending')
 
   const moveBasketToPointer = useCallback((clientX, clientY) => {
     const dock = basketDockRef.current
@@ -785,12 +752,16 @@ export default function Marketplace() {
         setSelectedPostDetail(updatedPost)
       }
       removePostFromCart(postId)
+<<<<<<< HEAD
       await loadRequestQueues(userLocation)
       toast.success(
         requestMode === 'delivery'
           ? 'Simulated delivery request sent. The owner needs to approve it.'
           : 'Pickup request sent. The owner needs to approve it.',
       )
+=======
+      toast.success('Meetup request sent. The owner needs to approve it.')
+>>>>>>> origin/main
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Could not request that meetup.'))
       await loadShareFeed(userLocation)
@@ -819,47 +790,21 @@ export default function Marketplace() {
         setSelectedPostDetail(updatedPostMap.get(selectedPostId))
       }
       setCartPostIds([])
+<<<<<<< HEAD
       await loadRequestQueues(userLocation)
       toast.success(
         requestMode === 'delivery'
           ? 'Simulated delivery requests sent for owner approval.'
           : 'Pickup requests sent for owner approval.',
       )
+=======
+      toast.success('Meetup requests sent for owner approval.')
+>>>>>>> origin/main
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Could not request one of the meetups.'))
       await loadShareFeed(userLocation)
-      await loadRequestQueues(userLocation)
     } finally {
       setIsClaimingCart(false)
-    }
-  }
-
-  async function handleRequestAction(requestId, action) {
-    setRequestActionId(`${action}:${requestId}`)
-
-    try {
-      const response =
-        action === 'approve'
-          ? await approveShareRequest(requestId)
-          : await declineShareRequest(requestId)
-      const updatedRequest = normalizeRequest(response.request, userLocation)
-
-      if (updatedRequest.post?.id === selectedPostId) {
-        setSelectedPostDetail(updatedRequest.post)
-      }
-
-      await loadShareFeed(userLocation)
-      await loadRequestQueues(userLocation)
-      toast.success(action === 'approve' ? 'Request approved.' : 'Request declined.')
-    } catch (error) {
-      toast.error(
-        getApiErrorMessage(
-          error,
-          action === 'approve' ? 'Could not approve that request.' : 'Could not decline that request.',
-        ),
-      )
-    } finally {
-      setRequestActionId(null)
     }
   }
 
@@ -976,6 +921,7 @@ export default function Marketplace() {
           </section>
         ) : (
           <>
+<<<<<<< HEAD
             <section className="mx-auto grid max-w-7xl gap-6 px-5 py-8 md:px-10 xl:grid-cols-[1.35fr_0.95fr]">
               <MarketplaceFeedMap
                 filteredPosts={filteredPosts}
@@ -1417,6 +1363,22 @@ export default function Marketplace() {
                       Retry requests
                     </button>
                   </article>
+=======
+            {(feedError || selectedPostDetailError) && (
+              <section className="mx-auto grid max-w-[92rem] gap-4 px-5 pt-8 md:px-10 lg:grid-cols-2">
+                {feedError && ( null
+                  // <article className="pantry-card">
+                  //   <p className="pantry-label">Feed error</p>
+                  //   <p className="mt-3 text-sm font-bold leading-7 text-danger">{feedError}</p>
+                  //   <button
+                  //     className="pantry-button mt-4"
+                  //     onClick={() => loadShareFeed(userLocation)}
+                  //     type="button"
+                  //   >
+                  //     Retry feed
+                  //   </button>
+                  // </article>
+>>>>>>> origin/main
                 )}
 
                 {selectedPostDetailError && (
@@ -1434,8 +1396,8 @@ export default function Marketplace() {
                     </button>
                   </article>
                 )}
-              </div>
-            </section>
+              </section>
+            )}
 
             {nearbyPosts.length > 0 && (
               <section className="mx-auto max-w-7xl px-5 pb-2 md:px-10">
@@ -1465,12 +1427,12 @@ export default function Marketplace() {
               </section>
             )}
 
-            <section className="mx-auto grid max-w-7xl gap-4 px-5 pt-4 md:px-10">
-              <div className="pantry-card grid gap-4 xl:mr-96 lg:grid-cols-[minmax(220px,1fr)_auto_auto] lg:items-end">
+            <section className="mx-auto grid max-w-[92rem] gap-4 px-5 pt-6 md:px-10">
+              <div className="pantry-card grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
                 <label className="block">
                   <span className="pantry-field-label">Search marketplace</span>
                   <input
-                    className="pantry-input"
+                    className="pantry-input py-2.5 text-sm"
                     onChange={(event) => setSearchTerm(event.target.value)}
                     placeholder="Search items, locations, pending matches, descriptions..."
                     type="search"
@@ -1481,13 +1443,14 @@ export default function Marketplace() {
                 <div>
                   <p className="pantry-field-label">Filter posts</p>
                   <div className="flex flex-wrap gap-2">
-                    {feedFilters.map((filter) => (
+                    {feedFilters.map((filter, index) => (
                       <button
-                        className={`pantry-filter-button ${
+                        className={`pantry-filter-button px-3 py-2 text-[0.7rem] ${
                           activeFilter === filter ? 'pantry-filter-button--active' : ''
                         }`}
                         key={filter}
                         onClick={() => setActiveFilter(filter)}
+                        style={{ '--filter-tilt': index % 2 === 0 ? '-1.5deg' : '1.5deg' }}
                         type="button"
                       >
                         {filter}
@@ -1496,18 +1459,26 @@ export default function Marketplace() {
                   </div>
                 </div>
 
-                <button className="pantry-button h-fit" onClick={() => setIsShareModalOpen(true)} type="button">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-ink/55 md:col-span-2">
+                  Showing {filteredPosts.length} of {sharePosts.length}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="rounded-full border border-ink/15 bg-white/85 px-5 py-3 text-sm font-black uppercase text-ink shadow-sticker">
+                  The Marketplace
+                </h3>
+                <button
+                  className="pantry-button whitespace-nowrap"
+                  onClick={() => setIsShareModalOpen(true)}
+                  type="button"
+                >
                   Share item
                 </button>
-
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-ink/55 lg:col-span-3">
-                  Showing {filteredPosts.length} of {sharePosts.length}
-                  {requestsState === 'loading' ? ' • refreshing request queues...' : ''}
-                </p>
               </div>
             </section>
 
-            <section className="mx-auto max-w-7xl px-5 py-8 md:px-10 xl:pr-96">
+            <section className="mx-auto grid max-w-[92rem] gap-5 px-5 py-8 md:px-10 xl:grid-cols-[minmax(0,1fr)_18rem] xl:items-start">
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredPosts.map((post, index) => (
                   <MarketplacePostCard
@@ -1517,16 +1488,33 @@ export default function Marketplace() {
                     key={post.id}
                     onAddToCart={addPostToCart}
                     onClaimPost={claimPost}
+                    onClearSelection={() => setSelectedPostId(null)}
                     onSelectPost={setSelectedPostId}
                     post={post}
                   />
                 ))}
 
                 {feedState === 'ready' && filteredPosts.length === 0 && (
-                  <p className="pantry-card text-sm font-black uppercase tracking-[0.14em] text-ink/60 sm:col-span-2 lg:col-span-3">
+                  <p className="pantry-card text-sm font-black uppercase tracking-[0.14em] text-ink/60 sm:col-span-2">
                     No marketplace posts match this search.
                   </p>
                 )}
+              </div>
+
+              <div className="xl:sticky xl:top-6">
+                <MarketplaceFeedMap
+                  className="market-map-panel--compact"
+                  filteredPosts={filteredPosts}
+                  isLoadingFeed={feedState === 'loading'}
+                  locationError={locationError}
+                  locationMeta={locationMeta}
+                  locationState={locationState}
+                  onRequestCurrentLocation={requestCurrentLocation}
+                  onSelectPost={setSelectedPostId}
+                  selectedPost={selectedPost}
+                  selectedPostId={selectedPostId}
+                  userLocation={userLocation}
+                />
               </div>
             </section>
 
@@ -1536,7 +1524,7 @@ export default function Marketplace() {
               style={
                 basketPosition
                   ? { transform: `translate3d(${basketPosition.x}px, ${basketPosition.y}px, 0)` }
-                  : undefined
+                  : { top: `${basketTopOffset}px` }
               }
             >
               <MarketplaceCart

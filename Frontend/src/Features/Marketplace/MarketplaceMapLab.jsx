@@ -728,11 +728,10 @@ export default function MarketplaceMapLab() {
               </div>
 
               <div
-                className={`market-map-address-card ${
-                  isExactLocationVisible(selectedPost)
+                className={`market-map-address-card ${isExactLocationVisible(selectedPost)
                     ? 'market-map-address-card--revealed'
                     : 'market-map-address-card--locked'
-                }`}
+                  }`}
               >
                 <p className="pantry-label">
                   {isExactLocationVisible(selectedPost)
@@ -911,9 +910,8 @@ export default function MarketplaceMapLab() {
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           {sortedPosts.map((post) => (
             <article
-              className={`pantry-card market-map-post ${
-                post.id === selectedPostId ? 'market-map-post--selected' : ''
-              }`}
+              className={`pantry-card market-map-post ${post.id === selectedPostId ? 'market-map-post--selected' : ''
+                }`}
               key={post.id}
               onClick={() => setSelectedPostId(post.id)}
             >

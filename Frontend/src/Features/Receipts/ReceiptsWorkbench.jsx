@@ -193,8 +193,8 @@ export default function ReceiptsWorkbench() {
 
     try {
       const payload = await fetchReceipt(receiptIdInput.trim())
-      applyReceiptPayload(payload)
-      setStatusMessage('Receipt loaded. You can review or save the items below.')
+      applyReceiptPayload({ ...payload, confirmed_at: null })
+      setStatusMessage('Receipt loaded. You can review or submit the items again.')
     } catch (error) {
       setErrorMessage(
         getErrorMessage(error, 'Could not find that receipt.'),
