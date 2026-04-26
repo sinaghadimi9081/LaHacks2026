@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 
 import { useAuth } from '../../Auth/useAuth.jsx'
-import heroImage from '../../assets/hero.png'
+import heroImage from '../../assets/home-collage.png'
 
 const landingStickers = [
   { label: 'Rescue', color: 'fresh', shape: 'oval', top: '8rem', left: '4%', rotate: '-10deg' },
