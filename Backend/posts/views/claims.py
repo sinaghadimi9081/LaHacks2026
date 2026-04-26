@@ -11,12 +11,36 @@ from core.notifications import NotificationService
 from core.services.impact_calculator import calculate_impact
 
 from ..models import Post, PostRequest
-from ..serializers import PostRequestReadSerializer
+from ..serializers import PostRequestReadSerializer, PostRequestWriteSerializer
 from .helpers import filtered_posts, request_queryset, serialize_post, serializer_context
+
+
+def _apply_request_preferences(post_request, validated_data):
+    requested_method = validated_data.get("fulfillment_method")
+    if requested_method is None:
+        if post_request.pk:
+            requested_method = post_request.fulfillment_method
+        else:
+            requested_method = PostRequest.FulfillmentMethod.PICKUP
+
+    post_request.fulfillment_method = requested_method
+    if requested_method == PostRequest.FulfillmentMethod.DELIVERY:
+        post_request.dropoff_location = validated_data.get("dropoff_location", "") or ""
+        post_request.dropoff_latitude = validated_data.get("dropoff_latitude")
+        post_request.dropoff_longitude = validated_data.get("dropoff_longitude")
+    else:
+        post_request.dropoff_location = ""
+        post_request.dropoff_latitude = None
+        post_request.dropoff_longitude = None
+
+    return post_request
 
 
 class PostClaimView(APIView):
     def patch(self, request, post_id):
+        request_serializer = PostRequestWriteSerializer(data=request.data)
+        request_serializer.is_valid(raise_exception=True)
+
         with transaction.atomic():
             from .helpers import post_queryset
             post = generics.get_object_or_404(
@@ -39,16 +63,31 @@ class PostClaimView(APIView):
 
             post_request = post.get_request_for_user(request.user)
             if post_request and post_request.status == PostRequest.Status.PENDING:
-                return Response(
-                    serialize_post(post, request, force_public=True), status=status.HTTP_200_OK
+                _apply_request_preferences(post_request, request_serializer.validated_data)
+                post_request.save(
+                    update_fields=[
+                        "fulfillment_method",
+                        "dropoff_location",
+                        "dropoff_latitude",
+                        "dropoff_longitude",
+                    ]
                 )
+                response_payload = serialize_post(post, request, force_public=True)
+                response_payload["request"] = PostRequestReadSerializer(
+                    post_request,
+                    context=serializer_context(request),
+                ).data
+                response_payload["fulfillment_method"] = post_request.fulfillment_method
+                response_payload["delivery_quote"] = response_payload["request"]["delivery_quote"]
+                return Response(response_payload, status=status.HTTP_200_OK)
 
             if post_request is None:
-                post_request = PostRequest.objects.create(post=post, requester=request.user)
+                post_request = PostRequest(post=post, requester=request.user)
             else:
                 post_request.status = PostRequest.Status.PENDING
                 post_request.responded_at = None
-                post_request.save(update_fields=["status", "responded_at"])
+            _apply_request_preferences(post_request, request_serializer.validated_data)
+            post_request.save()
 
             post.status = Post.Status.PENDING
             post.claimed_by_user = None
@@ -58,7 +97,14 @@ class PostClaimView(APIView):
         if post.owner_id:
             NotificationService.notify_marketplace_request(post, request.user)
 
-        return Response(serialize_post(post, request, force_public=True), status=status.HTTP_200_OK)
+        response_payload = serialize_post(post, request, force_public=True)
+        response_payload["request"] = PostRequestReadSerializer(
+            post_request,
+            context=serializer_context(request),
+        ).data
+        response_payload["fulfillment_method"] = post_request.fulfillment_method
+        response_payload["delivery_quote"] = response_payload["request"]["delivery_quote"]
+        return Response(response_payload, status=status.HTTP_200_OK)
 
 
 class IncomingPostRequestListView(generics.ListAPIView):

@@ -5,7 +5,7 @@ from .post import (
     PostReadSerializer,
     PostWriteSerializer,
 )
-from .request import PostRequestReadSerializer
+from .request import PostRequestReadSerializer, PostRequestWriteSerializer
 
 __all__ = [
     "ApprovedPostReadSerializer",
@@ -13,5 +13,6 @@ __all__ = [
     "PostOwnerSerializer",
     "PostReadSerializer",
     "PostRequestReadSerializer",
+    "PostRequestWriteSerializer",
     "PostWriteSerializer",
 ]

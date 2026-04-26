@@ -79,12 +79,16 @@ function BasketFoodSlip({ index, onInsertPost, onRemovePost, post }) {
 
 function MarketplaceCart({
   cartPosts,
+  hasUserLocation,
   isOpen,
   onAddPost,
+  onChangeRequestMode,
   onClaimCart,
   onMoveStart,
   onToggleOpen,
   onRemovePost,
+  requestMode,
+  sandboxMode,
 }) {
   const [{ isOver, canDrop }, dropRef] = useDrop(
     () => ({
@@ -144,6 +148,41 @@ function MarketplaceCart({
 
       {isOpen && (
         <>
+          {sandboxMode && (
+            <div className="mb-4 rounded-[1.75rem] border border-ink/10 bg-white/70 p-4 shadow-sticker">
+              <p className="pantry-label">Request option</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {[
+                  { label: 'Pickup', value: 'pickup' },
+                  { label: 'Simulated delivery', value: 'delivery' },
+                ].map((mode) => (
+                  <button
+                    className={`pantry-filter-button ${
+                      requestMode === mode.value ? 'pantry-filter-button--active' : ''
+                    }`}
+                    key={mode.value}
+                    onClick={() => onChangeRequestMode(mode.value)}
+                    type="button"
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-3 text-sm font-bold leading-6 text-ink/75">
+                {requestMode === 'delivery'
+                  ? 'Simulated delivery uses your current browser location as the dropoff and sends only a fake quote.'
+                  : 'Pickup keeps the normal meetup request flow and reveals the exact address only after approval.'}
+              </p>
+              <span className="mt-2 block text-xs font-black uppercase tracking-[0.12em] text-ink/55">
+                {requestMode === 'delivery'
+                  ? hasUserLocation
+                    ? 'Current location ready for delivery quote'
+                    : 'Turn on current location before sending a delivery request'
+                  : 'No payment or courier dispatch happens in MVP'}
+              </span>
+            </div>
+          )}
+
           <div
             aria-label="Drop available food items into the pickup basket"
             className={`market-basket ${isCartTargeted ? 'market-basket--targeted' : ''}`}
@@ -172,14 +211,21 @@ function MarketplaceCart({
             </div>
           </div>
 
-          <button
-            className="pantry-button w-full"
-            disabled={cartPosts.length === 0}
-            onClick={onClaimCart}
-            type="button"
-          >
-            Request meetup
-          </button>
+          <div className="sticky bottom-0 z-20 mt-4 rounded-[1.5rem] border border-ink/10 bg-white/95 p-3 shadow-paper backdrop-blur-md">
+            <button
+              className="pantry-button w-full"
+              disabled={cartPosts.length === 0}
+              onClick={onClaimCart}
+              type="button"
+            >
+              Request meetup
+            </button>
+            {sandboxMode && (
+              <p className="mt-2 text-center text-xs font-black uppercase tracking-[0.12em] text-ink/65">
+                Mode: {requestMode === 'delivery' ? 'Simulated delivery' : 'Pickup'}
+              </p>
+            )}
+          </div>
         </>
       )}
       <div className="market-cart-drag-cue" aria-hidden="true">

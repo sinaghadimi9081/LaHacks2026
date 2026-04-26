@@ -19,7 +19,13 @@ class CookieJWTAuthentication(JWTAuthentication):
         if not raw_token:
             return None
 
-        validated_token = self.get_validated_token(raw_token)
+        try:
+            validated_token = self.get_validated_token(raw_token)
+        except Exception:
+            # Treat invalid/expired cookies as anonymous so public endpoints
+            # (like /api/auth/csrf/) still work even when the browser has stale
+            # auth cookies from a prior session.
+            return None
         self.enforce_csrf(request)
         return self.get_user(validated_token), validated_token
 
