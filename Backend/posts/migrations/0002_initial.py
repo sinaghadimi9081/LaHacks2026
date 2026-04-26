@@ -10,81 +10,83 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ("households", "0001_initial"),
+        ("core", "0002_initial"),
+        ("posts", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
-            model_name="household",
-            name="created_by",
+            model_name="post",
+            name="claimed_by_user",
             field=models.ForeignKey(
                 blank=True,
                 null=True,
                 on_delete=django.db.models.deletion.SET_NULL,
-                related_name="created_households",
+                related_name="claimed_posts",
                 to=settings.AUTH_USER_MODEL,
             ),
         ),
         migrations.AddField(
-            model_name="householdinvitation",
-            name="household",
+            model_name="post",
+            name="food_item",
             field=models.ForeignKey(
-                on_delete=django.db.models.deletion.CASCADE,
-                related_name="invitations",
-                to="households.household",
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="posts",
+                to="core.fooditem",
             ),
         ),
         migrations.AddField(
-            model_name="householdinvitation",
-            name="invited_by",
-            field=models.ForeignKey(
-                on_delete=django.db.models.deletion.CASCADE,
-                related_name="sent_household_invitations",
-                to=settings.AUTH_USER_MODEL,
-            ),
-        ),
-        migrations.AddField(
-            model_name="householdinvitation",
-            name="invited_user",
+            model_name="post",
+            name="owner",
             field=models.ForeignKey(
                 blank=True,
                 null=True,
                 on_delete=django.db.models.deletion.CASCADE,
-                related_name="received_household_invitations",
+                related_name="posts",
                 to=settings.AUTH_USER_MODEL,
             ),
         ),
         migrations.AddField(
-            model_name="householdmembership",
-            name="household",
+            model_name="postrequest",
+            name="post",
             field=models.ForeignKey(
                 on_delete=django.db.models.deletion.CASCADE,
-                related_name="memberships",
-                to="households.household",
+                related_name="match_requests",
+                to="posts.post",
             ),
         ),
         migrations.AddField(
-            model_name="householdmembership",
-            name="user",
+            model_name="postrequest",
+            name="requester",
             field=models.ForeignKey(
                 on_delete=django.db.models.deletion.CASCADE,
-                related_name="household_memberships",
+                related_name="post_requests",
                 to=settings.AUTH_USER_MODEL,
             ),
         ),
         migrations.AddConstraint(
-            model_name="householdinvitation",
+            model_name="postrequest",
+            constraint=models.UniqueConstraint(
+                fields=("post", "requester"), name="unique_post_request_per_requester"
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="postrequest",
             constraint=models.UniqueConstraint(
                 condition=models.Q(("status", "pending")),
-                fields=("household", "invited_email"),
-                name="unique_pending_household_invitation",
+                fields=("post",),
+                name="unique_pending_post_request",
             ),
         ),
         migrations.AddConstraint(
-            model_name="householdmembership",
+            model_name="postrequest",
             constraint=models.UniqueConstraint(
-                fields=("household", "user"), name="unique_household_membership"
+                condition=models.Q(("status", "approved")),
+                fields=("post",),
+                name="unique_approved_post_request",
             ),
         ),
     ]

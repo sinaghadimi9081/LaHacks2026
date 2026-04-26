@@ -8,10 +8,23 @@ cd "$SCRIPT_DIR"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 VENV_DIR="${VENV_DIR:-.venv}"
 RUN_SERVER=true
+FRESH_DB=false
 
-if [[ "${1:-}" == "--no-run" ]]; then
-  RUN_SERVER=false
-fi
+for arg in "$@"; do
+  case "$arg" in
+    --no-run)
+      RUN_SERVER=false
+      ;;
+    --fresh)
+      FRESH_DB=true
+      ;;
+    *)
+      echo "Unknown option: $arg" >&2
+      echo "Usage: $0 [--no-run] [--fresh]" >&2
+      exit 1
+      ;;
+  esac
+done
 
 if [[ ! -d "$VENV_DIR" ]]; then
   "$PYTHON_BIN" -m venv "$VENV_DIR"
@@ -26,7 +39,17 @@ if [[ ! -f .env ]]; then
   cp .env.example .env
 fi
 
+if [[ "$FRESH_DB" == true ]]; then
+  echo "--fresh: removing db.sqlite3 and any auto-generated migration files."
+  rm -f db.sqlite3
+  find users households core posts receipts \
+    -path "*/migrations/*.py" -not -name "__init__.py" -delete 2>/dev/null || true
+  find users households core posts receipts \
+    -path "*/migrations/*.pyc" -delete 2>/dev/null || true
+fi
+
 python scripts/rename_receipts_app.py
+python manage.py makemigrations users households core posts receipts
 python manage.py migrate
 
 echo "Backend dependencies are installed and migrations are up to date."
