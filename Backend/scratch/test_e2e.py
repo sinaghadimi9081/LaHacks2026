@@ -21,7 +21,8 @@ load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')
 django.setup()
 
-from receipts.receipt_processing import process_receipt_image, _veryfi_is_configured
+from receipts.receipt_processing import process_receipt_image
+from receipts.veryfi_provider import is_configured as _veryfi_is_configured
 from core.services.item_verifier import verify_and_enrich_items
 
 

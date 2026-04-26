@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 
+from core.notifications import NotificationService
 from households.models import HouseholdMembership
 
 from .models import User
@@ -94,8 +95,6 @@ class SignupView(APIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
-        # Send welcome email + in-app notification
-        from core.notifications import NotificationService
         NotificationService.notify_welcome(user)
 
         return auth_response_for_user(user, request, status.HTTP_201_CREATED)
@@ -203,3 +202,40 @@ class MarketplaceProfileDetailView(generics.RetrieveAPIView):
         user = self.get_object()
         serializer = self.get_serializer(user, context={"request": request})
         return Response({"profile": serializer.data}, status=status.HTTP_200_OK)
+
+
+class ImpactLogListView(APIView):
+    """Return paginated impact-log history and cumulative totals for the
+    authenticated user.  ``GET /api/users/me/impact/``"""
+
+    def get(self, request):
+        from core.models import ImpactLog
+
+        logs = (
+            ImpactLog.objects
+            .filter(user=request.user)
+            .order_by("-created_at")
+            .values(
+                "id",
+                "action",
+                "dollars_saved",
+                "water_saved_gallons",
+                "co2_saved_kg",
+                "electricity_saved_kwh",
+                "created_at",
+            )
+        )
+
+        user = request.user
+        return Response(
+            {
+                "logs": list(logs),
+                "totals": {
+                    "water_saved_gallons": str(user.total_water_saved_gallons),
+                    "co2_saved_kg": str(user.total_co2_saved_kg),
+                    "electricity_saved_kwh": str(user.total_electricity_saved_kwh),
+                    "total_posts_shared": user.total_posts_shared,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )

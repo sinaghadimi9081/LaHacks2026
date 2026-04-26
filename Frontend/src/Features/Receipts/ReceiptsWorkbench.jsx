@@ -62,17 +62,39 @@ function createDraftItems(items = []) {
   }))
 }
 
-export default function ReceiptsWorkbench() {
-  const configuredApiBaseUrl =
-    import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000/api'
-  const apiBaseUrl = configuredApiBaseUrl.replace(/\/$/, '')
+function createConfirmItems(items = []) {
+  return items.map((item) => ({
+    id: item.id,
+    selected: item.selected,
+    name: item.name,
+    standardized_name: item.standardized_name?.trim() || item.name,
+    quantity: Number.parseInt(item.quantity, 10) || 1,
+    estimated_price: item.estimated_price === '' ? null : item.estimated_price,
+    expiration_days:
+      item.expiration_days === '' ? null : Number.parseInt(item.expiration_days, 10),
+    image_url: item.image_url || '',
+    description: item.description || '',
+  }))
+}
 
+function sumEstimatedPrices(items = []) {
+  return items.reduce((sum, item) => {
+    const price = Number(item.estimated_price)
+    if (Number.isNaN(price)) {
+      return sum
+    }
+
+    return sum + price
+  }, 0)
+}
+
+export default function ReceiptsWorkbench() {
   const [selectedFile, setSelectedFile] = useState(null)
   const [receiptIdInput, setReceiptIdInput] = useState('')
   const [receiptData, setReceiptData] = useState(null)
   const [draftItems, setDraftItems] = useState([])
   const [statusMessage, setStatusMessage] = useState(
-    'Choose a receipt image, upload it, and inspect the draft pantry items below.',
+    'Add a grocery receipt and we will turn it into pantry items you can review.',
   )
   const [errorMessage, setErrorMessage] = useState('')
   const [isUploading, setIsUploading] = useState(false)
@@ -81,19 +103,16 @@ export default function ReceiptsWorkbench() {
 
   const parsedItems = draftItems
   const selectedItemCount = parsedItems.filter((item) => item.selected).length
-  const estimatedTotal = useMemo(
-    () =>
-      parsedItems.reduce((sum, item) => {
-        const price = Number(item.estimated_price)
-        if (Number.isNaN(price)) {
-          return sum
-        }
-
-        return sum + price
-      }, 0),
-    [parsedItems],
+  const confirmItems = useMemo(() => createConfirmItems(draftItems), [draftItems])
+  const selectedConfirmItems = useMemo(
+    () => confirmItems.filter((item) => item.selected),
+    [confirmItems],
   )
-  const parsedItemTotal = receiptData?.parsed_item_total ?? estimatedTotal
+  const selectedEstimatedTotal = useMemo(
+    () => sumEstimatedPrices(selectedConfirmItems),
+    [selectedConfirmItems],
+  )
+  const parsedItemTotal = selectedEstimatedTotal
   const detectedTotal = receiptData?.detected_total ?? null
   const parsedItemTotalNumber = Number(parsedItemTotal)
   const detectedTotalNumber = Number(detectedTotal)
@@ -139,19 +158,19 @@ export default function ReceiptsWorkbench() {
 
     setIsUploading(true)
     setErrorMessage('')
-    setStatusMessage(`Uploading ${selectedFile.name} and running OCR...`)
+    setStatusMessage(`Reading ${selectedFile.name}...`)
 
     try {
       const payload = await uploadReceipt(formData)
       applyReceiptPayload(payload)
       setStatusMessage(
-        `Parsed receipt #${payload.receipt_id}. Review the draft items before saving anything to the pantry.`,
+        'Receipt ready. Review the items before adding them to your pantry.',
       )
     } catch (error) {
       setErrorMessage(
         getErrorMessage(
           error,
-          'Receipt upload failed. Check that the Django server is running.',
+          'Receipt upload failed. Please try again in a moment.',
         ),
       )
       setStatusMessage('Upload failed.')
@@ -164,21 +183,21 @@ export default function ReceiptsWorkbench() {
     event.preventDefault()
 
     if (!receiptIdInput.trim()) {
-      setErrorMessage('Enter a receipt ID to load an existing upload.')
+      setErrorMessage('Enter a receipt number to load an earlier upload.')
       return
     }
 
     setIsLoadingReceipt(true)
     setErrorMessage('')
-    setStatusMessage(`Loading receipt #${receiptIdInput}...`)
+    setStatusMessage('Finding that receipt...')
 
     try {
       const payload = await fetchReceipt(receiptIdInput.trim())
       applyReceiptPayload(payload)
-      setStatusMessage(`Loaded receipt #${payload.receipt_id}.`)
+      setStatusMessage('Receipt loaded. You can review or save the items below.')
     } catch (error) {
       setErrorMessage(
-        getErrorMessage(error, 'Could not load that receipt ID from the backend.'),
+        getErrorMessage(error, 'Could not find that receipt.'),
       )
       setStatusMessage('Receipt lookup failed.')
     } finally {
@@ -204,18 +223,7 @@ export default function ReceiptsWorkbench() {
 
     try {
       const payload = await confirmReceipt(receiptData.receipt_id, {
-        items: draftItems.map((item) => ({
-          id: item.id,
-          selected: item.selected,
-          name: item.name,
-          standardized_name: item.standardized_name?.trim() || item.name,
-          quantity: Number.parseInt(item.quantity, 10) || 1,
-          estimated_price: item.estimated_price === '' ? null : item.estimated_price,
-          expiration_days:
-            item.expiration_days === '' ? null : Number.parseInt(item.expiration_days, 10),
-          image_url: item.image_url || '',
-          description: item.description || '',
-        })),
+        items: confirmItems,
       })
 
       startTransition(() => {
@@ -225,12 +233,13 @@ export default function ReceiptsWorkbench() {
                 ...currentReceipt,
                 confirmed_at: payload.confirmed_at,
                 parsed_items: draftItems,
+                parsed_item_total: selectedEstimatedTotal,
               }
             : currentReceipt,
         )
       })
       setStatusMessage(
-        `Saved ${payload.created_count} pantry item${payload.created_count === 1 ? '' : 's'} from receipt #${receiptData.receipt_id}.`,
+        `Saved ${payload.created_count} pantry item${payload.created_count === 1 ? '' : 's'}.`,
       )
     } catch (error) {
       setErrorMessage(getErrorMessage(error, 'Could not confirm this receipt.'))
@@ -241,408 +250,398 @@ export default function ReceiptsWorkbench() {
   }
 
   return (
-    <main className="px-6 py-10">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6">
-        <section className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/85 shadow-card backdrop-blur">
-          <div className="grid gap-8 px-6 py-8 lg:grid-cols-[1.1fr_0.9fr] lg:px-10 lg:py-10">
-            <div className="space-y-5">
-              <span className="inline-flex rounded-full border border-emerald-700/20 bg-emerald-50 px-4 py-1 text-xs font-bold uppercase tracking-[0.24em] text-emerald-800">
-                NeighborFridge receipt OCR
-              </span>
-              <div className="space-y-3">
-                <h1 className="max-w-3xl text-4xl font-extrabold tracking-tight text-slate-950 md:text-5xl">
-                  Upload a grocery receipt and confirm the draft pantry items.
-                </h1>
-                <p className="max-w-2xl text-base leading-8 text-slate-600 md:text-lg">
-                  The browser sends the image as multipart form-data, Django
-                  stores it, and the backend returns draft receipt items for
-                  review. Only after confirmation are pantry objects created.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-3 text-sm font-medium text-slate-700">
-                <span className="rounded-full bg-slate-950 px-4 py-2 text-white">
-                  POST /receipts/upload/
-                </span>
-                <span className="rounded-full bg-white px-4 py-2 ring-1 ring-slate-200">
-                  GET /receipts/&lt;id&gt;/
-                </span>
-                <span className="rounded-full bg-white px-4 py-2 ring-1 ring-slate-200">
-                  POST /receipts/&lt;id&gt;/confirm/
-                </span>
-              </div>
-            </div>
+    <main className="marketplace-page min-h-screen overflow-hidden text-ink">
+      <section className="pantry-dot-grid relative border-b-4 border-ink bg-moonstone px-5 py-8 md:px-10">
+        <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+          <div>
+            <p className="pantry-label">Receipts</p>
+            <h1 className="mt-3 max-w-3xl text-5xl font-black uppercase leading-none md:text-7xl">
+              Pantry helper
+            </h1>
+            <p className="mt-4 max-w-2xl text-base font-bold leading-7 text-ink/70">
+              Snap a grocery receipt, tidy up the items, and add only what you want to your pantry.
+            </p>
+          </div>
 
-            <div className="rounded-[1.5rem] bg-slate-950 p-6 text-sm text-slate-200">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-300">
-                Current API target
-              </p>
-              <code className="mt-3 block overflow-x-auto rounded-2xl bg-black/30 p-4 text-emerald-200">
-                {apiBaseUrl}
-              </code>
-              <div className="mt-5 space-y-3 text-slate-300">
-                <p>{statusMessage}</p>
-                <p>
-                  Uploads now require an authenticated household member, so run
-                  this while signed in to the app.
-                </p>
-                <p>
-                  If OCR fails, confirm the Tesseract system binary is installed
-                  and the Veryfi credentials are configured.
-                </p>
-              </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="metric-card bg-white/90">
+              <span>Items found</span>
+              <strong>{parsedItems.length}</strong>
+            </div>
+            <div className="metric-card bg-citrus">
+              <span>Ready to save</span>
+              <strong>{selectedItemCount}</strong>
+            </div>
+            <div className="metric-card bg-petal">
+              <span>Receipt total</span>
+              <strong className="text-2xl">{formatCurrency(detectedTotal)}</strong>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-          <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/85 p-6 shadow-card backdrop-blur">
-            <div className="space-y-5">
+      <section className="mx-auto grid max-w-7xl gap-6 px-5 py-8 md:px-10 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="space-y-6">
+          <article className="pantry-card">
+            <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                  Upload receipt
-                </p>
-                <h2 className="mt-2 text-2xl font-bold text-slate-950">
-                  Test the OCR flow from the browser
+                <p className="pantry-label">Add receipt</p>
+                <h2 className="mt-2 text-3xl font-black uppercase leading-none">
+                  Upload a photo
                 </h2>
               </div>
-
-              <form className="space-y-4" onSubmit={handleUpload}>
-                <label className="block rounded-[1.25rem] border border-dashed border-slate-300 bg-slate-50/90 p-5">
-                  <span className="block text-sm font-semibold text-slate-800">
-                    Receipt image
-                  </span>
-                  <span className="mt-1 block text-sm text-slate-500">
-                    Choose a `.jpg`, `.jpeg`, or `.png` grocery receipt.
-                  </span>
-                  <input
-                    accept="image/*"
-                    className="mt-4 block w-full text-sm text-slate-700 file:mr-4 file:rounded-full file:border-0 file:bg-slate-950 file:px-4 file:py-2 file:font-semibold file:text-white hover:file:bg-slate-800"
-                    onChange={(event) =>
-                      setSelectedFile(event.target.files?.[0] ?? null)
-                    }
-                    type="file"
-                  />
-                </label>
-
-                <button
-                  className="inline-flex w-full items-center justify-center rounded-full bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-emerald-300"
-                  disabled={isUploading}
-                  type="submit"
-                >
-                  {isUploading ? 'Uploading and parsing...' : 'Upload and parse'}
-                </button>
-              </form>
-
-              <div className="rounded-[1.25rem] bg-slate-50 p-4 text-sm text-slate-600">
-                <p className="font-semibold text-slate-800">Selected file</p>
-                <p className="mt-1">
-                  {selectedFile
-                    ? `${selectedFile.name} (${Math.round(selectedFile.size / 1024)} KB)`
-                    : 'No file selected yet.'}
-                </p>
-              </div>
+              <span className="fruit-sticker static bg-citrus rotate-6">
+                <span>Step 1</span>
+              </span>
             </div>
-          </article>
 
-          <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/85 p-6 shadow-card backdrop-blur">
-            <div className="space-y-5">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                  Load existing upload
-                </p>
-                <h2 className="mt-2 text-2xl font-bold text-slate-950">
-                  Re-open a saved receipt by ID
-                </h2>
-              </div>
-
-              <form className="flex flex-col gap-3 sm:flex-row" onSubmit={handleLoadReceipt}>
+            <form className="mt-5 space-y-4" onSubmit={handleUpload}>
+              <label className="block rounded-2xl border-2 border-dashed border-ink/20 bg-white/70 p-5 shadow-sticker">
+                <span className="pantry-field-label">Receipt image</span>
                 <input
-                  className="min-w-0 flex-1 rounded-full border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-0 transition focus:border-emerald-700"
-                  onChange={(event) => setReceiptIdInput(event.target.value)}
-                  placeholder="Enter receipt id, e.g. 2"
-                  type="text"
-                  value={receiptIdInput}
+                  accept="image/*"
+                  className="pantry-input file:mr-4 file:rounded-full file:border-0 file:bg-citrus file:px-4 file:py-2 file:font-black file:text-ink"
+                  onChange={(event) =>
+                    setSelectedFile(event.target.files?.[0] ?? null)
+                  }
+                  type="file"
                 />
-                <button
-                  className="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-                  disabled={isLoadingReceipt}
-                  type="submit"
-                >
-                  {isLoadingReceipt ? 'Loading...' : 'Load receipt'}
-                </button>
-              </form>
+              </label>
 
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-                <div className="rounded-[1.25rem] bg-slate-50 p-4 md:col-span-2 xl:col-span-1">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    Store
-                  </p>
-                  <p className="mt-2 text-xl font-bold text-slate-950">
-                    {receiptData?.store_name || 'Unknown'}
-                  </p>
-                </div>
-                <div className="rounded-[1.25rem] bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    Draft items
-                  </p>
-                  <p className="mt-2 text-3xl font-bold text-slate-950">
-                    {parsedItems.length}
-                  </p>
-                </div>
-                <div className="rounded-[1.25rem] bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    Selected to save
-                  </p>
-                  <p className="mt-2 text-3xl font-bold text-slate-950">
-                    {selectedItemCount}
-                  </p>
-                </div>
-                <div className="rounded-[1.25rem] bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    Parsed item sum
-                  </p>
-                  <p className="mt-2 text-3xl font-bold text-slate-950">
-                    {formatCurrency(parsedItemTotal)}
-                  </p>
-                </div>
-                <div className="rounded-[1.25rem] bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    Detected total
-                  </p>
-                  <p className="mt-2 text-3xl font-bold text-slate-950">
-                    {formatCurrency(detectedTotal)}
-                  </p>
-                </div>
-              </div>
+              <button className="pantry-button w-full" disabled={isUploading} type="submit">
+                {isUploading ? 'Reading receipt...' : 'Read receipt'}
+              </button>
+            </form>
 
-              <div className="rounded-[1.25rem] bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                {hasMeaningfulTotalGap ? (
-                  <>
-                    Draft item sum differs from the receipt total by{' '}
-                    <strong>{formatCurrency(totalDifference)}</strong>. That
-                    usually means the receipt includes discounts, gift cards, or
-                    other non-pantry/payment rows that were excluded or still
-                    need review. Trust detected total for the actual receipt
-                    amount.
-                  </>
-                ) : (
-                  <>
-                    Parsed item sum is the sum of draft line items. Detected
-                    total is the receipt balance/total read from the summary
-                    section, and it is the more reliable number for the full
-                    receipt amount.
-                  </>
-                )}
-              </div>
-
-              {errorMessage ? (
-                <div className="rounded-[1.25rem] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-                  {errorMessage}
+            <div className="mt-5">
+              <p className="pantry-label">Receipt preview</p>
+              {receiptData?.image ? (
+                <img
+                  alt="Uploaded receipt"
+                  className="mt-4 w-full rounded-2xl border border-ink/15 object-cover shadow-pop"
+                  src={receiptData.image}
+                />
+              ) : (
+                <div className="mt-4 rounded-2xl border-2 border-dashed border-ink/20 bg-white/70 px-4 py-12 text-center text-sm font-black uppercase tracking-[0.14em] text-ink/55">
+                  Your receipt photo will appear here.
                 </div>
-              ) : null}
-
-              {receiptData?.confirmed_at ? (
-                <div className="rounded-[1.25rem] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-                  This receipt was confirmed on {formatTimestamp(receiptData.confirmed_at)}.
-                </div>
-              ) : null}
+              )}
             </div>
           </article>
-        </section>
 
-        <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-          <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/85 p-6 shadow-card backdrop-blur">
-            <div className="flex flex-col gap-2 border-b border-slate-200 pb-4 sm:flex-row sm:items-end sm:justify-between">
+          <article className="pantry-card">
+            <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                  Parsed items
-                </p>
-                <h2 className="mt-2 text-2xl font-bold text-slate-950">
-                  Edit the draft items before pantry confirmation
+                <p className="pantry-label">Find a receipt</p>
+                <h2 className="mt-2 text-3xl font-black uppercase leading-none">
+                  Open an earlier upload
+                </h2>
+              </div>
+              <span className="fruit-sticker static bg-petal -rotate-6">
+                <span>Saved</span>
+              </span>
+            </div>
+
+            <form className="mt-5 flex flex-col gap-3 sm:flex-row" onSubmit={handleLoadReceipt}>
+              <input
+                className="pantry-input min-w-0 flex-1"
+                onChange={(event) => setReceiptIdInput(event.target.value)}
+                placeholder="Receipt number"
+                type="text"
+                value={receiptIdInput}
+              />
+              <button
+                className="pantry-button pantry-button--light"
+                disabled={isLoadingReceipt}
+                type="submit"
+              >
+                {isLoadingReceipt ? 'Loading...' : 'Open'}
+              </button>
+            </form>
+          </article>
+
+          <article className="pantry-card">
+            <p className="pantry-label">Status</p>
+            <p className="mt-3 text-sm font-bold leading-7 text-ink/70">{statusMessage}</p>
+
+            {errorMessage ? (
+              <div className="mt-4 rounded-xl border border-danger/25 bg-danger-soft/80 px-4 py-3 text-sm font-bold text-danger">
+                {errorMessage}
+              </div>
+            ) : null}
+
+            {receiptData?.confirmed_at ? (
+              <div className="mt-4 rounded-xl border border-ink/15 bg-citrus/70 px-4 py-3 text-sm font-bold text-ink">
+                Saved on {formatTimestamp(receiptData.confirmed_at)}.
+              </div>
+            ) : null}
+          </article>
+
+        </div>
+
+        <div className="space-y-6">
+          <article className="pantry-card">
+            <div className="flex flex-col gap-3 border-b-2 border-moonstone pb-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="pantry-label">Review items</p>
+                <h2 className="mt-2 text-3xl font-black uppercase leading-none">
+                  Choose what goes in
                 </h2>
               </div>
               {receiptData ? (
-                <div className="text-sm text-slate-500">
-                  Receipt #{receiptData.receipt_id} · Uploaded{' '}
-                  {formatTimestamp(receiptData.created_at)}
-                </div>
+                <span className="fruit-sticker static bg-moonstone rotate-3">
+                  <span>{formatTimestamp(receiptData.created_at)}</span>
+                </span>
               ) : null}
             </div>
 
             {receiptData ? (
               parsedItems.length > 0 ? (
-                <div className="mt-5 overflow-hidden rounded-[1.25rem] border border-slate-200">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-                      <thead className="bg-slate-50 text-slate-600">
-                        <tr>
-                          <th className="px-4 py-3 font-semibold">Save</th>
-                          <th className="px-4 py-3 font-semibold">Pantry name</th>
-                          <th className="px-4 py-3 font-semibold">Price</th>
-                          <th className="px-4 py-3 font-semibold">Qty</th>
-                          <th className="px-4 py-3 font-semibold">Days left</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 bg-white">
-                        {parsedItems.map((item) => (
-                          <tr key={item.id}>
-                            <td className="px-4 py-3 text-slate-700">
-                              <input
-                                checked={Boolean(item.selected)}
-                                className="h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-700"
-                                onChange={(event) =>
-                                  handleDraftItemChange(item.id, 'selected', event.target.checked)
-                                }
-                                type="checkbox"
-                              />
-                            </td>
-                            <td className="px-4 py-3 font-medium text-slate-900">
-                              <input
-                                className="w-full min-w-[12rem] rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-700"
-                                onChange={(event) =>
-                                  handleDraftItemChange(item.id, 'standardized_name', event.target.value)
-                                }
-                                value={item.standardized_name || item.name}
-                              />
-                              <p className="mt-2 text-xs font-medium text-slate-500">
-                                OCR line: {item.name}
-                              </p>
-                            </td>
-                            <td className="px-4 py-3 text-slate-700">
-                              <input
-                                className="w-28 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-700"
-                                min="0"
-                                onChange={(event) =>
-                                  handleDraftItemChange(item.id, 'estimated_price', event.target.value)
-                                }
-                                step="0.01"
-                                type="number"
-                                value={item.estimated_price}
-                              />
-                            </td>
-                            <td className="px-4 py-3 text-slate-700">
-                              <input
-                                className="w-24 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-700"
-                                min="1"
-                                onChange={(event) =>
-                                  handleDraftItemChange(item.id, 'quantity', event.target.value)
-                                }
-                                step="1"
-                                type="number"
-                                value={item.quantity}
-                              />
-                            </td>
-                            <td className="px-4 py-3 text-slate-700">
-                              <input
-                                className="w-28 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-700"
-                                min="0"
-                                onChange={(event) =>
-                                  handleDraftItemChange(item.id, 'expiration_days', event.target.value)
-                                }
-                                step="1"
-                                type="number"
-                                value={item.expiration_days}
-                              />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                <div className="mt-5 grid gap-4">
+                  {parsedItems.map((item, index) => (
+                    <details
+                      className={`ingredient-card ingredient-card--text-only group ${
+                        item.selected ? '' : 'ingredient-card--critical'
+                      }`}
+                      key={item.id}
+                      style={{ '--tilt': index % 2 === 0 ? '-0.5deg' : '0.5deg' }}
+                    >
+                      <summary className="recipe-card recipe-card--full cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0">
+                            <p className="font-black uppercase leading-5 text-ink">
+                              {item.standardized_name || item.name}
+                            </p>
+                            <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-ink/50">
+                              Qty {item.quantity || 1}
+                              {item.expiration_days === ''
+                                ? ''
+                                : ` - fresh for ${item.expiration_days} day${Number(item.expiration_days) === 1 ? '' : 's'}`}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-3">
+                            <button
+                              className={`rounded-full border border-ink/15 px-3 py-1 text-xs font-black uppercase shadow-sticker transition hover:-translate-y-0.5 ${
+                                item.selected ? 'bg-moonstone text-ink' : 'bg-white text-ink/45'
+                              }`}
+                              onClick={(event) => {
+                                event.preventDefault()
+                                handleDraftItemChange(item.id, 'selected', !item.selected)
+                              }}
+                              type="button"
+                            >
+                              {item.selected ? 'Save' : 'Skip'}
+                            </button>
+                            <span className="rounded-full border border-ink/15 bg-citrus px-3 py-1 text-xs font-black uppercase shadow-sticker">
+                              {formatCurrency(item.estimated_price)}
+                            </span>
+                            <span className="rounded-full border border-ink/15 bg-white px-3 py-1 text-xs font-black uppercase text-ink/65 shadow-sticker group-open:hidden">
+                              Open
+                            </span>
+                            <span className="hidden rounded-full border border-ink/15 bg-white px-3 py-1 text-xs font-black uppercase text-ink/65 shadow-sticker group-open:inline-flex">
+                              Close
+                            </span>
+                          </div>
+                        </div>
+                      </summary>
+
+                      <div className="recipe-card recipe-card--full border-t border-dashed border-ink/15">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <label className="flex items-center gap-3 text-sm font-black uppercase tracking-[0.12em] text-ink">
+                            <input
+                              checked={Boolean(item.selected)}
+                              className="h-5 w-5 rounded border-ink/30 text-phthalo focus:ring-phthalo"
+                              onChange={(event) =>
+                                handleDraftItemChange(item.id, 'selected', event.target.checked)
+                              }
+                              type="checkbox"
+                            />
+                            Save
+                          </label>
+                          <span className="rounded-full border border-ink/15 bg-citrus px-3 py-1 text-xs font-black uppercase shadow-sticker">
+                            {formatCurrency(item.estimated_price)}
+                          </span>
+                        </div>
+
+                        <label className="block">
+                          <span className="pantry-field-label">Pantry name</span>
+                          <input
+                            className="pantry-input"
+                            onChange={(event) =>
+                              handleDraftItemChange(item.id, 'standardized_name', event.target.value)
+                            }
+                            value={item.standardized_name || item.name}
+                          />
+                          <p className="mt-2 text-xs font-bold text-ink/50">
+                            Original line: {item.name}
+                          </p>
+                        </label>
+
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          <label className="block">
+                            <span className="pantry-field-label">Price</span>
+                            <input
+                              className="pantry-input"
+                              min="0"
+                              onChange={(event) =>
+                                handleDraftItemChange(item.id, 'estimated_price', event.target.value)
+                              }
+                              step="0.01"
+                              type="number"
+                              value={item.estimated_price}
+                            />
+                          </label>
+
+                          <label className="block">
+                            <span className="pantry-field-label">Quantity</span>
+                            <input
+                              className="pantry-input"
+                              min="1"
+                              onChange={(event) =>
+                                handleDraftItemChange(item.id, 'quantity', event.target.value)
+                              }
+                              step="1"
+                              type="number"
+                              value={item.quantity}
+                            />
+                          </label>
+
+                          <label className="block">
+                            <span className="pantry-field-label">Fresh for</span>
+                            <input
+                              className="pantry-input"
+                              min="0"
+                              onChange={(event) =>
+                                handleDraftItemChange(item.id, 'expiration_days', event.target.value)
+                              }
+                              step="1"
+                              type="number"
+                              value={item.expiration_days}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </details>
+                  ))}
                 </div>
               ) : (
-                <div className="mt-5 rounded-[1.25rem] border border-amber-200 bg-amber-50 px-4 py-5 text-sm text-amber-900">
-                  OCR ran, but the parser did not find draft items for this
-                  receipt. Use the raw text panel to inspect what the OCR
-                  returned.
+                <div className="mt-5 rounded-2xl border border-ink/15 bg-white/80 px-4 py-5 text-sm font-bold text-ink/65 shadow-sticker">
+                  We could not find pantry items on this receipt. Try another photo with clearer lighting.
                 </div>
               )
             ) : (
-              <div className="mt-5 rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-600">
-                No receipt loaded yet. Upload a receipt or load one by ID.
+              <div className="mt-5 rounded-2xl border border-ink/15 bg-white/80 px-4 py-5 text-sm font-bold text-ink/65 shadow-sticker">
+                Upload a receipt to start building your pantry list.
               </div>
             )}
 
             {receiptData ? (
-              <form className="mt-6 rounded-[1.25rem] bg-emerald-50 p-5" onSubmit={handleConfirmReceipt}>
+              <form className="mt-6 rounded-2xl border-2 border-ink bg-citrus p-5 shadow-pop" onSubmit={handleConfirmReceipt}>
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                      Confirm to pantry
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-ink/70">
+                      Add to pantry
                     </p>
-                    <p className="mt-2 text-sm text-emerald-950">
-                      Selected rows will be saved as pantry items for the active household.
+                    <p className="mt-2 text-sm font-bold text-ink/75">
+                      Only checked items will be saved.
                     </p>
                   </div>
-                  <button
-                    className="inline-flex items-center justify-center rounded-full bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-emerald-300"
-                    disabled={isConfirming || Boolean(receiptData.confirmed_at) || selectedItemCount === 0}
-                    type="submit"
-                  >
-                    {receiptData.confirmed_at
-                      ? 'Already confirmed'
-                      : isConfirming
-                        ? 'Saving to pantry...'
-                        : `Save ${selectedItemCount} item${selectedItemCount === 1 ? '' : 's'} to pantry`}
-                  </button>
+                <button
+                  className="pantry-button bg-white text-ink font-black tracking-wide"
+                  disabled={isConfirming || Boolean(receiptData.confirmed_at) || selectedItemCount === 0}
+                  type="submit"
+                >
+                  {receiptData.confirmed_at
+                    ? 'Submitted'
+                    : isConfirming
+                      ? 'Submitting...'
+                      : `Submit to Pantry (${selectedItemCount})`}
+                </button>                
                 </div>
               </form>
             ) : null}
+          </article>
 
-            {receiptData?.raw_text ? (
-              <div className="mt-6 rounded-[1.25rem] bg-slate-950 p-5 text-sm text-slate-200">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">
-                  Raw OCR text
+          <article className="pantry-card">
+            <p className="pantry-label">Quick check</p>
+
+            <div className="mt-4 rounded-md border-2 border-ink bg-white px-4 py-5 font-mono text-xs text-ink shadow-pop">
+              <div className="border-b border-dashed border-ink/35 pb-3 text-center">
+                <p className="text-base font-black uppercase tracking-[0.16em]">
+                  {receiptData?.store_name || 'Grocery receipt'}
                 </p>
-                <pre className="mt-3 max-h-[24rem] overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 text-slate-100">
-                  {receiptData.raw_text}
-                </pre>
+                <p className="mt-1 uppercase tracking-[0.12em] text-ink/55">
+                  {receiptData ? formatTimestamp(receiptData.created_at) : 'No receipt loaded'}
+                </p>
               </div>
-            ) : null}
-          </article>
 
-          <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/85 p-6 shadow-card backdrop-blur">
-            <div className="border-b border-slate-200 pb-4">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                Receipt preview
-              </p>
-              <h2 className="mt-2 text-2xl font-bold text-slate-950">
-                Saved backend image and quick notes
-              </h2>
+              {selectedConfirmItems.length > 0 ? (
+                <div className="border-b border-dashed border-ink/35 py-3">
+                  {selectedConfirmItems.map((item) => (
+                    <div className="py-2" key={item.id}>
+                      <div className="flex items-start justify-between gap-4">
+                        <span className="max-w-[70%] font-black uppercase">
+                          {item.standardized_name}
+                        </span>
+                        <span className="shrink-0 font-black">
+                          {formatCurrency(item.estimated_price)}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-start justify-between gap-4 uppercase text-ink/55">
+                        <span>
+                          Qty {item.quantity}
+                          {item.expiration_days === null
+                            ? ''
+                            : ` - fresh ${item.expiration_days} day${item.expiration_days === 1 ? '' : 's'}`}
+                        </span>
+                        <span>{item.selected ? 'Save' : 'Skip'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="border-b border-dashed border-ink/35 py-6 text-center font-black uppercase tracking-[0.12em] text-ink/50">
+                  No checked items
+                </div>
+              )}
+
+              <div className="grid gap-2 border-b border-dashed border-ink/35 py-3 uppercase">
+                <div className="flex justify-between gap-4">
+                  <span>Chosen items</span>
+                  <span className="font-black">{selectedItemCount}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span>Chosen total</span>
+                  <span className="font-black">{formatCurrency(parsedItemTotal)}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span>Receipt total</span>
+                  <span className="font-black">{formatCurrency(detectedTotal)}</span>
+                </div>
+                {hasMeaningfulTotalGap ? (
+                  <div className="flex justify-between gap-4">
+                    <span>Difference</span>
+                    <span className="font-black">{formatCurrency(totalDifference)}</span>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="pt-3 text-center uppercase tracking-[0.12em] text-ink/55">
+                Review before adding to pantry
+              </div>
             </div>
-
-            {receiptData?.image ? (
-              <img
-                alt={`Receipt ${receiptData.receipt_id}`}
-                className="mt-5 w-full rounded-[1.5rem] border border-slate-200 object-cover shadow-sm"
-                src={receiptData.image}
-              />
+            {hasMeaningfulTotalGap ? (
+              <p className="mt-4 rounded-xl border border-ink/15 bg-soon-soft/80 px-4 py-3 text-sm font-bold leading-7 text-ink/70">
+                The receipt total and item total are a little different. That can happen when a receipt includes discounts, tax, or non-food purchases.
+              </p>
             ) : (
-              <div className="mt-5 rounded-[1.25rem] border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-                The saved receipt image will appear here after a successful upload
-                or lookup.
-              </div>
+              <p className="mt-4 rounded-xl border border-ink/15 bg-white/80 px-4 py-3 text-sm font-bold leading-7 text-ink/60">
+                Totals are here as a quick confidence check before saving.
+              </p>
             )}
-
-            <div className="mt-5 space-y-3 rounded-[1.25rem] bg-slate-50 p-5 text-sm leading-7 text-slate-700">
-              <p>
-                The browser uploads using the `image` form-data key, then this
-                screen lets the user edit the parsed draft rows before calling
-                the confirm endpoint.
-              </p>
-              <p>
-                Uploaded files are stored in `Backend/media/receipts/`, and the
-                parsed rows in the table above stay as draft `ParsedReceiptItem`
-                records until confirmation.
-              </p>
-              <p>
-                If a receipt looks wrong, compare the table against the raw OCR
-                block to see whether the issue is OCR quality or parsing logic.
-              </p>
-            </div>
           </article>
-        </section>
-      </div>
+        </div>
+      </section>
     </main>
   )
 }
