@@ -3,6 +3,7 @@ import { useDrag } from 'react-dnd'
 import { getEmptyImage } from 'react-dnd-html5-backend'
 
 import { formatDistanceMiles } from '../marketplaceLocation.js'
+import MarketplaceListingPreview from './MarketplaceListingPreview.jsx'
 
 const postStatusStyles = {
   available: 'bg-citrus text-ink',
@@ -36,6 +37,7 @@ function MarketplacePostCard({
   isSelected,
   onAddToCart,
   onClaimPost,
+  onClearSelection,
   onSelectPost,
   post,
 }) {
@@ -83,14 +85,27 @@ function MarketplacePostCard({
 
   return (
     <article
-      className={`market-post-card ingredient-card ${foodStatusClass} ${
-        isUnavailable || post.is_owner ? 'opacity-75' : 'cursor-grab active:cursor-grabbing'
+      className={`market-post-card ingredient-card group ${foodStatusClass} ${
+        isUnavailable || post.is_owner ? 'cursor-pointer opacity-75' : 'cursor-grab active:cursor-grabbing'
       } ${isDragging ? 'market-post-card--dragging' : ''} ${
         isSelected ? 'market-post-card--selected' : ''
       }`}
       onClick={() => onSelectPost?.(post.id)}
+      onMouseLeave={() => {
+        if (isSelected) {
+          onClearSelection?.()
+        }
+      }}
       ref={dragRef}
+      role="button"
       style={{ '--tilt': tilt }}
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onSelectPost?.(post.id)
+        }
+      }}
     >
       <div className="paper-clip" aria-hidden="true" />
 
@@ -161,12 +176,26 @@ function MarketplacePostCard({
         <button
           className="pantry-button w-full"
           disabled={post.is_owner || (isUnavailable && !isInCart)}
-          onClick={() => (isInCart ? onClaimPost(post.id) : onAddToCart(post.id))}
+          onClick={(event) => {
+            event.stopPropagation()
+            if (isInCart) {
+              onClaimPost(post.id)
+              return
+            }
+            onAddToCart(post.id)
+          }}
           type="button"
         >
           {actionLabel}
         </button>
       </div>
+
+      {isSelected ? (
+        <MarketplaceListingPreview
+          className="market-listing-preview--card"
+          post={post}
+        />
+      ) : null}
     </article>
   )
 }

@@ -430,6 +430,8 @@ export default function Inventory() {
         </div>
       </section>
 
+      <InventoryApprovals />
+
       <section className="mx-auto grid max-w-7xl gap-4 px-5 py-8 sm:grid-cols-2 md:px-10 lg:grid-cols-3 xl:grid-cols-4 grid-flow-row-dense">
         {loadState === 'loading' && (
           <p className="pantry-card text-sm font-black uppercase tracking-[0.14em] text-ink/60 sm:col-span-2 lg:col-span-3 xl:col-span-4">
