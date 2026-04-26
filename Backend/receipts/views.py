@@ -178,12 +178,6 @@ def confirm_receipt(request, receipt_id):
 
     receipt = _get_household_receipt_or_404(request, receipt_id)
 
-    if receipt.confirmed_at is not None:
-        return Response(
-            {"detail": "This receipt has already been confirmed."},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
     items_data = request.data.get("items", [])
     if not items_data:
         return Response({"detail": "No items provided."}, status=status.HTTP_400_BAD_REQUEST)

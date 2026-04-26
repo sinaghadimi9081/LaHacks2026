@@ -7,12 +7,8 @@ import { toast } from 'react-toastify'
 import 'leaflet/dist/leaflet.css'
 import { useAuth } from '../../Auth/useAuth.jsx'
 import {
-  approveShareRequest,
   claimSharePost,
   createSharePost,
-  declineShareRequest,
-  fetchIncomingShareRequests,
-  fetchOutgoingShareRequests,
   fetchShareFeed,
   fetchSharePost,
   resolveShareLocation,
@@ -151,62 +147,14 @@ function normalizePost(post, userLocation) {
   }
 }
 
-function normalizeRequest(request, userLocation) {
-  return {
-    ...request,
-    post: request?.post ? normalizePost(request.post, userLocation) : null,
-  }
-}
-
-function getRequestStatusLabel(status) {
-  if (status === 'approved') {
-    return 'matched'
-  }
-  if (status === 'declined') {
-    return 'declined'
-  }
-  return 'pending approval'
-}
-
-function getSelectedPostStatusClass(status) {
-  if (status === 'claimed') {
-    return 'bg-phthalo text-white'
-  }
-  if (status === 'pending') {
-    return 'bg-mustard text-white'
-  }
-  return 'bg-citrus text-ink'
-}
-
-function getRequestValue(post) {
-  if (post.viewer_request_status === 'approved') {
-    return 'matched'
-  }
-  if (post.viewer_request_status === 'pending') {
-    return 'pending approval'
-  }
-  if (post.status === 'pending') {
-    return 'owner reviewing'
-  }
-  if (post.status === 'claimed') {
-    return post.claimed_by || 'matched'
-  }
-  return post.claimed_by || 'open'
-}
-
 export default function Marketplace() {
   const { isAuthed, status } = useAuth()
   const [sharePosts, setSharePosts] = useState([])
   const [feedState, setFeedState] = useState('idle')
   const [feedError, setFeedError] = useState('')
-  const [requestsState, setRequestsState] = useState('idle')
-  const [requestsError, setRequestsError] = useState('')
-  const [incomingRequests, setIncomingRequests] = useState([])
-  const [outgoingRequests, setOutgoingRequests] = useState([])
   const [selectedPostDetail, setSelectedPostDetail] = useState(null)
-  const [selectedPostDetailState, setSelectedPostDetailState] = useState('idle')
+  const [, setSelectedPostDetailState] = useState('idle')
   const [selectedPostDetailError, setSelectedPostDetailError] = useState('')
-  const [requestActionId, setRequestActionId] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [activeFilter, setActiveFilter] = useState('all')
   const [form, setForm] = useState(blankForm)
@@ -217,6 +165,7 @@ export default function Marketplace() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
   const [isBasketMoving, setIsBasketMoving] = useState(false)
   const [basketPosition, setBasketPosition] = useState(null)
+  const [basketTopOffset, setBasketTopOffset] = useState(24)
   const [selectedPostId, setSelectedPostId] = useState(null)
   const [userLocation, setUserLocation] = useState(null)
   const [locationState, setLocationState] = useState('idle')
@@ -278,7 +227,7 @@ export default function Marketplace() {
         setSelectedPostId((currentSelectedPostId) =>
           posts.some((post) => post.id === currentSelectedPostId)
             ? currentSelectedPostId
-            : posts[0]?.id ?? null,
+            : null,
         )
         setCartPostIds((currentIds) =>
           currentIds.filter((postId) =>
@@ -289,42 +238,6 @@ export default function Marketplace() {
       } catch (error) {
         setFeedState('error')
         setFeedError(getApiErrorMessage(error, 'Could not load the marketplace feed.'))
-      }
-    },
-    [isAuthed, userLocation],
-  )
-
-  const loadRequestQueues = useCallback(
-    async (referenceLocation = userLocation) => {
-      if (!isAuthed) {
-        return
-      }
-
-      setRequestsState('loading')
-      setRequestsError('')
-
-      try {
-        const params = {}
-        if (referenceLocation) {
-          params.lat = referenceLocation[0]
-          params.lng = referenceLocation[1]
-        }
-
-        const [incomingResponse, outgoingResponse] = await Promise.all([
-          fetchIncomingShareRequests(params),
-          fetchOutgoingShareRequests(params),
-        ])
-
-        setIncomingRequests(
-          (incomingResponse.requests || []).map((request) => normalizeRequest(request, referenceLocation)),
-        )
-        setOutgoingRequests(
-          (outgoingResponse.requests || []).map((request) => normalizeRequest(request, referenceLocation)),
-        )
-        setRequestsState('ready')
-      } catch (error) {
-        setRequestsState('error')
-        setRequestsError(getApiErrorMessage(error, 'Could not load marketplace requests.'))
       }
     },
     [isAuthed, userLocation],
@@ -365,11 +278,7 @@ export default function Marketplace() {
     if (!isAuthed) {
       setFeedState('idle')
       setFeedError('')
-      setRequestsState('idle')
-      setRequestsError('')
       setSharePosts([])
-      setIncomingRequests([])
-      setOutgoingRequests([])
       setSelectedPostId(null)
       setSelectedPostDetail(null)
       setSelectedPostDetailState('idle')
@@ -378,8 +287,7 @@ export default function Marketplace() {
     }
 
     void loadShareFeed(userLocation)
-    void loadRequestQueues(userLocation)
-  }, [isAuthed, loadRequestQueues, loadShareFeed, status, userLocation])
+  }, [isAuthed, loadShareFeed, status, userLocation])
 
   useEffect(() => {
     if (!selectedPostId || !isAuthed) {
@@ -399,6 +307,22 @@ export default function Marketplace() {
       }
     }
   }, [verificationImage])
+
+  useEffect(() => {
+    function updateBasketTopOffset() {
+      const navBottom = document.querySelector('header')?.getBoundingClientRect().bottom ?? 0
+      setBasketTopOffset(Math.max(24, Math.round(navBottom + 16)))
+    }
+
+    updateBasketTopOffset()
+    window.addEventListener('resize', updateBasketTopOffset)
+    window.addEventListener('scroll', updateBasketTopOffset, { passive: true })
+
+    return () => {
+      window.removeEventListener('resize', updateBasketTopOffset)
+      window.removeEventListener('scroll', updateBasketTopOffset)
+    }
+  }, [])
 
   const normalizedSearch = searchTerm.trim().toLowerCase()
   const filteredPosts = useMemo(() => {
@@ -450,8 +374,8 @@ export default function Marketplace() {
   }, [activeFilter, normalizedSearch, sharePosts])
 
   const selectedFeedPost = useMemo(
-    () => sharePosts.find((post) => post.id === selectedPostId) || filteredPosts[0] || null,
-    [filteredPosts, selectedPostId, sharePosts],
+    () => sharePosts.find((post) => post.id === selectedPostId) || null,
+    [selectedPostId, sharePosts],
   )
 
   const selectedPost = useMemo(() => {
@@ -461,12 +385,6 @@ export default function Marketplace() {
     return selectedFeedPost
   }, [selectedFeedPost, selectedPostDetail])
 
-  useEffect(() => {
-    if (!selectedFeedPost && filteredPosts[0]) {
-      setSelectedPostId(filteredPosts[0].id)
-    }
-  }, [filteredPosts, selectedFeedPost])
-
   const availableCount = sharePosts.filter((post) => post.status === 'available').length
   const pendingCount = sharePosts.filter((post) => post.status === 'pending').length
   const claimedCount = sharePosts.filter((post) => post.status === 'claimed').length
@@ -474,7 +392,6 @@ export default function Marketplace() {
     .map((postId) => sharePosts.find((post) => post.id === postId))
     .filter(Boolean)
   const nearbyPosts = filteredPosts.filter((post) => post.distance_miles != null).slice(0, 3)
-  const pendingIncomingRequests = incomingRequests.filter((request) => request.status === 'pending')
 
   const moveBasketToPointer = useCallback((clientX, clientY) => {
     const dock = basketDockRef.current
@@ -751,7 +668,6 @@ export default function Marketplace() {
         setSelectedPostDetail(updatedPost)
       }
       removePostFromCart(postId)
-      await loadRequestQueues(userLocation)
       toast.success('Meetup request sent. The owner needs to approve it.')
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Could not request that meetup.'))
@@ -780,43 +696,12 @@ export default function Marketplace() {
         setSelectedPostDetail(updatedPostMap.get(selectedPostId))
       }
       setCartPostIds([])
-      await loadRequestQueues(userLocation)
       toast.success('Meetup requests sent for owner approval.')
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Could not request one of the meetups.'))
       await loadShareFeed(userLocation)
-      await loadRequestQueues(userLocation)
     } finally {
       setIsClaimingCart(false)
-    }
-  }
-
-  async function handleRequestAction(requestId, action) {
-    setRequestActionId(`${action}:${requestId}`)
-
-    try {
-      const response =
-        action === 'approve'
-          ? await approveShareRequest(requestId)
-          : await declineShareRequest(requestId)
-      const updatedRequest = normalizeRequest(response.request, userLocation)
-
-      if (updatedRequest.post?.id === selectedPostId) {
-        setSelectedPostDetail(updatedRequest.post)
-      }
-
-      await loadShareFeed(userLocation)
-      await loadRequestQueues(userLocation)
-      toast.success(action === 'approve' ? 'Request approved.' : 'Request declined.')
-    } catch (error) {
-      toast.error(
-        getApiErrorMessage(
-          error,
-          action === 'approve' ? 'Could not approve that request.' : 'Could not decline that request.',
-        ),
-      )
-    } finally {
-      setRequestActionId(null)
     }
   }
 
@@ -933,362 +818,20 @@ export default function Marketplace() {
           </section>
         ) : (
           <>
-            <section className="mx-auto grid max-w-7xl gap-6 px-5 py-8 md:px-10 xl:grid-cols-[1.35fr_0.95fr]">
-              <MarketplaceFeedMap
-                filteredPosts={filteredPosts}
-                isLoadingFeed={feedState === 'loading'}
-                locationError={locationError}
-                locationMeta={locationMeta}
-                locationState={locationState}
-                onRequestCurrentLocation={requestCurrentLocation}
-                onSelectPost={setSelectedPostId}
-                selectedPost={selectedPost}
-                selectedPostId={selectedPostId}
-                userLocation={userLocation}
-              />
-
-              <div className="grid gap-6">
-                {selectedPost ? (
-                  <article className="pantry-card">
-                    <div className="flex items-start justify-between gap-4 border-b border-dashed border-ink/20 pb-4">
-                      <div>
-                        <p className="pantry-label">Selected listing</p>
-                        <h2 className="mt-2 text-3xl font-black uppercase leading-none">
-                          {selectedPost.title}
-                        </h2>
-                      </div>
-                      <span
-                        className={`rounded-full border border-ink/15 px-3 py-1.5 text-xs font-black uppercase shadow-sticker ${getSelectedPostStatusClass(selectedPost.status)}`}
-                      >
-                        {selectedPost.status === 'claimed'
-                          ? 'matched'
-                          : selectedPost.status === 'pending'
-                            ? 'pending'
-                            : selectedPost.status}
-                      </span>
-                    </div>
-
-                    <div className="market-map-selected">
-                      <img
-                        alt={`${selectedPost.food_item.name} listing`}
-                        className="market-map-selected__image"
-                        src={selectedPost.food_item.image}
-                      />
-
-                      <dl className="receipt-lines">
-                        <div>
-                          <dt>food</dt>
-                          <dd>{selectedPost.food_item.name}</dd>
-                        </div>
-                        <div>
-                          <dt>owner</dt>
-                          <dd>
-                            {selectedPost.owner?.full_name ||
-                              selectedPost.food_item.owner_name ||
-                              'Neighbor'}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt>distance</dt>
-                          <dd>{formatDistanceMiles(selectedPost.distance_miles)}</dd>
-                        </div>
-                        <div>
-                          <dt>pickup area</dt>
-                          <dd>{selectedPost.public_pickup_location || selectedPost.pickup_location}</dd>
-                        </div>
-                        <div>
-                          <dt>request</dt>
-                          <dd>{getRequestValue(selectedPost)}</dd>
-                        </div>
-                      </dl>
-                    </div>
-
-                    <p className="mt-4 text-sm font-bold leading-7 text-ink/75">
-                      {selectedPost.description}
-                    </p>
-
-                    <div
-                      className={`market-map-address-card ${
-                        selectedPost.exact_location_visible
-                          ? 'market-map-address-card--revealed'
-                          : 'market-map-address-card--locked'
-                      }`}
-                    >
-                      <p className="pantry-label">Pickup details</p>
-                      <strong>
-                        {selectedPost.exact_location_visible
-                          ? selectedPost.pickup_location
-                          : selectedPost.public_pickup_location || selectedPost.pickup_location}
-                      </strong>
-                      <p>
-                        {selectedPost.exact_location_visible
-                          ? selectedPost.is_owner
-                            ? 'Exact pickup details are visible because this is your listing.'
-                            : 'The owner approved your request, so the exact pickup location is now unlocked.'
-                          : selectedPost.viewer_request_status === 'pending'
-                            ? 'Your request is pending. The exact street address stays hidden until the owner approves it.'
-                            : 'Only the neighborhood-level pickup area is public. The exact location unlocks after owner approval.'}
-                      </p>
-                      <span className="market-map-address-card__meta">
-                        Request status: {selectedPost.viewer_request_status || selectedPost.status}
-                      </span>
-                    </div>
-
-                    {selectedPostDetailState === 'loading' && (
-                      <p className="mt-4 text-xs font-black uppercase tracking-[0.12em] text-ink/55">
-                        Refreshing private listing details...
-                      </p>
-                    )}
-
-                    <div className="mt-5 flex flex-wrap gap-3">
-                      {selectedPost.is_owner ? (
-                        <button
-                          className="pantry-button pantry-button--light"
-                          onClick={() => {
-                            const ownerInbox = document.getElementById('marketplace-owner-inbox')
-                            ownerInbox?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                          }}
-                          type="button"
-                        >
-                          Review owner inbox
-                        </button>
-                      ) : (
-                        <>
-                          <button
-                            className="pantry-button"
-                            disabled={
-                              selectedPost.status !== 'available' || cartPostIds.includes(selectedPost.id)
-                            }
-                            onClick={() => addPostToCart(selectedPost.id)}
-                            type="button"
-                          >
-                            {cartPostIds.includes(selectedPost.id) ? 'Already in basket' : 'Add to basket'}
-                          </button>
-                          <button
-                            className="pantry-button pantry-button--light"
-                            disabled={selectedPost.status !== 'available'}
-                            onClick={() => claimPost(selectedPost.id)}
-                            type="button"
-                          >
-                            {selectedPost.viewer_request_status === 'pending'
-                              ? 'Request pending'
-                              : selectedPost.status === 'claimed'
-                                ? 'Matched'
-                                : selectedPost.status === 'pending'
-                                  ? 'Awaiting owner'
-                                  : 'Request now'}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </article>
-                ) : (
-                  <article className="pantry-card">
-                    <p className="pantry-label">Selected listing</p>
-                    <h2 className="mt-2 text-3xl font-black uppercase leading-none">
-                      No live posts yet
-                    </h2>
-                    <p className="mt-4 text-sm font-bold leading-7 text-ink/75">
-                      Create the first marketplace post to populate the map and feed.
-                    </p>
-                  </article>
-                )}
-
-                <article className="pantry-card" id="marketplace-owner-inbox">
-                  <p className="pantry-label">Owner inbox</p>
-                  <h2 className="mt-2 text-3xl font-black uppercase leading-none">Approve requests</h2>
-                  <p className="mt-3 text-sm font-bold leading-7 text-ink/75">
-                    Pending requests for your listings land here. Approving a request reveals the
-                    exact pickup address to that requester.
-                  </p>
-
-                  {pendingIncomingRequests.length === 0 ? (
-                    <div className="market-map-queue__empty">
-                      No pending requests yet. Ask a second account to request one of your posts to
-                      test the owner approval flow.
-                    </div>
-                  ) : (
-                    <div className="market-map-queue">
-                      {pendingIncomingRequests.map((request) => {
-                        const isSelectedRequest = request.post?.id === selectedPost?.id
-                        const isBusyApprove = requestActionId === `approve:${request.id}`
-                        const isBusyDecline = requestActionId === `decline:${request.id}`
-
-                        return (
-                          <div className="market-map-request" key={request.id}>
-                            <div className="flex flex-wrap items-start justify-between gap-3">
-                              <div>
-                                <p className="pantry-label">Pending request</p>
-                                <h3 className="mt-2 text-2xl font-black uppercase leading-none">
-                                  {request.post?.title || 'Marketplace post'}
-                                </h3>
-                              </div>
-                              <span
-                                className={`rounded-full border border-ink/15 px-3 py-1.5 text-xs font-black uppercase shadow-sticker ${
-                                  isSelectedRequest ? 'bg-phthalo text-white' : 'bg-white text-ink'
-                                }`}
-                              >
-                                {isSelectedRequest ? 'selected' : getRequestStatusLabel(request.status)}
-                              </span>
-                            </div>
-
-                            <dl className="receipt-lines">
-                              <div>
-                                <dt>requester</dt>
-                                <dd>{request.requester?.full_name || request.requester?.username || 'Neighbor'}</dd>
-                              </div>
-                              <div>
-                                <dt>pickup</dt>
-                                <dd>{request.post?.pickup_location || request.post?.public_pickup_location}</dd>
-                              </div>
-                              <div>
-                                <dt>submitted</dt>
-                                <dd>{new Date(request.created_at).toLocaleString()}</dd>
-                              </div>
-                              <div>
-                                <dt>status</dt>
-                                <dd>{getRequestStatusLabel(request.status)}</dd>
-                              </div>
-                            </dl>
-
-                            <div className="flex flex-wrap gap-3">
-                              <button
-                                className="pantry-button pantry-button--light"
-                                onClick={() => setSelectedPostId(request.post?.id ?? null)}
-                                type="button"
-                              >
-                                View listing
-                              </button>
-                              <button
-                                className="pantry-button"
-                                disabled={Boolean(requestActionId)}
-                                onClick={() => handleRequestAction(request.id, 'approve')}
-                                type="button"
-                              >
-                                {isBusyApprove ? 'Approving...' : 'Approve reveal'}
-                              </button>
-                              <button
-                                className="pantry-filter-button"
-                                disabled={Boolean(requestActionId)}
-                                onClick={() => handleRequestAction(request.id, 'decline')}
-                                type="button"
-                              >
-                                {isBusyDecline ? 'Declining...' : 'Decline'}
-                              </button>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </article>
-
-                <article className="pantry-card">
-                  <p className="pantry-label">My requests</p>
-                  <h2 className="mt-2 text-3xl font-black uppercase leading-none">Track approvals</h2>
-                  <p className="mt-3 text-sm font-bold leading-7 text-ink/75">
-                    This queue shows every request you sent and whether the owner has approved,
-                    declined, or is still reviewing it.
-                  </p>
-
-                  {outgoingRequests.length === 0 ? (
-                    <div className="market-map-queue__empty">
-                      You have not requested any marketplace posts yet.
-                    </div>
-                  ) : (
-                    <div className="market-map-queue">
-                      {outgoingRequests.map((request) => (
-                        <div className="market-map-request" key={request.id}>
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                              <p className="pantry-label">Outgoing request</p>
-                              <h3 className="mt-2 text-2xl font-black uppercase leading-none">
-                                {request.post?.title || 'Marketplace post'}
-                              </h3>
-                            </div>
-                            <span
-                              className={`rounded-full border border-ink/15 px-3 py-1.5 text-xs font-black uppercase shadow-sticker ${
-                                request.status === 'approved'
-                                  ? 'bg-phthalo text-white'
-                                  : request.status === 'declined'
-                                    ? 'bg-white text-ink'
-                                    : 'bg-mustard text-white'
-                              }`}
-                            >
-                              {getRequestStatusLabel(request.status)}
-                            </span>
-                          </div>
-
-                          <dl className="receipt-lines">
-                            <div>
-                              <dt>food</dt>
-                              <dd>{request.post?.food_item?.name || request.post?.title || 'Food item'}</dd>
-                            </div>
-                            <div>
-                              <dt>pickup</dt>
-                              <dd>
-                                {request.post?.exact_location_visible
-                                  ? request.post?.pickup_location
-                                  : request.post?.public_pickup_location || request.post?.pickup_location}
-                              </dd>
-                            </div>
-                            <div>
-                              <dt>owner</dt>
-                              <dd>
-                                {request.post?.owner?.full_name ||
-                                  request.post?.food_item?.owner_name ||
-                                  'Neighbor'}
-                              </dd>
-                            </div>
-                            <div>
-                              <dt>detail access</dt>
-                              <dd>
-                                {request.post?.exact_location_visible ? 'exact location unlocked' : 'area only'}
-                              </dd>
-                            </div>
-                          </dl>
-
-                          <div className="flex flex-wrap gap-3">
-                            <button
-                              className="pantry-button pantry-button--light"
-                              onClick={() => setSelectedPostId(request.post?.id ?? null)}
-                              type="button"
-                            >
-                              {request.status === 'approved' ? 'View exact pickup' : 'View listing'}
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </article>
-
-                {feedError && (
-                  <article className="pantry-card">
-                    <p className="pantry-label">Feed error</p>
-                    <p className="mt-3 text-sm font-bold leading-7 text-danger">{feedError}</p>
-                    <button
-                      className="pantry-button mt-4"
-                      onClick={() => loadShareFeed(userLocation)}
-                      type="button"
-                    >
-                      Retry feed
-                    </button>
-                  </article>
-                )}
-
-                {requestsError && (
-                  <article className="pantry-card">
-                    <p className="pantry-label">Request error</p>
-                    <p className="mt-3 text-sm font-bold leading-7 text-danger">{requestsError}</p>
-                    <button
-                      className="pantry-button mt-4"
-                      onClick={() => loadRequestQueues(userLocation)}
-                      type="button"
-                    >
-                      Retry requests
-                    </button>
-                  </article>
+            {(feedError || selectedPostDetailError) && (
+              <section className="mx-auto grid max-w-[92rem] gap-4 px-5 pt-8 md:px-10 lg:grid-cols-2">
+                {feedError && ( null
+                  // <article className="pantry-card">
+                  //   <p className="pantry-label">Feed error</p>
+                  //   <p className="mt-3 text-sm font-bold leading-7 text-danger">{feedError}</p>
+                  //   <button
+                  //     className="pantry-button mt-4"
+                  //     onClick={() => loadShareFeed(userLocation)}
+                  //     type="button"
+                  //   >
+                  //     Retry feed
+                  //   </button>
+                  // </article>
                 )}
 
                 {selectedPostDetailError && (
@@ -1306,8 +849,8 @@ export default function Marketplace() {
                     </button>
                   </article>
                 )}
-              </div>
-            </section>
+              </section>
+            )}
 
             {nearbyPosts.length > 0 && (
               <section className="mx-auto max-w-7xl px-5 pb-2 md:px-10">
@@ -1337,12 +880,12 @@ export default function Marketplace() {
               </section>
             )}
 
-            <section className="mx-auto grid max-w-7xl gap-4 px-5 pt-4 md:px-10">
-              <div className="pantry-card grid gap-4 xl:mr-96 lg:grid-cols-[minmax(220px,1fr)_auto_auto] lg:items-end">
+            <section className="mx-auto grid max-w-[92rem] gap-4 px-5 pt-6 md:px-10">
+              <div className="pantry-card grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
                 <label className="block">
                   <span className="pantry-field-label">Search marketplace</span>
                   <input
-                    className="pantry-input"
+                    className="pantry-input py-2.5 text-sm"
                     onChange={(event) => setSearchTerm(event.target.value)}
                     placeholder="Search items, locations, pending matches, descriptions..."
                     type="search"
@@ -1353,13 +896,14 @@ export default function Marketplace() {
                 <div>
                   <p className="pantry-field-label">Filter posts</p>
                   <div className="flex flex-wrap gap-2">
-                    {feedFilters.map((filter) => (
+                    {feedFilters.map((filter, index) => (
                       <button
-                        className={`pantry-filter-button ${
+                        className={`pantry-filter-button px-3 py-2 text-[0.7rem] ${
                           activeFilter === filter ? 'pantry-filter-button--active' : ''
                         }`}
                         key={filter}
                         onClick={() => setActiveFilter(filter)}
+                        style={{ '--filter-tilt': index % 2 === 0 ? '-1.5deg' : '1.5deg' }}
                         type="button"
                       >
                         {filter}
@@ -1368,18 +912,26 @@ export default function Marketplace() {
                   </div>
                 </div>
 
-                <button className="pantry-button h-fit" onClick={() => setIsShareModalOpen(true)} type="button">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-ink/55 md:col-span-2">
+                  Showing {filteredPosts.length} of {sharePosts.length}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="rounded-full border border-ink/15 bg-white/85 px-5 py-3 text-sm font-black uppercase text-ink shadow-sticker">
+                  The Marketplace
+                </h3>
+                <button
+                  className="pantry-button whitespace-nowrap"
+                  onClick={() => setIsShareModalOpen(true)}
+                  type="button"
+                >
                   Share item
                 </button>
-
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-ink/55 lg:col-span-3">
-                  Showing {filteredPosts.length} of {sharePosts.length}
-                  {requestsState === 'loading' ? ' • refreshing request queues...' : ''}
-                </p>
               </div>
             </section>
 
-            <section className="mx-auto max-w-7xl px-5 py-8 md:px-10 xl:pr-96">
+            <section className="mx-auto grid max-w-[92rem] gap-5 px-5 py-8 md:px-10 xl:grid-cols-[minmax(0,1fr)_18rem] xl:items-start">
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredPosts.map((post, index) => (
                   <MarketplacePostCard
@@ -1389,16 +941,33 @@ export default function Marketplace() {
                     key={post.id}
                     onAddToCart={addPostToCart}
                     onClaimPost={claimPost}
+                    onClearSelection={() => setSelectedPostId(null)}
                     onSelectPost={setSelectedPostId}
                     post={post}
                   />
                 ))}
 
                 {feedState === 'ready' && filteredPosts.length === 0 && (
-                  <p className="pantry-card text-sm font-black uppercase tracking-[0.14em] text-ink/60 sm:col-span-2 lg:col-span-3">
+                  <p className="pantry-card text-sm font-black uppercase tracking-[0.14em] text-ink/60 sm:col-span-2">
                     No marketplace posts match this search.
                   </p>
                 )}
+              </div>
+
+              <div className="xl:sticky xl:top-6">
+                <MarketplaceFeedMap
+                  className="market-map-panel--compact"
+                  filteredPosts={filteredPosts}
+                  isLoadingFeed={feedState === 'loading'}
+                  locationError={locationError}
+                  locationMeta={locationMeta}
+                  locationState={locationState}
+                  onRequestCurrentLocation={requestCurrentLocation}
+                  onSelectPost={setSelectedPostId}
+                  selectedPost={selectedPost}
+                  selectedPostId={selectedPostId}
+                  userLocation={userLocation}
+                />
               </div>
             </section>
 
@@ -1408,7 +977,7 @@ export default function Marketplace() {
               style={
                 basketPosition
                   ? { transform: `translate3d(${basketPosition.x}px, ${basketPosition.y}px, 0)` }
-                  : undefined
+                  : { top: `${basketTopOffset}px` }
               }
             >
               <MarketplaceCart

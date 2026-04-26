@@ -92,6 +92,15 @@ function SharePostModal({
               </p>
             </div>
 
+          </div>
+
+
+
+          <LocationPickerMap
+            currentLocation={currentLocation}
+            onPickPoint={onSelectMapPoint}
+            selectedPoint={selectedPickupPoint}
+          />
             <div className="flex flex-wrap gap-3">
               <button
                 className="pantry-button pantry-button--accent"
@@ -108,9 +117,8 @@ function SharePostModal({
                 Find typed address
               </button>
             </div>
-          </div>
 
-          <label className="block">
+                      <label className="block">
             <span className="pantry-field-label">Pickup address</span>
             <input
               className="pantry-input"
@@ -121,12 +129,6 @@ function SharePostModal({
               value={form.pickup_location}
             />
           </label>
-
-          <LocationPickerMap
-            currentLocation={currentLocation}
-            onPickPoint={onSelectMapPoint}
-            selectedPoint={selectedPickupPoint}
-          />
 
           <div className="market-location-picker__meta">
             <div>

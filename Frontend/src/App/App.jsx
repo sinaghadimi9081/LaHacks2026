@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { BrowserRouter, Link, NavLink, Route, Routes } from 'react-router-dom'
 import { ToastContainer } from 'react-toastify'
 
@@ -10,12 +11,34 @@ import Profile from '../Features/Profile/Profile.jsx'
 import Inventory from '../Features/Inventory/Inventory.jsx'
 import Marketplace from '../Features/Marketplace/Marketplace.jsx'
 import MarketplaceMapLab from '../Features/Marketplace/MarketplaceMapLab.jsx'
+import Impact from '../Features/Impact/Impact.jsx'
 import ReceiptsWorkbench from '../Features/Receipts/ReceiptsWorkbench.jsx'
 import './app.css'
 import 'react-toastify/dist/ReactToastify.css'
 
 function NavBar() {
   const { isAuthed, user, logout, status } = useAuth()
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
+  const userMenuRef = useRef(null)
+  const profileImageUrl = user?.profile_image_url || user?.profile_image || ''
+  const profileName = user?.display_name || user?.username || 'Profile'
+  const profileInitial = profileName.charAt(0).toUpperCase()
+
+  useEffect(() => {
+    if (!isUserMenuOpen) {
+      return undefined
+    }
+
+    function handleDocumentPointerDown(event) {
+      if (!userMenuRef.current?.contains(event.target)) {
+        setIsUserMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handleDocumentPointerDown)
+
+    return () => document.removeEventListener('pointerdown', handleDocumentPointerDown)
+  }, [isUserMenuOpen])
 
   return (
     <header className="border-b-4 border-ink bg-petal">
@@ -35,12 +58,12 @@ function NavBar() {
         </Link>
 
         <nav className="flex flex-wrap items-center gap-3">
-          <NavLink className="nav-pill" to="/">
-            Home
+          <NavLink className="nav-pill" to="/dashboard">
+            Dashboard
           </NavLink>
 
-          <NavLink className="nav-pill" to="/inventory">
-            Inventory
+          <NavLink className="nav-pill" to="/receipts">
+            Receipts
           </NavLink>
 
           <NavLink className="nav-pill" to="/marketplace">
@@ -51,15 +74,9 @@ function NavBar() {
             Map Lab
           </NavLink>
 
-          <NavLink className="nav-pill" to="/receipts">
-            Receipts
+          <NavLink className="nav-pill" to="/impact">
+            Impact
           </NavLink>
-
-          {isAuthed && (
-            <NavLink className="nav-pill" to="/profile">
-              Profile
-            </NavLink>
-          )}
 
           {!isAuthed && status !== 'loading' && (
             <>
@@ -73,13 +90,38 @@ function NavBar() {
           )}
 
           {isAuthed && (
-            <div className="flex items-center gap-3">
-              <div className="hidden rounded-full border border-ink/15 bg-white/75 px-4 py-2 text-xs font-black uppercase tracking-[0.08em] text-ink shadow-sticker backdrop-blur md:block">
-                {user?.display_name || user?.username}
-              </div>
-              <button className="nav-pill nav-pill-strong" type="button" onClick={logout}>
-                Logout
+            <div className="nav-user-menu" ref={userMenuRef}>
+              <button
+                className="nav-pill nav-user-trigger"
+                onClick={() => setIsUserMenuOpen((currentValue) => !currentValue)}
+                type="button"
+              >
+                <span className="nav-avatar" aria-hidden="true">
+                  {profileImageUrl ? (
+                    <img alt="" src={profileImageUrl} />
+                  ) : (
+                    profileInitial
+                  )}
+                </span>
+                <span>{profileName}</span>
               </button>
+              {isUserMenuOpen ? (
+                <div className="nav-user-popover">
+                  <NavLink className="nav-menu-item" onClick={() => setIsUserMenuOpen(false)} to="/profile">
+                    Profile
+                  </NavLink>
+                  <button
+                    className="nav-menu-item nav-menu-item--danger"
+                    type="button"
+                    onClick={() => {
+                      setIsUserMenuOpen(false)
+                      logout()
+                    }}
+                  >
+                    Logout
+                  </button>
+                </div>
+              ) : null}
             </div>
           )}
         </nav>
@@ -96,9 +138,11 @@ export default function App() {
 
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/dashboard" element={<Inventory />} />
           <Route path="/inventory" element={<Inventory />} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/marketplace-map-lab" element={<MarketplaceMapLab />} />
+          <Route path="/impact" element={<Impact />} />
           <Route path="/receipts" element={<ReceiptsWorkbench />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />

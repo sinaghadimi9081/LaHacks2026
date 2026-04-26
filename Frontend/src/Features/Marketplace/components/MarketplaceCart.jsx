@@ -111,18 +111,27 @@ function MarketplaceCart({
   return (
     <aside
       className={`market-cart-shell ${isOpen ? 'market-cart-shell--open' : ''}`}
+      onPointerDown={(event) => {
+        if (event.target.closest('button, a, input, select, textarea')) {
+          return
+        }
+
+        onMoveStart(event)
+      }}
       ref={dropRef}
     >
-      <div className="market-cart-shell__header" onPointerDown={onMoveStart}>
+      <div className="market-cart-shell__header">
         <div className="min-w-0">
           <p className="pantry-label">meetup cart</p>
           <h2 className="mt-2 text-4xl font-black uppercase leading-none">
             Basket
           </h2>
         </div>
-        <span className="grid h-12 min-w-12 place-items-center rounded-full border border-ink/15 bg-white text-lg font-black shadow-sticker">
-          {cartPosts.length}
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="grid h-12 min-w-12 place-items-center rounded-full border border-ink/15 bg-white text-lg font-black shadow-sticker">
+            {cartPosts.length}
+          </span>
+        </div>
       </div>
 
       <button
@@ -173,6 +182,13 @@ function MarketplaceCart({
           </button>
         </>
       )}
+      <div className="market-cart-drag-cue" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+        <span />
+        <span />
+      </div>
     </aside>
   )
 }

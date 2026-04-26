@@ -61,6 +61,9 @@ class ImpactLog(models.Model):
     food_item = models.ForeignKey(FoodItem, on_delete=models.SET_NULL, null=True, related_name='impact_logs')
     action = models.CharField(max_length=100)
     dollars_saved = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    water_saved_gallons = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    co2_saved_kg = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    electricity_saved_kwh = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
