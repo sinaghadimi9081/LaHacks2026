@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 class ExpirationKnowledge(models.Model):
@@ -14,6 +15,20 @@ class ExpirationKnowledge(models.Model):
 
 
 class FoodItem(models.Model):
+    household = models.ForeignKey(
+        "households.Household",
+        on_delete=models.CASCADE,
+        related_name="food_items",
+        null=True,
+        blank=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_food_items",
+        null=True,
+        blank=True,
+    )
     name = models.CharField(max_length=255)
     quantity = models.IntegerField(default=1)
     expiration_date = models.DateField(blank=True, null=True)
@@ -28,19 +43,21 @@ class FoodItem(models.Model):
     def __str__(self):
         return f"{self.name} ({self.quantity})"
 
-class SharePost(models.Model):
-    food_item = models.ForeignKey(FoodItem, on_delete=models.CASCADE, related_name='share_posts')
-    title = models.CharField(max_length=255)
-    description = models.TextField(blank=True, null=True)
-    pickup_location = models.CharField(max_length=255)
-    status = models.CharField(max_length=50, default='active')
-    claimed_by = models.CharField(max_length=255, blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return self.title
-
 class ImpactLog(models.Model):
+    household = models.ForeignKey(
+        "households.Household",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="impact_logs",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="impact_logs",
+    )
     food_item = models.ForeignKey(FoodItem, on_delete=models.SET_NULL, null=True, related_name='impact_logs')
     action = models.CharField(max_length=100)
     dollars_saved = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
@@ -48,3 +65,17 @@ class ImpactLog(models.Model):
 
     def __str__(self):
         return f"{self.action} - ${self.dollars_saved}"
+
+class Notification(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='notifications'
+    )
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.title} for {self.user.username}"

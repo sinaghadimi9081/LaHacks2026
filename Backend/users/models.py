@@ -7,6 +7,7 @@ from .managers import UserManager
 class User(AbstractUser):
     email = models.EmailField(unique=True)
     display_name = models.CharField(max_length=150, blank=True)
+    profile_image = models.ImageField(upload_to="profile_images/", blank=True, null=True)
     default_household = models.ForeignKey(
         "households.Household",
         on_delete=models.SET_NULL,

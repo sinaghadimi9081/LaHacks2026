@@ -1,6 +1,18 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
+  safelist: [
+    'marketplace-sticker--oval',
+    'marketplace-sticker--circle',
+    'marketplace-sticker--squircle',
+    'marketplace-sticker--fresh',
+    'marketplace-sticker--local',
+    'marketplace-sticker--ripe',
+    'marketplace-sticker--share',
+    'marketplace-sticker--apple',
+    'marketplace-sticker--basil',
+    'marketplace-sticker--paper',
+  ],
   theme: {
     extend: {
       colors: {

@@ -1,5 +1,7 @@
 from unittest.mock import patch, MagicMock
+
 from django.test import TestCase
+
 from core.models import ExpirationKnowledge
 from core.services.item_verifier import verify_and_enrich_items
 

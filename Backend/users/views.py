@@ -1,5 +1,7 @@
 from django.conf import settings
 from django.middleware.csrf import get_token
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -8,8 +10,10 @@ from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 
 from households.models import HouseholdMembership
 
+from .models import User
 from .serializers import (
     LoginSerializer,
+    MarketplaceProfileSerializer,
     ProfileUpdateSerializer,
     SignupSerializer,
     UserSerializer,
@@ -57,7 +61,7 @@ def clear_auth_cookies(response):
 def auth_response_for_user(user, request, status_code=status.HTTP_200_OK):
     refresh = RefreshToken.for_user(user)
     response = Response(
-        {"user": serialize_user(user)},
+        {"user": serialize_user(user, request=request)},
         status=status_code,
     )
     set_auth_cookies(response, str(refresh.access_token), str(refresh))
@@ -65,7 +69,7 @@ def auth_response_for_user(user, request, status_code=status.HTTP_200_OK):
     return response
 
 
-def serialize_user(user):
+def serialize_user(user, request=None):
     memberships = HouseholdMembership.objects.filter(user=user).select_related("household")
     households = [membership.household for membership in memberships]
     memberships_by_household = {
@@ -75,6 +79,7 @@ def serialize_user(user):
     return UserSerializer(
         user,
         context={
+            "request": request,
             "households": households,
             "memberships_by_household": memberships_by_household,
         },
@@ -141,13 +146,18 @@ class RefreshView(APIView):
         return response
 
 
+@method_decorator(ensure_csrf_cookie, name="dispatch")
 class AuthMeView(APIView):
     def get(self, request):
-        response = Response({"user": serialize_user(request.user)}, status=status.HTTP_200_OK)
+        response = Response(
+            {"user": serialize_user(request.user, request=request)},
+            status=status.HTTP_200_OK,
+        )
         response.data["csrfToken"] = get_token(request)
         return response
 
 
+@method_decorator(ensure_csrf_cookie, name="dispatch")
 class CSRFView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -162,9 +172,29 @@ class MeView(generics.RetrieveUpdateAPIView):
         return self.request.user
 
     def get(self, request, *args, **kwargs):
-        return Response({"user": serialize_user(request.user)}, status=status.HTTP_200_OK)
+        return Response(
+            {"user": serialize_user(request.user, request=request)},
+            status=status.HTTP_200_OK,
+        )
 
     def patch(self, request, *args, **kwargs):
         response = super().patch(request, *args, **kwargs)
-        response.data = {"user": serialize_user(request.user)}
+        response.data = {"user": serialize_user(request.user, request=request)}
         return response
+
+
+class MarketplaceProfileView(APIView):
+    def get(self, request):
+        serializer = MarketplaceProfileSerializer(request.user, context={"request": request})
+        return Response({"profile": serializer.data}, status=status.HTTP_200_OK)
+
+
+class MarketplaceProfileDetailView(generics.RetrieveAPIView):
+    queryset = User.objects.all()
+    serializer_class = MarketplaceProfileSerializer
+    lookup_url_kwarg = "user_id"
+
+    def get(self, request, *args, **kwargs):
+        user = self.get_object()
+        serializer = self.get_serializer(user, context={"request": request})
+        return Response({"profile": serializer.data}, status=status.HTTP_200_OK)

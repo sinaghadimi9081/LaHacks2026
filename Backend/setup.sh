@@ -26,6 +26,7 @@ if [[ ! -f .env ]]; then
   cp .env.example .env
 fi
 
+python scripts/rename_receipts_app.py
 python manage.py migrate
 
 echo "Backend dependencies are installed and migrations are up to date."

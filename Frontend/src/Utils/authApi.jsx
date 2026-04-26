@@ -4,11 +4,13 @@ export function fetchCsrfToken() {
   return apiFetch('/auth/csrf/', 'GET')
 }
 
-export function signupUser(payload) {
+export async function signupUser(payload) {
+  await fetchCsrfToken()
   return apiFetch('/auth/signup/', 'POST', payload)
 }
 
-export function loginUser(payload) {
+export async function loginUser(payload) {
+  await fetchCsrfToken()
   return apiFetch('/auth/login/', 'POST', payload)
 }
 

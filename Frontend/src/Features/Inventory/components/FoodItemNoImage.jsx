@@ -5,8 +5,6 @@ const statusStyles = {
   critical: 'bg-danger text-white',
 }
 
-const noteStyles = ['bg-citrus', 'bg-petal', 'bg-moonstone']
-
 function formatDate(date) {
   return new Intl.DateTimeFormat('en', {
     month: 'short',
@@ -15,7 +13,7 @@ function formatDate(date) {
   }).format(new Date(`${date}T12:00:00`))
 }
 
-function FoodItemNoImage({ item, index }) {
+function FoodItemNoImage({ item, index, onDelete, onEditQuantity, onSell }) {
   const tilt = index % 2 === 0 ? '1deg' : '-1.2deg'
   const isCritical = item.status === 'critical'
   const isUseSoon = item.status === 'use soon'
@@ -23,10 +21,10 @@ function FoodItemNoImage({ item, index }) {
 
   return (
     <article
-      className={`ingredient-card ingredient-card--text-only ${isCritical ? 'ingredient-card--critical' : ''} ${isUseSoon ? 'ingredient-card--use-soon' : ''} ${isFeedToday ? 'ingredient-card--feed-today' : ''}`}
+      className={`ingredient-card ingredient-card--text-only flex h-full flex-col ${isCritical ? 'ingredient-card--critical' : ''} ${isUseSoon ? 'ingredient-card--use-soon' : ''} ${isFeedToday ? 'ingredient-card--feed-today' : ''}`}
       style={{ '--tilt': tilt }}
     >
-      <div className="recipe-card recipe-card--full">
+      <div className="recipe-card recipe-card--full flex flex-1 flex-col">
         <div className="flex items-start justify-between gap-3 border-b-2 border-moonstone pb-3">
           <div>
             <p className="text-[0.65rem] font-black uppercase tracking-[0.14em] text-tomato">
@@ -58,15 +56,33 @@ function FoodItemNoImage({ item, index }) {
           </div>
         </dl>
 
-        <div className="mt-3 grid gap-2">
-          {item.notes.map((note, noteIndex) => (
-            <p
-              className={`rounded-xl border border-ink/15 px-3 py-2 text-sm font-extrabold leading-5 shadow-sticker ${noteStyles[noteIndex % noteStyles.length]}`}
-              key={note}
+        <div className="mt-auto pt-4">
+          <p className="text-[0.65rem] font-black uppercase tracking-[0.14em] text-ink/55">
+            item actions
+          </p>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <button
+              className="rotate-[-8deg] rounded-full border border-ink/15 bg-citrus px-2.5 py-2 text-[0.65rem] font-black uppercase text-ink shadow-sticker transition hover:-translate-y-0.5 hover:rotate-0"
+              onClick={() => onEditQuantity(item)}
+              type="button"
             >
-              {note}
-            </p>
-          ))}
+              Edit
+            </button>
+            <button
+              className="rotate-[7deg] rounded-full border border-ink/15 bg-petal px-2.5 py-2 text-[0.65rem] font-black uppercase text-danger shadow-sticker transition hover:-translate-y-0.5 hover:rotate-0"
+              onClick={() => onDelete(item)}
+              type="button"
+            >
+              Delete
+            </button>
+            <button
+              className="rotate-[-5deg] rounded-full border border-ink/15 bg-moonstone px-2.5 py-2 text-[0.65rem] font-black uppercase text-ink shadow-sticker transition hover:-translate-y-0.5 hover:rotate-0"
+              onClick={() => onSell(item)}
+              type="button"
+            >
+              Sell
+            </button>
+          </div>
         </div>
       </div>
     </article>
