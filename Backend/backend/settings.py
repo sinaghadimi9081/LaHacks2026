@@ -89,10 +89,12 @@ TEMPLATES = [
 WSGI_APPLICATION = "backend.wsgi.application"
 
 
+sqlite_path = os.getenv("DJANGO_SQLITE_PATH")
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "NAME": Path(sqlite_path) if sqlite_path else BASE_DIR / "db.sqlite3",
     }
 }
 
@@ -121,7 +123,7 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_ROOT = Path(os.getenv("DJANGO_MEDIA_ROOT", str(BASE_DIR / "media")))
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Email Configuration

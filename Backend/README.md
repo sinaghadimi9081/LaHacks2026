@@ -112,6 +112,14 @@ To test email after configuration:
 python scripts/test_email.py your-email@example.com
 ```
 
+## Production
+
+Production deployment should use the `production` git branch only. Keep production-only values in a server-side env file, not in git.
+
+- Backend env template: [`Backend/.env.production.example`](./.env.production.example)
+- Frontend build env template: [`Frontend/.env.production.example`](../Frontend/.env.production.example)
+- Workflow notes: [`deploy/production_workflow.md`](../deploy/production_workflow.md)
+
 ## Common Django Commands
 
 Run the development server:
