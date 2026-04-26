@@ -7,6 +7,7 @@ import { useAuth } from '../Auth/useAuth.jsx'
 import Home from '../Features/Home/Home.jsx'
 import Login from '../Features/Auth/Login.jsx'
 import Signup from '../Features/Auth/Signup.jsx'
+import Empty from '../Features/Empty/Empty.jsx'
 import Profile from '../Features/Profile/Profile.jsx'
 import Inventory from '../Features/Inventory/Inventory.jsx'
 import Marketplace from '../Features/Marketplace/Marketplace.jsx'
@@ -208,6 +209,7 @@ export default function App() {
           <Route path="/receipts" element={<ReceiptsWorkbench />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/empty" element={<Empty />} />
           <Route
             path="/profile"
             element={
