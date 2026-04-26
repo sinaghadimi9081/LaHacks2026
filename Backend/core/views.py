@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import ImpactLog, Notification, SharePost
+from .notifications import NotificationService
 from .serializers import (
     NotificationSerializer,
     SharePostReadSerializer,
@@ -135,6 +136,10 @@ class SharePostCreateView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         post = serializer.save(owner=request.user)
+
+        # Email the poster confirming their listing
+        NotificationService.notify_new_share_post(post)
+
         response_serializer = SharePostReadSerializer(
             post,
             context=_serializer_context(request),
@@ -228,6 +233,9 @@ class SharePostClaimView(APIView):
             action="share_post_claimed",
             dollars_saved=share_post.resolved_estimated_price,
         )
+
+        # Email the post owner that someone claimed their item
+        NotificationService.notify_claim_request(share_post, request.user)
 
         serializer = SharePostReadSerializer(
             share_post,
