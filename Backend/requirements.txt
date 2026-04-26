@@ -1,11 +1,13 @@
+# Django core
 Django==5.2.13
-django-cors-headers==4.9.0
 djangorestframework==3.17.1
+django-cors-headers==4.9.0
 djangorestframework-simplejwt==5.5.1
+
+# OCR & image processing
 Pillow==12.2.0
 pytesseract==0.3.13
+
+# Utilities
 python-dotenv==1.2.2
 requests==2.32.5
-Pillow
-duckduckgo-search
-google-genai
