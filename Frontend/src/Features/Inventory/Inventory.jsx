@@ -1,14 +1,29 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'react-toastify'
 
-import { useAuth } from '../../Auth/useAuth.jsx'
 import { fetchItems, updateItem, deleteItem } from '../../Utils/itemsApi.jsx'
 import { createSharePost, resolveShareLocation } from '../../Utils/shareApi.jsx'
 import FoodItem from './components/FoodItem.jsx'
 import FoodItemNoImage from './components/FoodItemNoImage.jsx'
+import InventoryApprovals from './components/InventoryApprovals.jsx'
 import SharePostModal from '../Marketplace/components/SharePostModal.jsx'
 
 const filterOptions = ['all', 'fresh', 'use soon', 'feed today', 'critical']
+
+const inventoryBackgroundStickers = [
+  { label: 'Fresh', color: 'fresh', shape: 'oval', top: '15rem', left: '6%', rotate: '-10deg' },
+  { label: 'Pantry', color: 'paper', shape: 'circle', top: '23rem', left: '78%', rotate: '12deg' },
+  { label: 'Ripe', color: 'ripe', shape: 'squircle', top: '36rem', left: '86%', rotate: '8deg' },
+  { label: 'Stock', color: 'local', shape: 'oval', top: '48rem', left: '4%', rotate: '-7deg' },
+  { label: 'Apple', color: 'apple', shape: 'circle', top: '60rem', left: '64%', rotate: '15deg' },
+  { label: 'Citrus', color: 'fresh', shape: 'squircle', top: '72rem', left: '88%', rotate: '-13deg' },
+  { label: 'Basil', color: 'basil', shape: 'oval', top: '86rem', left: '10%', rotate: '9deg' },
+  { label: 'Tomato', color: 'share', shape: 'circle', top: '100rem', left: '72%', rotate: '-11deg' },
+  { label: 'Carrot', color: 'local', shape: 'squircle', top: '114rem', left: '3%', rotate: '11deg' },
+  { label: 'Dinner', color: 'fresh', shape: 'oval', top: '128rem', left: '84%', rotate: '-6deg' },
+  { label: 'Use soon', color: 'ripe', shape: 'circle', top: '144rem', left: '18%', rotate: '14deg' },
+  { label: 'Soup', color: 'local', shape: 'circle', top: '160rem', left: '42%', rotate: '10deg' },
+]
 
 const blankSellForm = {
   foodItemName: '',
@@ -36,7 +51,6 @@ function getApiErrorMessage(error, fallback) {
 }
 
 export default function Inventory() {
-  const { user } = useAuth()
   const [inventoryItems, setInventoryItems] = useState([])
   const [loadState, setLoadState] = useState('loading')
   const [searchTerm, setSearchTerm] = useState('')
@@ -326,37 +340,28 @@ export default function Inventory() {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden text-ink">
-      <section className="pantry-dot-grid relative border-b-4 border-ink bg-moonstone px-5 py-8 md:px-10">
-        <div className="plant-trail" aria-hidden="true">
-          {[0, 1, 2, 3, 4].map((leaf) => (
-            <svg
-              className="plant-trail__leaf"
-              fill="none"
-              key={leaf}
-              viewBox="0 0 64 64"
-            >
-              <path
-                d="M32 55C25 42 19 27 33 10c16 9 18 27 5 41"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="4"
-              />
-              <path
-                d="M32 55c1-14 2-25 9-36"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeWidth="4"
-              />
-            </svg>
-          ))}
-        </div>
+    <main className="marketplace-page min-h-screen overflow-hidden text-ink">
+      <div className="marketplace-sticker-pattern" aria-hidden="true">
+        {inventoryBackgroundStickers.map((sticker) => (
+          <div
+            className={`marketplace-sticker marketplace-sticker--${sticker.color} marketplace-sticker--${sticker.shape}`}
+            key={`${sticker.label}-${sticker.top}`}
+            style={{
+              '--sticker-left': sticker.left,
+              '--sticker-rotate': sticker.rotate,
+              '--sticker-top': sticker.top,
+            }}
+          >
+            {sticker.label}
+          </div>
+        ))}
+      </div>
 
+      <section className="pantry-dot-grid relative border-b-4 border-ink bg-moonstone px-5 py-8 md:px-10">
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
           <div>
             <p className="mb-4 w-fit rounded-full border border-ink/15 bg-white/80 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] shadow-sticker backdrop-blur">
-              your inventory
+              your dashboard
             </p>
             <h1 className="max-w-3xl text-6xl font-black uppercase leading-[0.85] md:text-8xl">
               Pantry pop
@@ -384,12 +389,28 @@ export default function Inventory() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-4 px-5 pt-8 md:px-10">
-        <div className="pantry-card grid gap-4 lg:grid-cols-[minmax(220px,1fr)_auto_auto] lg:items-end">
+      <InventoryApprovals />
+
+      <section className="mx-auto max-w-7xl px-5 pt-8 md:px-10">
+        <div className="flex flex-wrap items-end justify-between gap-4 border-b-2 border-moonstone pb-4">
+          <div>
+            <p className="pantry-label">Pantry</p>
+            <h2 className="mt-2 text-4xl font-black uppercase leading-none">
+              Your pantry items
+            </h2>
+          </div>
+          <p className="max-w-xl text-sm font-bold leading-7 text-ink/65">
+            Search, sort, edit amounts, and share items from your household dashboard.
+          </p>
+        </div>
+      </section>
+
+      <section className="mx-auto grid max-w-7xl gap-4 px-5 pt-4 md:px-10">
+        <div className="pantry-card grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_minmax(18rem,auto)_auto] lg:items-end">
           <label className="block">
             <span className="pantry-field-label">Search inventory</span>
             <input
-              className="pantry-input"
+              className="pantry-input py-2.5 text-sm"
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Search names, owners, quantities, ideas..."
               type="search"
@@ -400,13 +421,14 @@ export default function Inventory() {
           <div>
             <p className="pantry-field-label">Filter status</p>
             <div className="flex flex-wrap gap-2">
-              {filterOptions.map((filter) => (
+              {filterOptions.map((filter, index) => (
                 <button
                   className={`pantry-filter-button ${
                     activeFilter === filter ? 'pantry-filter-button--active' : ''
-                  }`}
+                  } px-3 py-2 text-[0.7rem]`}
                   key={filter}
                   onClick={() => setActiveFilter(filter)}
+                  style={{ '--filter-tilt': index % 2 === 0 ? '-1.5deg' : '1.5deg' }}
                   type="button"
                 >
                   {filter}
@@ -422,15 +444,13 @@ export default function Inventory() {
             Add items
           </button>
 
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-ink/55 lg:col-span-3">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-ink/55 md:col-span-2 lg:col-span-3">
             {loadState === 'loading'
               ? 'Loading items...'
               : `Showing ${visibleCount} of ${inventoryItems.length}`}
           </p>
         </div>
       </section>
-
-      <InventoryApprovals />
 
       <section className="mx-auto grid max-w-7xl gap-4 px-5 py-8 sm:grid-cols-2 md:px-10 lg:grid-cols-3 xl:grid-cols-4 grid-flow-row-dense">
         {loadState === 'loading' && (

@@ -189,10 +189,19 @@ code {
 
   .pantry-filter-button {
     @apply rounded-full border border-ink/15 bg-white/80 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-ink shadow-sticker transition hover:-translate-y-0.5 hover:bg-citrus/70;
+    transform: rotate(var(--filter-tilt, 0deg));
   }
 
   .pantry-filter-button--active {
     @apply border-phthalo bg-phthalo text-white shadow-pop;
+  }
+
+  .pantry-filter-button:hover {
+    transform: translateY(-2px) rotate(var(--filter-tilt, 0deg));
+  }
+
+  .pantry-filter-button--active {
+    transform: translateY(-1px) rotate(var(--filter-tilt, 0deg));
   }
 
   .metric-card {
