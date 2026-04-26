@@ -810,10 +810,10 @@ export default function Marketplace() {
           <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
             <div>
               <p className="mb-4 w-fit rounded-full border border-ink/15 bg-white/80 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] shadow-sticker backdrop-blur">
-                neighborhood feed
+                community feed
               </p>
               <h1 className="max-w-3xl text-6xl font-black uppercase leading-[0.85] md:text-8xl">
-                Share shelf
+                Marketplace
               </h1>
               <p className="mt-5 max-w-2xl text-lg font-bold leading-8 text-ink/75">
                 Browse live posts from nearby neighbors, request an item, and unlock the exact

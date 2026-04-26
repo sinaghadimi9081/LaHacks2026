@@ -256,7 +256,7 @@ export default function ReceiptsWorkbench() {
           <div>
             <p className="pantry-label">Receipts</p>
             <h1 className="mt-3 max-w-3xl text-5xl font-black uppercase leading-none md:text-7xl">
-              Pantry helper
+              Upload your receipts!
             </h1>
             <p className="mt-4 max-w-2xl text-base font-bold leading-7 text-ink/70">
               Snap a grocery receipt, tidy up the items, and add only what you want to your pantry.
