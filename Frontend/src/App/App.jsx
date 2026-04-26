@@ -14,6 +14,7 @@ import MarketplaceMapLab from '../Features/Marketplace/MarketplaceMapLab.jsx'
 import MarketplaceMatchLab from '../Features/Marketplace/MarketplaceMatchLab.jsx'
 import Impact from '../Features/Impact/Impact.jsx'
 import ReceiptsWorkbench from '../Features/Receipts/ReceiptsWorkbench.jsx'
+import neighborFridgeMark from '../assets/neighborfridge-mark.png'
 import './app.css'
 import 'react-toastify/dist/ReactToastify.css'
 
@@ -44,15 +45,13 @@ function NavBar() {
   return (
     <header className="border-b-4 border-ink bg-petal">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-4 md:px-10">
-        <Link to="/" className="flex items-center gap-3 no-underline">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-ink/15 bg-citrus text-lg font-black text-ink shadow-sticker">
-            NF
-          </div>
-          <div>
-            <p className="text-sm font-black uppercase tracking-[0.18em] text-ink">
+        <Link to="/" className="brand-link no-underline">
+          <img alt="" className="brand-mark" src={neighborFridgeMark} />
+          <div className="brand-copy">
+            <p className="brand-title text-sm font-black uppercase tracking-[0.18em] text-ink">
               NeighborFridge
             </p>
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-tomato">
+            <p className="brand-subtitle text-xs font-black uppercase tracking-[0.14em] text-tomato">
               Pantry board
             </p>
           </div>

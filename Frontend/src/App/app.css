@@ -1,3 +1,32 @@
+.brand-link {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 0.9rem;
+  flex: 0 0 auto;
+}
+
+.brand-mark {
+  display: block;
+  width: 4.95rem;
+  height: 4.95rem;
+  object-fit: contain;
+  flex: 0 0 auto;
+  margin-bottom: -0.56rem;
+  filter: drop-shadow(0 10px 18px rgba(18, 49, 42, 0.08));
+}
+
+.brand-copy {
+  display: grid;
+  gap: 0.12rem;
+  padding-bottom: 0.28rem;
+}
+
+.brand-title,
+.brand-subtitle {
+  margin: 0;
+  line-height: 1;
+}
+
 .nav-pill {
   border: 1px solid rgba(18, 49, 42, 0.18);
   border-radius: 9999px;
@@ -108,4 +137,16 @@
 .nav-menu-item--danger {
   color: #b83d20;
   cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .brand-mark {
+    width: 4.15rem;
+    height: 4.15rem;
+    margin-bottom: -0.42rem;
+  }
+
+  .brand-copy {
+    padding-bottom: 0.22rem;
+  }
 }
