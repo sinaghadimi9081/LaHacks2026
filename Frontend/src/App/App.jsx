@@ -9,6 +9,7 @@ import Login from '../Features/Auth/Login.jsx'
 import Signup from '../Features/Auth/Signup.jsx'
 import Profile from '../Features/Profile/Profile.jsx'
 import Inventory from '../Features/Inventory/Inventory.jsx'
+import InventoryRequestListingPage from '../Features/Inventory/InventoryRequestListingPage.jsx'
 import Marketplace from '../Features/Marketplace/Marketplace.jsx'
 import MarketplaceMapLab from '../Features/Marketplace/MarketplaceMapLab.jsx'
 
@@ -154,6 +155,22 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/dashboard" element={<Inventory />} />
           <Route path="/inventory" element={<Inventory />} />
+          <Route
+            path="/dashboard/requests/:requestId"
+            element={
+              <RequireAuth>
+                <InventoryRequestListingPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/inventory/requests/:requestId"
+            element={
+              <RequireAuth>
+                <InventoryRequestListingPage />
+              </RequireAuth>
+            }
+          />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/lockers" element={<Lockers />} />
           <Route path="/marketplace-map-lab" element={<MarketplaceMapLab />} />

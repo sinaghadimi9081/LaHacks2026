@@ -220,7 +220,10 @@ export default function InventoryApprovals() {
                   </dl>
 
                   <div className="flex flex-wrap gap-3">
-                    <Link className="pantry-button pantry-button--light" to="/marketplace">
+                    <Link
+                      className="pantry-button pantry-button--light"
+                      to={`/dashboard/requests/${request.id}`}
+                    >
                       View listing
                     </Link>
                     <button
@@ -304,7 +307,10 @@ export default function InventoryApprovals() {
                   </div>
                 </dl>
 
-                <Link className="pantry-button pantry-button--light" to="/marketplace">
+                <Link
+                  className="pantry-button pantry-button--light"
+                  to={`/dashboard/requests/${request.id}`}
+                >
                   {request.status === 'approved' ? 'View exact pickup' : 'View listing'}
                 </Link>
               </div>
