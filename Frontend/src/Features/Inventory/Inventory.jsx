@@ -6,9 +6,6 @@ import { fetchItems, updateItem, deleteItem } from '../../Utils/itemsApi.jsx'
 import { createSharePost, resolveShareLocation } from '../../Utils/shareApi.jsx'
 import FoodItem from './components/FoodItem.jsx'
 import FoodItemNoImage from './components/FoodItemNoImage.jsx'
-import InventoryApprovals from './components/InventoryApprovals.jsx'
-import { foodItems, pantryNotes } from './inventoryData.js'
-
 import SharePostModal from '../Marketplace/components/SharePostModal.jsx'
 
 const filterOptions = ['all', 'fresh', 'use soon', 'feed today', 'critical']
