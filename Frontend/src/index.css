@@ -221,6 +221,65 @@ code {
     @apply whitespace-normal break-words leading-tight;
   }
 
+  .message-thread-list {
+    @apply mt-5 grid gap-3;
+  }
+
+  .message-thread-button {
+    @apply w-full rounded-xl border border-ink/15 bg-white/70 p-4 text-left shadow-sticker transition hover:-translate-y-0.5 hover:shadow-pop;
+  }
+
+  .message-thread-button--active {
+    @apply border-phthalo bg-citrus/35 shadow-pop;
+  }
+
+  .message-thread-button strong {
+    @apply mt-2 block text-lg font-black uppercase leading-tight text-ink;
+  }
+
+  .message-thread-button span {
+    @apply mt-1 block text-sm font-bold leading-6 text-ink/70;
+  }
+
+  .message-conversation {
+    @apply mt-5 grid gap-3 rounded-xl border border-ink/10 bg-cream/65 p-4;
+    min-height: 20rem;
+  }
+
+  .message-bubble {
+    @apply max-w-[85%] rounded-2xl border border-ink/10 px-4 py-3 shadow-sticker;
+  }
+
+  .message-bubble--mine {
+    @apply ml-auto bg-phthalo text-white;
+  }
+
+  .message-bubble--theirs {
+    @apply mr-auto bg-white text-ink;
+  }
+
+  .message-bubble strong {
+    @apply block text-xs font-black uppercase tracking-[0.12em];
+  }
+
+  .message-bubble p {
+    @apply my-2 text-sm font-bold leading-6;
+    white-space: pre-wrap;
+  }
+
+  .message-bubble span {
+    @apply block text-xs font-bold opacity-70;
+  }
+
+  .message-composer {
+    @apply mt-5 grid gap-3;
+  }
+
+  .message-composer__input {
+    min-height: 7rem;
+    resize: vertical;
+  }
+
   .ingredient-card {
     @apply relative overflow-visible rounded-2xl border border-ink/15 bg-white/80 shadow-paper backdrop-blur-md transition duration-200;
     transform: rotate(var(--tilt));

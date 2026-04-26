@@ -10,6 +10,7 @@ import Signup from '../Features/Auth/Signup.jsx'
 import Profile from '../Features/Profile/Profile.jsx'
 import Inventory from '../Features/Inventory/Inventory.jsx'
 import InventoryRequestListingPage from '../Features/Inventory/InventoryRequestListingPage.jsx'
+import Inbox from '../Features/Messages/Inbox.jsx'
 import Marketplace from '../Features/Marketplace/Marketplace.jsx'
 import MarketplaceMapLab from '../Features/Marketplace/MarketplaceMapLab.jsx'
 
@@ -122,6 +123,9 @@ function NavBar() {
                   <div className="nav-menu-item">
                     Credits: ${Number(creditsBalance || 0).toFixed(2)}
                   </div>
+                  <NavLink className="nav-menu-item" onClick={() => setIsUserMenuOpen(false)} to="/inbox">
+                    Inbox
+                  </NavLink>
                   <NavLink className="nav-menu-item" onClick={() => setIsUserMenuOpen(false)} to="/profile">
                     Profile
                   </NavLink>
@@ -176,6 +180,22 @@ export default function App() {
           <Route path="/marketplace-map-lab" element={<MarketplaceMapLab />} />
           <Route path="/marketplace-match-lab" element={<MarketplaceMatchLab />} />
           <Route path="/impact" element={<Impact />} />
+          <Route
+            path="/inbox"
+            element={
+              <RequireAuth>
+                <Inbox />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/inbox/:requestId"
+            element={
+              <RequireAuth>
+                <Inbox />
+              </RequireAuth>
+            }
+          />
           <Route
             path="/receipts"
             element={

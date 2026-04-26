@@ -258,6 +258,11 @@ export default function InventoryRequestListingPage() {
           <Link className="pantry-filter-button" to="/dashboard">
             Back to dashboard
           </Link>
+          {requestData.status === 'approved' ? (
+            <Link className="pantry-filter-button" to={`/inbox/${requestData.id}`}>
+              Open chat
+            </Link>
+          ) : null}
           <Link className="pantry-filter-button" to="/marketplace">
             Open full marketplace
           </Link>
