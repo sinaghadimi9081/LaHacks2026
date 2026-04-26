@@ -37,30 +37,19 @@ function getApiErrorMessage(error, fallbackMessage) {
 }
 
 function getRequestStatusLabel(status) {
-  if (status === 'approved') {
-    return 'matched'
-  }
-  if (status === 'declined') {
-    return 'declined'
-  }
+  if (status === 'approved') return 'matched'
+  if (status === 'declined') return 'declined'
   return 'pending approval'
 }
 
 function getStatusClass(status) {
-  if (status === 'approved') {
-    return 'bg-phthalo text-white'
-  }
-  if (status === 'declined') {
-    return 'bg-white text-ink'
-  }
+  if (status === 'approved') return 'bg-phthalo text-white'
+  if (status === 'declined') return 'bg-white text-ink'
   return 'bg-mustard text-white'
 }
 
 function formatRequestDate(value) {
-  if (!value) {
-    return 'Unknown'
-  }
-
+  if (!value) return 'Unknown'
   return new Date(value).toLocaleString()
 }
 
@@ -71,6 +60,7 @@ export default function InventoryApprovals() {
   const [requestsState, setRequestsState] = useState('idle')
   const [requestsError, setRequestsError] = useState('')
   const [requestActionId, setRequestActionId] = useState(null)
+  const [openRequestId, setOpenRequestId] = useState(null)
 
   const loadRequestQueues = useCallback(async () => {
     if (!isAuthed) {
@@ -100,9 +90,7 @@ export default function InventoryApprovals() {
   }, [isAuthed])
 
   useEffect(() => {
-    if (status !== 'ready') {
-      return
-    }
+    if (status !== 'ready') return
 
     const timeoutId = window.setTimeout(() => {
       void loadRequestQueues()
@@ -135,14 +123,18 @@ export default function InventoryApprovals() {
     }
   }
 
+  function toggleRequest(requestId) {
+    setOpenRequestId((currentId) => (currentId === requestId ? null : requestId))
+  }
+
   const pendingIncomingRequests = incomingRequests.filter((request) => request.status === 'pending')
 
   if (status === 'loading') {
     return (
-      <section className="mx-auto grid max-w-7xl gap-4 px-5 pt-8 md:px-10 lg:grid-cols-2">
-        <article className="pantry-card lg:col-span-2">
+      <section className="mx-auto grid max-w-5xl gap-3 px-4 pt-6 md:px-6 lg:grid-cols-2">
+        <article className="pantry-card !p-4 lg:col-span-2">
           <p className="pantry-label">Approvals</p>
-          <p className="mt-3 text-sm font-bold leading-7 text-ink/70">
+          <p className="mt-2 text-sm font-bold leading-6 text-ink/70">
             Loading marketplace approvals...
           </p>
         </article>
@@ -150,20 +142,21 @@ export default function InventoryApprovals() {
     )
   }
 
-  if (!isAuthed) {
-    return null
-  }
+  if (!isAuthed) return null
 
   return (
-    <section className="mx-auto grid max-w-7xl gap-4 px-5 pt-8 md:px-10 lg:grid-cols-2">
-      <article className="pantry-card" id="inventory-owner-inbox">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+    <section className="mx-auto grid max-w-5xl gap-3 px-4 pt-6 md:px-6 lg:grid-cols-2">
+      <article className="pantry-card !p-4" id="inventory-owner-inbox">
+        <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <p className="pantry-label">Owner inbox</p>
-            <h2 className="mt-2 text-3xl font-black uppercase leading-none">Approve requests</h2>
+            <h2 className="mt-1 text-2xl font-black uppercase leading-tight">
+              Approve requests
+            </h2>
           </div>
+
           <button
-            className="pantry-filter-button"
+            className="pantry-filter-button px-3 py-1.5 text-sm"
             disabled={requestsState === 'loading'}
             onClick={loadRequestQueues}
             type="button"
@@ -171,75 +164,108 @@ export default function InventoryApprovals() {
             {requestsState === 'loading' ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
-        <p className="mt-3 text-sm font-bold leading-7 text-ink/75">
-          Pending requests for your listings land here. Approving a request reveals the exact pickup
-          address to that requester.
+
+        <p className="mt-2 text-sm font-bold leading-6 text-ink/75">
+          Pending requests for your listings land here. Approving reveals the exact pickup address.
         </p>
 
         {pendingIncomingRequests.length === 0 ? (
-          <div className="market-map-queue__empty">
-            No pending requests yet.
-          </div>
+          <div className="market-map-queue__empty mt-3">No pending requests yet.</div>
         ) : (
-          <div className="market-map-queue">
+          <div className="market-map-queue mt-3 max-h-[28rem] space-y-2 overflow-y-auto pr-1">
             {pendingIncomingRequests.map((request) => {
+              const isOpen = openRequestId === `incoming:${request.id}`
               const isBusyApprove = requestActionId === `approve:${request.id}`
               const isBusyDecline = requestActionId === `decline:${request.id}`
 
               return (
-                <div className="market-map-request" key={request.id}>
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="pantry-label">Pending request</p>
-                      <h3 className="mt-2 text-2xl font-black uppercase leading-none">
-                        {request.post?.title || 'Marketplace post'}
-                      </h3>
-                    </div>
-                    <span className="rounded-full border border-ink/15 bg-mustard px-3 py-1.5 text-xs font-black uppercase text-white shadow-sticker">
-                      {getRequestStatusLabel(request.status)}
-                    </span>
-                  </div>
+                <div className="market-map-request p-3" key={request.id}>
+                  <button
+                    className="w-full text-left"
+                    onClick={() => toggleRequest(`incoming:${request.id}`)}
+                    type="button"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="pantry-label">Pending request</p>
+                        <h3 className="mt-1 text-xl font-black uppercase leading-tight">
+                          {request.post?.title || 'Marketplace post'}
+                        </h3>
+                        <p className="mt-1 text-sm font-black text-ink/70">
+                          {request.requester?.full_name ||
+                            request.requester?.username ||
+                            'Neighbor'}{' '}
+                          wants this item
+                        </p>
+                      </div>
 
-                  <dl className="receipt-lines">
-                    <div>
-                      <dt>requester</dt>
-                      <dd>{request.requester?.full_name || request.requester?.username || 'Neighbor'}</dd>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full border border-ink/15 bg-mustard px-2.5 py-1 text-[0.65rem] font-black uppercase text-white shadow-sticker">
+                          {getRequestStatusLabel(request.status)}
+                        </span>
+                        <span className="text-xs font-black uppercase text-ink/60">
+                          {isOpen ? 'Hide' : 'Review'}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <dt>pickup</dt>
-                      <dd>{request.post?.pickup_location || request.post?.public_pickup_location}</dd>
-                    </div>
-                    <div>
-                      <dt>submitted</dt>
-                      <dd>{formatRequestDate(request.created_at)}</dd>
-                    </div>
-                    <div>
-                      <dt>status</dt>
-                      <dd>{getRequestStatusLabel(request.status)}</dd>
-                    </div>
-                  </dl>
+                  </button>
 
-                  <div className="flex flex-wrap gap-3">
-                    <Link className="pantry-button pantry-button--light" to="/marketplace">
-                      View listing
-                    </Link>
-                    <button
-                      className="pantry-button"
-                      disabled={Boolean(requestActionId)}
-                      onClick={() => handleRequestAction(request.id, 'approve')}
-                      type="button"
-                    >
-                      {isBusyApprove ? 'Approving...' : 'Approve reveal'}
-                    </button>
-                    <button
-                      className="pantry-filter-button"
-                      disabled={Boolean(requestActionId)}
-                      onClick={() => handleRequestAction(request.id, 'decline')}
-                      type="button"
-                    >
-                      {isBusyDecline ? 'Declining...' : 'Decline'}
-                    </button>
-                  </div>
+                  {isOpen ? (
+                    <>
+                      <dl className="receipt-lines mt-2 text-sm">
+                        <div>
+                          <dt>requester</dt>
+                          <dd>
+                            {request.requester?.full_name ||
+                              request.requester?.username ||
+                              'Neighbor'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>pickup</dt>
+                          <dd>
+                            {request.post?.pickup_location ||
+                              request.post?.public_pickup_location}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>submitted</dt>
+                          <dd>{formatRequestDate(request.created_at)}</dd>
+                        </div>
+                        <div>
+                          <dt>status</dt>
+                          <dd>{getRequestStatusLabel(request.status)}</dd>
+                        </div>
+                      </dl>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Link
+                          className="pantry-button pantry-button--light px-3 py-1.5 text-sm"
+                          to="/marketplace"
+                        >
+                          View listing
+                        </Link>
+
+                        <button
+                          className="pantry-button px-3 py-1.5 text-sm"
+                          disabled={Boolean(requestActionId)}
+                          onClick={() => handleRequestAction(request.id, 'approve')}
+                          type="button"
+                        >
+                          {isBusyApprove ? 'Approving...' : 'Approve'}
+                        </button>
+
+                        <button
+                          className="pantry-filter-button px-3 py-1.5 text-sm"
+                          disabled={Boolean(requestActionId)}
+                          onClick={() => handleRequestAction(request.id, 'decline')}
+                          type="button"
+                        >
+                          {isBusyDecline ? 'Declining...' : 'Decline'}
+                        </button>
+                      </div>
+                    </>
+                  ) : null}
                 </div>
               )
             })}
@@ -247,76 +273,115 @@ export default function InventoryApprovals() {
         )}
       </article>
 
-      <article className="pantry-card">
+      <article className="pantry-card !p-4">
         <p className="pantry-label">My requests</p>
-        <h2 className="mt-2 text-3xl font-black uppercase leading-none">Track approvals</h2>
-        <p className="mt-3 text-sm font-bold leading-7 text-ink/75">
-          This queue shows every request you sent and whether the owner has approved, declined, or
-          is still reviewing it.
+        <h2 className="mt-1 text-2xl font-black uppercase leading-tight">Track approvals</h2>
+
+        <p className="mt-2 text-sm font-bold leading-6 text-ink/75">
+          See whether your marketplace requests are approved, declined, or still pending.
         </p>
 
         {outgoingRequests.length === 0 ? (
-          <div className="market-map-queue__empty">
+          <div className="market-map-queue__empty mt-3">
             You have not requested any marketplace posts yet.
           </div>
         ) : (
-          <div className="market-map-queue">
-            {outgoingRequests.map((request) => (
-              <div className="market-map-request" key={request.id}>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="pantry-label">Outgoing request</p>
-                    <h3 className="mt-2 text-2xl font-black uppercase leading-none">
-                      {request.post?.title || 'Marketplace post'}
-                    </h3>
-                  </div>
-                  <span
-                    className={`rounded-full border border-ink/15 px-3 py-1.5 text-xs font-black uppercase shadow-sticker ${getStatusClass(request.status)}`}
+          <div className="market-map-queue mt-3 max-h-[28rem] space-y-2 overflow-y-auto pr-1">
+            {outgoingRequests.map((request) => {
+              const isOpen = openRequestId === `outgoing:${request.id}`
+
+              return (
+                <div className="market-map-request p-3" key={request.id}>
+                  <button
+                    className="w-full text-left"
+                    onClick={() => toggleRequest(`outgoing:${request.id}`)}
+                    type="button"
                   >
-                    {getRequestStatusLabel(request.status)}
-                  </span>
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="pantry-label">Outgoing request</p>
+                        <h3 className="mt-1 text-xl font-black uppercase leading-tight">
+                          {request.post?.title || 'Marketplace post'}
+                        </h3>
+                        <p className="mt-1 text-sm font-black text-ink/70">
+                          {request.post?.exact_location_visible
+                            ? 'Exact pickup unlocked'
+                            : 'Waiting for owner approval'}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`rounded-full border border-ink/15 px-2.5 py-1 text-[0.65rem] font-black uppercase shadow-sticker ${getStatusClass(
+                            request.status,
+                          )}`}
+                        >
+                          {getRequestStatusLabel(request.status)}
+                        </span>
+                        <span className="text-xs font-black uppercase text-ink/60">
+                          {isOpen ? 'Hide' : 'Details'}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+
+                  {isOpen ? (
+                    <>
+                      <dl className="receipt-lines mt-2 text-sm">
+                        <div>
+                          <dt>food</dt>
+                          <dd>
+                            {request.post?.food_item?.name ||
+                              request.post?.title ||
+                              'Food item'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>pickup</dt>
+                          <dd>
+                            {request.post?.exact_location_visible
+                              ? request.post?.pickup_location
+                              : request.post?.public_pickup_location ||
+                                request.post?.pickup_location}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>owner</dt>
+                          <dd>
+                            {request.post?.owner?.full_name ||
+                              request.post?.food_item?.owner_name ||
+                              'Neighbor'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>detail access</dt>
+                          <dd>
+                            {request.post?.exact_location_visible
+                              ? 'exact location unlocked'
+                              : 'area only'}
+                          </dd>
+                        </div>
+                      </dl>
+
+                      <Link
+                        className="pantry-button pantry-button--light mt-3 px-3 py-1.5 text-sm"
+                        to="/marketplace"
+                      >
+                        {request.status === 'approved' ? 'View pickup' : 'View listing'}
+                      </Link>
+                    </>
+                  ) : null}
                 </div>
-
-                <dl className="receipt-lines">
-                  <div>
-                    <dt>food</dt>
-                    <dd>{request.post?.food_item?.name || request.post?.title || 'Food item'}</dd>
-                  </div>
-                  <div>
-                    <dt>pickup</dt>
-                    <dd>
-                      {request.post?.exact_location_visible
-                        ? request.post?.pickup_location
-                        : request.post?.public_pickup_location || request.post?.pickup_location}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>owner</dt>
-                    <dd>
-                      {request.post?.owner?.full_name ||
-                        request.post?.food_item?.owner_name ||
-                        'Neighbor'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>detail access</dt>
-                    <dd>{request.post?.exact_location_visible ? 'exact location unlocked' : 'area only'}</dd>
-                  </div>
-                </dl>
-
-                <Link className="pantry-button pantry-button--light" to="/marketplace">
-                  {request.status === 'approved' ? 'View exact pickup' : 'View listing'}
-                </Link>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </article>
 
       {requestsError ? (
-        <article className="pantry-card border-danger/25 bg-danger-soft/80 lg:col-span-2">
+        <article className="pantry-card !p-4 border-danger/25 bg-danger-soft/80 lg:col-span-2">
           <p className="pantry-label">Approval error</p>
-          <p className="mt-3 text-sm font-bold leading-7 text-danger">{requestsError}</p>
+          <p className="mt-2 text-sm font-bold leading-6 text-danger">{requestsError}</p>
         </article>
       ) : null}
     </section>
