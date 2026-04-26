@@ -111,6 +111,8 @@ function normalizePost(post, userLocation) {
     public_pickup_location:
       post?.public_pickup_location || post?.pickup_location || 'Approximate pickup area',
     public_pickup_longitude: post?.public_pickup_longitude ?? post?.pickup_longitude ?? null,
+    viewer_delivery_quote: post?.viewer_delivery_quote || post?.delivery_quote || null,
+    viewer_fulfillment_method: post?.viewer_fulfillment_method || post?.fulfillment_method || null,
     viewer_request_status: post?.viewer_request_status || null,
     food_item: {
       estimated_price:
@@ -154,6 +156,7 @@ function normalizePost(post, userLocation) {
 function normalizeRequest(request, userLocation) {
   return {
     ...request,
+    delivery_quote: request?.delivery_quote || null,
     post: request?.post ? normalizePost(request.post, userLocation) : null,
   }
 }
@@ -194,6 +197,13 @@ function getRequestValue(post) {
   return post.claimed_by || 'open'
 }
 
+function getFulfillmentLabel(fulfillmentMethod) {
+  if (fulfillmentMethod === 'delivery') {
+    return 'Simulated delivery'
+  }
+  return 'Pickup'
+}
+
 export default function Marketplace() {
   const { isAuthed, status } = useAuth()
   const [sharePosts, setSharePosts] = useState([])
@@ -207,6 +217,7 @@ export default function Marketplace() {
   const [selectedPostDetailState, setSelectedPostDetailState] = useState('idle')
   const [selectedPostDetailError, setSelectedPostDetailError] = useState('')
   const [requestActionId, setRequestActionId] = useState(null)
+  const [requestMode, setRequestMode] = useState('pickup')
   const [searchTerm, setSearchTerm] = useState('')
   const [activeFilter, setActiveFilter] = useState('all')
   const [form, setForm] = useState(blankForm)
@@ -736,6 +747,28 @@ export default function Marketplace() {
     setCartPostIds((currentIds) => currentIds.filter((currentId) => currentId !== postId))
   }
 
+  async function buildClaimPayload() {
+    if (requestMode !== 'delivery') {
+      return { fulfillment_method: 'pickup' }
+    }
+
+    let location = userLocation
+    if (!location) {
+      const currentLocation = await requestCurrentLocation()
+      location = currentLocation.point
+    }
+
+    if (!location) {
+      throw new Error('Turn on your current location before requesting simulated delivery.')
+    }
+
+    return {
+      fulfillment_method: 'delivery',
+      dropoff_latitude: String(location[0]),
+      dropoff_longitude: String(location[1]),
+    }
+  }
+
   async function claimPost(postId) {
     if (!isAuthed) {
       toast.error('Log in before requesting a meetup.')
@@ -743,7 +776,8 @@ export default function Marketplace() {
     }
 
     try {
-      const updatedPost = normalizePost(await claimSharePost(postId), userLocation)
+      const payload = await buildClaimPayload()
+      const updatedPost = normalizePost(await claimSharePost(postId, payload), userLocation)
       setSharePosts((currentPosts) =>
         currentPosts.map((post) => (post.id === postId ? updatedPost : post)),
       )
@@ -752,7 +786,11 @@ export default function Marketplace() {
       }
       removePostFromCart(postId)
       await loadRequestQueues(userLocation)
-      toast.success('Meetup request sent. The owner needs to approve it.')
+      toast.success(
+        requestMode === 'delivery'
+          ? 'Simulated delivery request sent. The owner needs to approve it.'
+          : 'Pickup request sent. The owner needs to approve it.',
+      )
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Could not request that meetup.'))
       await loadShareFeed(userLocation)
@@ -766,9 +804,10 @@ export default function Marketplace() {
 
     setIsClaimingCart(true)
     try {
+      const payload = await buildClaimPayload()
       const updatedPosts = []
       for (const postId of cartPostIds) {
-        const updatedPost = await claimSharePost(postId)
+        const updatedPost = await claimSharePost(postId, payload)
         updatedPosts.push(normalizePost(updatedPost, userLocation))
       }
 
@@ -781,7 +820,11 @@ export default function Marketplace() {
       }
       setCartPostIds([])
       await loadRequestQueues(userLocation)
-      toast.success('Meetup requests sent for owner approval.')
+      toast.success(
+        requestMode === 'delivery'
+          ? 'Simulated delivery requests sent for owner approval.'
+          : 'Pickup requests sent for owner approval.',
+      )
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Could not request one of the meetups.'))
       await loadShareFeed(userLocation)
@@ -1007,6 +1050,38 @@ export default function Marketplace() {
                       {selectedPost.description}
                     </p>
 
+                    {!selectedPost.is_owner && selectedPost.status === 'available' && (
+                      <div className="market-map-address-card">
+                        <p className="pantry-label">Request option</p>
+                        <div className="flex flex-wrap gap-2">
+                          {['pickup', 'delivery'].map((mode) => (
+                            <button
+                              className={`pantry-filter-button ${
+                                requestMode === mode ? 'pantry-filter-button--active' : ''
+                              }`}
+                              key={mode}
+                              onClick={() => setRequestMode(mode)}
+                              type="button"
+                            >
+                              {getFulfillmentLabel(mode)}
+                            </button>
+                          ))}
+                        </div>
+                        <p>
+                          {requestMode === 'delivery'
+                            ? 'Simulated delivery uses your current browser location as the dropoff and returns a fake quote only.'
+                            : 'Pickup keeps the normal request flow and reveals the exact address only after approval.'}
+                        </p>
+                        <span className="market-map-address-card__meta">
+                          {requestMode === 'delivery'
+                            ? userLocation
+                              ? `Dropoff from device location: ${locationMeta.latitude?.toFixed(5)}, ${locationMeta.longitude?.toFixed(5)}`
+                              : 'Delivery mode needs your current location before sending the request.'
+                            : 'No payment or courier dispatch happens in MVP.'}
+                        </span>
+                      </div>
+                    )}
+
                     <div
                       className={`market-map-address-card ${
                         selectedPost.exact_location_visible
@@ -1033,6 +1108,21 @@ export default function Marketplace() {
                         Request status: {selectedPost.viewer_request_status || selectedPost.status}
                       </span>
                     </div>
+
+                    {selectedPost.viewer_delivery_quote && (
+                      <div className="market-map-address-card market-map-address-card--revealed">
+                        <p className="pantry-label">Simulated delivery quote</p>
+                        <strong>
+                          {selectedPost.viewer_delivery_quote.delivery_available
+                            ? `$${selectedPost.viewer_delivery_quote.estimated_fee} • ${selectedPost.viewer_delivery_quote.estimated_minutes} min`
+                            : 'Unavailable'}
+                        </strong>
+                        <p>{selectedPost.viewer_delivery_quote.message}</p>
+                        <span className="market-map-address-card__meta">
+                          Dropoff: {selectedPost.viewer_delivery_quote.dropoff_location}
+                        </span>
+                      </div>
+                    )}
 
                     {selectedPostDetailState === 'loading' && (
                       <p className="mt-4 text-xs font-black uppercase tracking-[0.12em] text-ink/55">
@@ -1138,6 +1228,10 @@ export default function Marketplace() {
                                 <dd>{request.requester?.full_name || request.requester?.username || 'Neighbor'}</dd>
                               </div>
                               <div>
+                                <dt>method</dt>
+                                <dd>{getFulfillmentLabel(request.fulfillment_method)}</dd>
+                              </div>
+                              <div>
                                 <dt>pickup</dt>
                                 <dd>{request.post?.pickup_location || request.post?.public_pickup_location}</dd>
                               </div>
@@ -1150,6 +1244,21 @@ export default function Marketplace() {
                                 <dd>{getRequestStatusLabel(request.status)}</dd>
                               </div>
                             </dl>
+
+                            {request.delivery_quote && (
+                              <div className="market-map-address-card">
+                                <p className="pantry-label">Quote</p>
+                                <strong>
+                                  {request.delivery_quote.delivery_available
+                                    ? `$${request.delivery_quote.estimated_fee} • ${request.delivery_quote.estimated_minutes} min`
+                                    : 'Unavailable'}
+                                </strong>
+                                <p>{request.delivery_quote.message}</p>
+                                <span className="market-map-address-card__meta">
+                                  Dropoff: {request.delivery_quote.dropoff_location}
+                                </span>
+                              </div>
+                            )}
 
                             <div className="flex flex-wrap gap-3">
                               <button
@@ -1225,6 +1334,10 @@ export default function Marketplace() {
                               <dd>{request.post?.food_item?.name || request.post?.title || 'Food item'}</dd>
                             </div>
                             <div>
+                              <dt>method</dt>
+                              <dd>{getFulfillmentLabel(request.fulfillment_method)}</dd>
+                            </div>
+                            <div>
                               <dt>pickup</dt>
                               <dd>
                                 {request.post?.exact_location_visible
@@ -1247,6 +1360,21 @@ export default function Marketplace() {
                               </dd>
                             </div>
                           </dl>
+
+                          {request.delivery_quote && (
+                            <div className="market-map-address-card">
+                              <p className="pantry-label">Quote</p>
+                              <strong>
+                                {request.delivery_quote.delivery_available
+                                  ? `$${request.delivery_quote.estimated_fee} • ${request.delivery_quote.estimated_minutes} min`
+                                  : 'Unavailable'}
+                              </strong>
+                              <p>{request.delivery_quote.message}</p>
+                              <span className="market-map-address-card__meta">
+                                Dropoff: {request.delivery_quote.dropoff_location}
+                              </span>
+                            </div>
+                          )}
 
                           <div className="flex flex-wrap gap-3">
                             <button
@@ -1420,6 +1548,11 @@ export default function Marketplace() {
                 onRemovePost={removePostFromCart}
                 onToggleOpen={() => setIsCartOpen((currentValue) => !currentValue)}
               />
+              {cartPosts.length > 0 && (
+                <p className="mt-2 text-center text-xs font-black uppercase tracking-[0.12em] text-ink/65">
+                  Basket mode: {getFulfillmentLabel(requestMode)}
+                </p>
+              )}
               {isClaimingCart && (
                 <p className="mt-2 text-center text-xs font-black uppercase tracking-[0.12em] text-ink/65">
                   Sending meetup requests...

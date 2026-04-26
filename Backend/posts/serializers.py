@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from core.models import FoodItem, Notification
 
+from .delivery_quotes import build_simulated_delivery_quote
 from .location_services import GeocodingError, geocode_address, reverse_geocode
 from .models import Post, PostRequest
 
@@ -35,6 +36,8 @@ class BasePostReadSerializer(serializers.ModelSerializer):
     pickup_location = serializers.SerializerMethodField()
     pickup_latitude = serializers.SerializerMethodField()
     pickup_longitude = serializers.SerializerMethodField()
+    viewer_fulfillment_method = serializers.SerializerMethodField()
+    viewer_delivery_quote = serializers.SerializerMethodField()
 
     class Meta:
         model = Post
@@ -62,6 +65,8 @@ class BasePostReadSerializer(serializers.ModelSerializer):
             "status",
             "claimed_by",
             "viewer_request_status",
+            "viewer_fulfillment_method",
+            "viewer_delivery_quote",
             "exact_location_visible",
             "created_at",
             "updated_at",
@@ -133,6 +138,27 @@ class BasePostReadSerializer(serializers.ModelSerializer):
             return None
         return obj.get_viewer_request_status(request.user)
 
+    def _get_viewer_request(self, obj):
+        request = self.context.get("request")
+        if request is None:
+            return None
+        return obj.get_request_for_user(request.user)
+
+    def get_viewer_fulfillment_method(self, obj):
+        post_request = self._get_viewer_request(obj)
+        return post_request.fulfillment_method if post_request else None
+
+    def get_viewer_delivery_quote(self, obj):
+        post_request = self._get_viewer_request(obj)
+        if post_request is None:
+            return None
+
+        request = self.context.get("request")
+        return build_simulated_delivery_quote(
+            post_request,
+            reveal_exact_pickup=obj.can_view_exact_location(request.user) if request else False,
+        )
+
     def get_public_pickup_location(self, obj):
         return obj.get_public_pickup_location()
 
@@ -180,12 +206,20 @@ class ApprovedPostReadSerializer(BasePostReadSerializer):
 class PostRequestReadSerializer(serializers.ModelSerializer):
     requester = PostOwnerSerializer(read_only=True)
     post = serializers.SerializerMethodField()
+    delivery_quote = serializers.SerializerMethodField()
+    dropoff_latitude = serializers.SerializerMethodField()
+    dropoff_longitude = serializers.SerializerMethodField()
 
     class Meta:
         model = PostRequest
         fields = [
             "id",
             "status",
+            "fulfillment_method",
+            "dropoff_location",
+            "dropoff_latitude",
+            "dropoff_longitude",
+            "delivery_quote",
             "created_at",
             "responded_at",
             "requester",
@@ -207,6 +241,96 @@ class PostRequestReadSerializer(serializers.ModelSerializer):
             "distance_fn": self.context.get("distance_fn"),
         }
         return serializer_class(obj.post, context=serializer_context).data
+
+    def get_dropoff_latitude(self, obj):
+        return _format_coordinate(obj.dropoff_latitude)
+
+    def get_dropoff_longitude(self, obj):
+        return _format_coordinate(obj.dropoff_longitude)
+
+    def get_delivery_quote(self, obj):
+        request = self.context.get("request")
+        reveal_exact_pickup = bool(request and obj.post.can_view_exact_location(request.user))
+        return build_simulated_delivery_quote(obj, reveal_exact_pickup=reveal_exact_pickup)
+
+
+class PostRequestWriteSerializer(serializers.Serializer):
+    fulfillment_method = serializers.ChoiceField(
+        choices=PostRequest.FulfillmentMethod.choices,
+        required=False,
+    )
+    dropoff_location = serializers.CharField(required=False, allow_blank=True)
+    dropoff_latitude = serializers.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        required=False,
+        allow_null=True,
+    )
+    dropoff_longitude = serializers.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        required=False,
+        allow_null=True,
+    )
+
+    def validate(self, attrs):
+        has_dropoff_address = bool((attrs.get("dropoff_location") or "").strip())
+        has_dropoff_coordinates = (
+            attrs.get("dropoff_latitude") is not None or attrs.get("dropoff_longitude") is not None
+        )
+        fulfillment_method = attrs.get("fulfillment_method")
+
+        if fulfillment_method is None and (has_dropoff_address or has_dropoff_coordinates):
+            fulfillment_method = PostRequest.FulfillmentMethod.DELIVERY
+            attrs["fulfillment_method"] = fulfillment_method
+
+        if fulfillment_method != PostRequest.FulfillmentMethod.DELIVERY:
+            return attrs
+
+        try:
+            self._resolve_dropoff(attrs)
+        except GeocodingError as exc:
+            raise serializers.ValidationError({"dropoff_location": str(exc)}) from exc
+
+        return attrs
+
+    def _resolve_dropoff(self, attrs):
+        dropoff_location = attrs.get("dropoff_location")
+        dropoff_location = (
+            dropoff_location.strip() if isinstance(dropoff_location, str) else dropoff_location
+        )
+        latitude = attrs.get("dropoff_latitude")
+        longitude = attrs.get("dropoff_longitude")
+
+        if (latitude is None) != (longitude is None):
+            raise serializers.ValidationError(
+                "dropoff_latitude and dropoff_longitude must be provided together."
+            )
+
+        if latitude is not None and not (-90 <= latitude <= 90):
+            raise serializers.ValidationError({"dropoff_latitude": "Latitude must be between -90 and 90."})
+        if longitude is not None and not (-180 <= longitude <= 180):
+            raise serializers.ValidationError({"dropoff_longitude": "Longitude must be between -180 and 180."})
+
+        if dropoff_location and latitude is not None and longitude is not None:
+            attrs["dropoff_location"] = dropoff_location
+            return attrs
+        if dropoff_location:
+            resolved_location = geocode_address(dropoff_location)
+            attrs["dropoff_location"] = resolved_location["pickup_location"]
+            attrs["dropoff_latitude"] = resolved_location["pickup_latitude"]
+            attrs["dropoff_longitude"] = resolved_location["pickup_longitude"]
+            return attrs
+        if latitude is not None and longitude is not None:
+            resolved_location = reverse_geocode(latitude, longitude)
+            attrs["dropoff_location"] = resolved_location["pickup_location"]
+            attrs["dropoff_latitude"] = resolved_location["pickup_latitude"]
+            attrs["dropoff_longitude"] = resolved_location["pickup_longitude"]
+            return attrs
+
+        raise serializers.ValidationError(
+            {"dropoff_location": "Enter a dropoff address or send both dropoff coordinates for delivery."}
+        )
 
 
 class PostWriteSerializer(serializers.ModelSerializer):
