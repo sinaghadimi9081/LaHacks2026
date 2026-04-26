@@ -43,17 +43,27 @@ function getRequestStatusLabel(status) {
   if (status === 'declined') {
     return 'declined'
   }
-  return 'pending approval'
+  return 'pending'
 }
 
 function getStatusClass(status) {
   if (status === 'approved') {
-    return 'bg-phthalo text-white'
+    return 'bg-[#d8ecff] text-[#16406f]'
   }
   if (status === 'declined') {
-    return 'bg-white text-ink'
+    return 'bg-danger-soft/80 text-danger'
   }
   return 'bg-mustard text-white'
+}
+
+function getIncomingCardClass(status) {
+  if (status === 'approved') {
+    return 'border-[#7bb7ee]/45 bg-[#eaf5ff]/90'
+  }
+  if (status === 'declined') {
+    return 'border-danger/25 bg-danger-soft/70'
+  }
+  return ''
 }
 
 function formatRequestDate(value) {
@@ -101,10 +111,20 @@ function RequestDetails({ rows }) {
   )
 }
 
-function RequestDisclosure({ actions, badgeClassName, badgeLabel, children, eyebrow, index, meta, title }) {
+function RequestDisclosure({
+  actions,
+  badgeClassName,
+  badgeLabel,
+  cardClassName = '',
+  children,
+  eyebrow,
+  index,
+  meta,
+  title,
+}) {
   return (
     <details
-      className="ingredient-card ingredient-card--text-only group"
+      className={`ingredient-card ingredient-card--text-only group ${cardClassName}`}
       style={{ '--tilt': index % 2 === 0 ? '-0.5deg' : '0.5deg' }}
     >
       <summary className="recipe-card recipe-card--full cursor-pointer list-none [&::-webkit-details-marker]:hidden">
@@ -118,11 +138,13 @@ function RequestDisclosure({ actions, badgeClassName, badgeLabel, children, eyeb
           </div>
 
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <span
-              className={`rounded-full border border-ink/15 px-3 py-1 text-xs font-black uppercase shadow-sticker ${badgeClassName}`}
-            >
-              {badgeLabel}
-            </span>
+            {badgeLabel ? (
+              <span
+                className={`rounded-full border border-ink/15 px-3 py-1 text-xs font-black uppercase shadow-sticker ${badgeClassName}`}
+              >
+                {badgeLabel}
+              </span>
+            ) : null}
             {actions}
             <span className="rounded-full border border-ink/15 bg-white px-3 py-1 text-xs font-black uppercase text-ink/65 shadow-sticker group-open:hidden">
               Open
@@ -143,15 +165,9 @@ function RequestDisclosure({ actions, badgeClassName, badgeLabel, children, eyeb
 
 function IncomingRequestRow({ index, isBusyApprove, isBusyDecline, onAction, request, requestActionId }) {
   const disabled = Boolean(requestActionId)
-  const actionButtons = (
+  const isPending = request.status === 'pending'
+  const actionButtons = isPending ? (
     <>
-      <Link
-        className="rounded-full border border-ink/15 bg-white px-3 py-1 text-xs font-black uppercase text-ink shadow-sticker transition hover:-translate-y-0.5"
-        onClick={(event) => event.stopPropagation()}
-        to={`/dashboard/requests/${request.id}`}
-      >
-        View
-      </Link>
       <button
         className="rounded-full border border-ink/15 bg-moonstone px-3 py-1 text-xs font-black uppercase text-ink shadow-sticker transition hover:-translate-y-0.5 disabled:opacity-60"
         disabled={disabled}
@@ -177,13 +193,20 @@ function IncomingRequestRow({ index, isBusyApprove, isBusyDecline, onAction, req
         {isBusyDecline ? 'Declining...' : 'Decline'}
       </button>
     </>
+  ) : (
+    <span
+      className={`rounded-full border border-ink/15 px-3 py-1 text-xs font-black uppercase shadow-sticker ${getStatusClass(request.status)}`}
+    >
+      {getRequestStatusLabel(request.status)}
+    </span>
   )
 
   return (
     <RequestDisclosure
       actions={actionButtons}
-      badgeClassName="bg-mustard text-white"
-      badgeLabel={getRequestStatusLabel(request.status)}
+      badgeClassName=""
+      badgeLabel=""
+      cardClassName={getIncomingCardClass(request.status)}
       eyebrow={`From ${requesterName(request)}`}
       index={index}
       meta={formatRequestDate(request.created_at)}
@@ -202,22 +225,32 @@ function IncomingRequestRow({ index, isBusyApprove, isBusyDecline, onAction, req
         <Link className="pantry-button pantry-button--light" to={`/dashboard/requests/${request.id}`}>
           View listing
         </Link>
-        <button
-          className="pantry-button"
-          disabled={disabled}
-          onClick={() => onAction(request.id, 'approve')}
-          type="button"
-        >
-          {isBusyApprove ? 'Approving...' : 'Approve reveal'}
-        </button>
-        <button
-          className="pantry-filter-button"
-          disabled={disabled}
-          onClick={() => onAction(request.id, 'decline')}
-          type="button"
-        >
-          {isBusyDecline ? 'Declining...' : 'Decline'}
-        </button>
+        {isPending ? (
+          <>
+            <button
+              className="pantry-button"
+              disabled={disabled}
+              onClick={() => onAction(request.id, 'approve')}
+              type="button"
+            >
+              {isBusyApprove ? 'Approving...' : 'Approve reveal'}
+            </button>
+            <button
+              className="pantry-filter-button"
+              disabled={disabled}
+              onClick={() => onAction(request.id, 'decline')}
+              type="button"
+            >
+              {isBusyDecline ? 'Declining...' : 'Decline'}
+            </button>
+          </>
+        ) : (
+          <span
+            className={`rounded-full border border-ink/15 px-4 py-2 text-xs font-black uppercase shadow-sticker ${getStatusClass(request.status)}`}
+          >
+            {getRequestStatusLabel(request.status)}
+          </span>
+        )}
       </div>
     </RequestDisclosure>
   )
@@ -334,8 +367,6 @@ export default function InventoryApprovals() {
     }
   }
 
-  const pendingIncomingRequests = incomingRequests.filter((request) => request.status === 'pending')
-
   if (status === 'loading') {
     return (
       <section className="mx-auto grid max-w-7xl gap-4 px-5 pt-8 md:px-10 lg:grid-cols-2">
@@ -375,13 +406,13 @@ export default function InventoryApprovals() {
           address to that requester.
         </p>
 
-        {pendingIncomingRequests.length === 0 ? (
+        {incomingRequests.length === 0 ? (
           <div className="market-map-queue__empty">
-            No pending requests yet.
+            No requests yet.
           </div>
         ) : (
           <div className="mt-5 grid max-h-[34rem] gap-4 overflow-y-auto overscroll-contain pr-2 pt-2 pd-2">
-            {pendingIncomingRequests.map((request, index) => {
+            {incomingRequests.map((request, index) => {
               const isBusyApprove = requestActionId === `approve:${request.id}`
               const isBusyDecline = requestActionId === `decline:${request.id}`
 
