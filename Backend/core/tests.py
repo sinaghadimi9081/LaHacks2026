@@ -1,7 +1,9 @@
+from datetime import timedelta
 from unittest.mock import patch, MagicMock
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -157,6 +159,40 @@ class SharePostApiTests(TestCase):
         self.assertEqual(len(response.data["posts"]), 1)
         self.assertEqual(response.data["posts"][0]["id"], near_post.id)
         self.assertIsNotNone(response.data["posts"][0]["distance_miles"])
+
+    def test_share_posts_are_tagged_and_expired_posts_are_hidden(self):
+        tomorrow = timezone.localdate() + timedelta(days=1)
+        expired_date = timezone.localdate()
+
+        response = self.owner_client.post(
+            "/api/share/",
+            {
+                "item_name": "Short life berries",
+                "quantity_label": "1 pint",
+                "title": "Short life berries",
+                "pickup_location": "Lobby",
+                "expiration_date": tomorrow.isoformat(),
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["tags"], ["low_priority"])
+        self.assertEqual(response.data["expiration_date"], tomorrow.isoformat())
+
+        expired_post = SharePost.objects.create(
+            owner=self.owner,
+            item_name="Old herbs",
+            quantity_label="1 bunch",
+            title="Old herbs",
+            pickup_location="Lobby",
+            expiration_date=expired_date,
+            tags=["expired"],
+        )
+
+        feed_response = self.owner_client.get("/api/share/feed/")
+        post_ids = [post["id"] for post in feed_response.data["posts"]]
+        self.assertNotIn(expired_post.id, post_ids)
 
     def test_owner_can_update_and_delete_own_post(self):
         post = SharePost.objects.create(

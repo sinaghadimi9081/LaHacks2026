@@ -16,6 +16,10 @@ client.interceptors.request.use((config) => {
   const method = (config.method || 'get').toUpperCase()
   const needsCsrf = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
 
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    delete config.headers['Content-Type']
+  }
+
   if (needsCsrf) {
     const csrfToken = getCookie('csrftoken')
     if (csrfToken) {

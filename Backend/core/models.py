@@ -60,6 +60,7 @@ class SharePost(models.Model):
     estimated_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     image_url = models.URLField(max_length=500, blank=True, null=True)
     image_file = models.ImageField(upload_to="share_post_images/", blank=True, null=True)
+    expiration_date = models.DateField(blank=True, null=True)
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
     pickup_location = models.CharField(max_length=255)

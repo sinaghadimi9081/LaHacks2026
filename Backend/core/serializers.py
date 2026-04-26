@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import serializers
 
 from .models import FoodItem, Notification, SharePost
@@ -29,6 +30,7 @@ class SharePostReadSerializer(serializers.ModelSerializer):
             "estimated_price",
             "image_url",
             "image_file",
+            "expiration_date",
             "food_item",
             "title",
             "description",
@@ -66,6 +68,9 @@ class SharePostReadSerializer(serializers.ModelSerializer):
             expiration_date = food_item.expiration_date
             owner_name = food_item.owner_name or owner_name
             item_status = food_item.status or item_status
+
+        if expiration_date is None:
+            expiration_date = obj.expiration_date
 
         return {
             "id": obj.food_item_id,
@@ -126,6 +131,7 @@ class SharePostWriteSerializer(serializers.ModelSerializer):
             "estimated_price",
             "image_url",
             "image_file",
+            "expiration_date",
             "title",
             "description",
             "pickup_location",
@@ -204,6 +210,14 @@ class SharePostWriteSerializer(serializers.ModelSerializer):
                 {"pickup_longitude": "Longitude must be between -180 and 180."}
             )
 
+        expiration_date = attrs.get("expiration_date")
+        if self.instance is not None and "expiration_date" not in attrs:
+            expiration_date = self.instance.expiration_date
+
+        if expiration_date is not None:
+            days_left = (expiration_date - timezone.localdate()).days
+            attrs["tags"] = ["expired"] if days_left <= 0 else ["low_priority"]
+
         return attrs
 
     def _fill_from_food_item(self, validated_data):
@@ -215,6 +229,7 @@ class SharePostWriteSerializer(serializers.ModelSerializer):
         validated_data.setdefault("quantity_label", str(food_item.quantity))
         validated_data.setdefault("estimated_price", food_item.estimated_price)
         validated_data.setdefault("image_url", food_item.image_url)
+        validated_data.setdefault("expiration_date", food_item.expiration_date)
         return validated_data
 
     def create(self, validated_data):

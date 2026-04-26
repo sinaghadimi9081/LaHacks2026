@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'react-toastify'
 
 import { useAuth } from '../../Auth/useAuth.jsx'
-import { foodItems } from '../Inventory/inventoryData.js'
+import {
+  claimSharePost,
+  createSharePost,
+  fetchShareFeed,
+} from '../../Utils/shareApi.jsx'
+import MarketplaceBackground from './components/MarketplaceBackground.jsx'
 import MarketplaceCart from './components/MarketplaceCart.jsx'
 import MarketplaceDragLayer from './components/MarketplaceDragLayer.jsx'
 import MarketplacePostCard from './components/MarketplacePostCard.jsx'
@@ -11,220 +18,95 @@ import SharePostModal from './components/SharePostModal.jsx'
 
 const feedFilters = ['all', 'available', 'claimed']
 
-const marketplaceBackgroundStickers = [
-  { label: 'Fresh', color: 'fresh', shape: 'oval', top: '15rem', left: '6%', rotate: '-10deg' },
-  { label: 'Local', color: 'local', shape: 'circle', top: '22rem', left: '74%', rotate: '12deg' },
-  { label: 'Ripe', color: 'ripe', shape: 'squircle', top: '33rem', left: '86%', rotate: '8deg' },
-  { label: 'Share', color: 'share', shape: 'oval', top: '42rem', left: '4%', rotate: '-7deg' },
-  { label: 'Apple', color: 'apple', shape: 'circle', top: '54rem', left: '64%', rotate: '15deg' },
-  { label: 'Citrus', color: 'fresh', shape: 'squircle', top: '66rem', left: '88%', rotate: '-13deg' },
-  { label: 'Basil', color: 'basil', shape: 'oval', top: '78rem', left: '10%', rotate: '9deg' },
-  { label: 'Tomato', color: 'share', shape: 'circle', top: '91rem', left: '72%', rotate: '-11deg' },
-  { label: 'Carrot', color: 'local', shape: 'squircle', top: '103rem', left: '3%', rotate: '11deg' },
-  { label: 'Pantry', color: 'paper', shape: 'oval', top: '116rem', left: '84%', rotate: '-6deg' },
-  { label: 'Picked', color: 'ripe', shape: 'circle', top: '129rem', left: '18%', rotate: '14deg' },
-  { label: 'Dinner', color: 'fresh', shape: 'oval', top: '142rem', left: '68%', rotate: '-12deg' },
-  { label: 'Soup', color: 'local', shape: 'circle', top: '155rem', left: '42%', rotate: '10deg' },
-  { label: 'Snack', color: 'apple', shape: 'squircle', top: '168rem', left: '80%', rotate: '-9deg' },
-  { label: 'Pesto', color: 'basil', shape: 'oval', top: '181rem', left: '7%', rotate: '13deg' },
-  { label: 'Pickup', color: 'paper', shape: 'squircle', top: '194rem', left: '58%', rotate: '-8deg' },
-]
-
-const initialSharePosts = [
-  {
-    id: 1,
-    food_item: foodItems[1],
-    title: 'Soup night carrots',
-    description:
-      'Still crisp and sweet. Great for roasting, soup, or a quick slaw.',
-    pickup_location: 'Maple Court community fridge',
-    status: 'available',
-    claimed_by: '',
-    created_at: '2026-04-25',
-  },
-  {
-    id: 2,
-    food_item: foodItems[2],
-    title: 'Extra basil bouquet',
-    description:
-      'Washed, bundled, and ready for pesto. Please pick up this evening.',
-    pickup_location: 'Oak Street porch cooler',
-    status: 'available',
-    claimed_by: '',
-    created_at: '2026-04-24',
-  },
-  {
-    id: 3,
-    food_item: foodItems[5],
-    title: 'Cherry tomatoes for tonight',
-    description:
-      'Best used today. Perfect for pasta sauce, salsa, or a sheet pan.',
-    pickup_location: 'Cedar Ave lobby shelf',
-    status: 'claimed',
-    claimed_by: 'Maya Chen',
-    created_at: '2026-04-23',
-  },
-  {
-    id: 4,
-    food_item: foodItems[0],
-    title: 'Apple snack pack',
-    description:
-      'A few extra apples from a big grocery run. Firm, sweet, and easy to grab after work.',
-    pickup_location: 'Pine Street front desk',
-    status: 'available',
-    claimed_by: '',
-    created_at: '2026-04-25',
-  },
-  {
-    id: 5,
-    food_item: foodItems[3],
-    title: 'Yogurt for sauces',
-    description:
-      'Unopened tub, kept cold. Great for marinades, breakfast bowls, or a quick dip.',
-    pickup_location: 'Shared fridge B',
-    status: 'available',
-    claimed_by: '',
-    created_at: '2026-04-24',
-  },
-  {
-    id: 6,
-    food_item: foodItems[4],
-    title: 'Starter needs a baker',
-    description:
-      'Active sourdough starter in a clean jar. Bring your own container if you want to split it.',
-    pickup_location: 'Juniper Ave porch cooler',
-    status: 'available',
-    claimed_by: '',
-    created_at: '2026-04-22',
-  },
-  {
-    id: 7,
-    food_item: {
-      ...foodItems[1],
-      name: 'Baby carrots',
-      quantity: '12 oz bag',
-      recipe_uses: ['lunch sides', 'hummus', 'stir fry'],
-      image:
-        'https://images.unsplash.com/photo-1590868309235-ea34bed7bd7f?auto=format&fit=crop&w=800&q=80',
-    },
-    title: 'Lunchbox carrots',
-    description:
-      'Clean sealed bag. Easy pickup for anyone packing lunches this week.',
-    pickup_location: 'Maple Court bike room',
-    status: 'available',
-    claimed_by: '',
-    created_at: '2026-04-21',
-  },
-  {
-    id: 8,
-    food_item: {
-      ...foodItems[2],
-      name: 'Cilantro bunch',
-      quantity: '1 bunch',
-      recipe_uses: ['tacos', 'rice bowls', 'chutney'],
-      image:
-        'https://images.unsplash.com/photo-1601493700631-2b16ec4b4716?auto=format&fit=crop&w=800&q=80',
-    },
-    title: 'Fresh cilantro bundle',
-    description:
-      'Still fragrant and perky. Best for dinner tonight or tomorrow morning.',
-    pickup_location: 'Cedar Ave lobby shelf',
-    status: 'claimed',
-    claimed_by: 'Leo Park',
-    created_at: '2026-04-21',
-  },
-  {
-    id: 9,
-    food_item: {
-      ...foodItems[0],
-      name: 'Navel oranges',
-      quantity: '6 oranges',
-      recipe_uses: ['snacks', 'juice', 'salads'],
-      image:
-        'https://images.unsplash.com/photo-1582979512210-99b6a53386f9?auto=format&fit=crop&w=800&q=80',
-    },
-    title: 'Citrus for sharing',
-    description:
-      'Bright, juicy oranges. We bought too many and would rather share than waste them.',
-    pickup_location: 'Oak Street porch cooler',
-    status: 'available',
-    claimed_by: '',
-    created_at: '2026-04-20',
-  },
-  {
-    id: 10,
-    food_item: {
-      ...foodItems[3],
-      name: 'Mozzarella pearls',
-      quantity: '8 oz cup',
-      recipe_uses: ['salads', 'pizza', 'snack plates'],
-      image:
-        'https://images.unsplash.com/photo-1627935722051-395636b0d8a5?auto=format&fit=crop&w=800&q=80',
-    },
-    title: 'Mozzarella before trip',
-    description:
-      'Leaving tomorrow and cannot finish this sealed cup. Kept refrigerated.',
-    pickup_location: 'Shared fridge A',
-    status: 'available',
-    claimed_by: '',
-    created_at: '2026-04-19',
-  },
-  {
-    id: 11,
-    food_item: {
-      ...foodItems[5],
-      name: 'Roma tomatoes',
-      quantity: '5 tomatoes',
-      recipe_uses: ['sauce', 'sandwiches', 'salsa'],
-      image:
-        'https://images.unsplash.com/photo-1582284540020-8acbe03f4924?auto=format&fit=crop&w=800&q=80',
-    },
-    title: 'Roma tomatoes today',
-    description:
-      'Ripe and ready. Please plan to use these soon after pickup.',
-    pickup_location: 'Pine Street front desk',
-    status: 'available',
-    claimed_by: '',
-    created_at: '2026-04-18',
-  },
-  {
-    id: 12,
-    food_item: {
-      ...foodItems[4],
-      name: 'Pizza dough',
-      quantity: '2 dough balls',
-      recipe_uses: ['pizza', 'flatbread', 'garlic knots'],
-      image:
-        'https://images.unsplash.com/photo-1601924582970-9238bcb495d9?auto=format&fit=crop&w=800&q=80',
-    },
-    title: 'Pizza dough pickup',
-    description:
-      'Thawed dough balls in the fridge. Great for a quick dinner tonight.',
-    pickup_location: 'Juniper Ave porch cooler',
-    status: 'claimed',
-    claimed_by: 'Nora Ali',
-    created_at: '2026-04-18',
-  },
-]
+function getDefaultExpirationDate() {
+  const date = new Date()
+  date.setDate(date.getDate() + 7)
+  return date.toISOString().slice(0, 10)
+}
 
 const blankForm = {
-  foodItemName: foodItems[0].name,
-  title: '',
+  item_name: '',
+  quantity_label: '',
   description: '',
+  expiration_date: getDefaultExpirationDate(),
   pickup_location: '',
 }
 
-function getTodayStamp() {
-  return new Date().toISOString().slice(0, 10)
+function getErrorMessage(error, fallbackMessage) {
+  return (
+    error?.response?.data?.detail ||
+    Object.values(error?.response?.data || {})
+      .flat()
+      .join(' ') ||
+    fallbackMessage
+  )
+}
+
+function buildSharePostPayload(form, verificationFile) {
+  const payload = new FormData()
+  payload.append('item_name', form.item_name.trim())
+  payload.append('quantity_label', form.quantity_label.trim())
+  payload.append('title', form.item_name.trim())
+  payload.append('description', form.description.trim())
+  payload.append('expiration_date', form.expiration_date)
+  payload.append('pickup_location', form.pickup_location.trim())
+
+  if (verificationFile) {
+    payload.append('image_file', verificationFile)
+  }
+
+  return payload
+}
+
+function getPostExpirationDate(post) {
+  return post.expiration_date || post.food_item?.expiration_date || ''
+}
+
+function parseDateKey(dateValue) {
+  if (!dateValue) {
+    return null
+  }
+
+  const [year, month, day] = dateValue.slice(0, 10).split('-').map(Number)
+
+  if (!year || !month || !day) {
+    return null
+  }
+
+  return Date.UTC(year, month - 1, day)
+}
+
+function getTodayKey() {
+  const today = new Date()
+  return Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+}
+
+function getPostDaysLeft(post) {
+  const expirationKey = parseDateKey(getPostExpirationDate(post))
+
+  if (expirationKey === null) {
+    return null
+  }
+
+  return Math.round((expirationKey - getTodayKey()) / 86400000)
+}
+
+function isExpiredPost(post) {
+  const daysLeft = getPostDaysLeft(post)
+  return daysLeft !== null && daysLeft <= 0
 }
 
 export default function Marketplace() {
-  const { user } = useAuth()
-  const [sharePosts, setSharePosts] = useState(initialSharePosts)
+  const { isAuthed, status } = useAuth()
+  const navigate = useNavigate()
+  const [sharePosts, setSharePosts] = useState([])
+  const [postsLoading, setPostsLoading] = useState(true)
+  const [postsSaving, setPostsSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [activeFilter, setActiveFilter] = useState('all')
   const [form, setForm] = useState(blankForm)
   const [verificationImage, setVerificationImage] = useState('')
+  const [verificationFile, setVerificationFile] = useState(null)
   const [cartPostIds, setCartPostIds] = useState([])
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
@@ -233,24 +115,21 @@ export default function Marketplace() {
   const basketDockRef = useRef(null)
   const basketDragRef = useRef(null)
 
-  const selectedInventoryItem = useMemo(
-    () =>
-      foodItems.find((item) => item.name === form.foodItemName) || foodItems[0],
-    [form.foodItemName],
-  )
-
   const reverifiedFoodItem = useMemo(
     () => ({
-      ...selectedInventoryItem,
-      image: verificationImage || selectedInventoryItem.image,
+      image: verificationImage || '/favicon.svg',
     }),
-    [selectedInventoryItem, verificationImage],
+    [verificationImage],
   )
 
   const normalizedSearch = searchTerm.trim().toLowerCase()
   const filteredPosts = useMemo(
     () => {
       const matchingPosts = sharePosts.filter((post) => {
+        if (isExpiredPost(post)) {
+          return false
+        }
+
         const searchableText = [
           post.title,
           post.description,
@@ -292,6 +171,34 @@ export default function Marketplace() {
   const cartPosts = cartPostIds
     .map((postId) => sharePosts.find((post) => post.id === postId))
     .filter(Boolean)
+
+  useEffect(() => {
+    let isActive = true
+
+    async function loadSharePosts() {
+      setPostsLoading(true)
+
+      try {
+        const response = await fetchShareFeed()
+        if (!isActive) return
+        setSharePosts(response?.posts || [])
+      } catch (error) {
+        if (!isActive) return
+        setSharePosts([])
+        toast.error(getErrorMessage(error, 'Failed to load marketplace posts.'))
+      } finally {
+        if (isActive) {
+          setPostsLoading(false)
+        }
+      }
+    }
+
+    void loadSharePosts()
+
+    return () => {
+      isActive = false
+    }
+  }, [])
 
   const moveBasketToPointer = useCallback((clientX, clientY) => {
     const dock = basketDockRef.current
@@ -371,31 +278,42 @@ export default function Marketplace() {
 
     if (!file) {
       setVerificationImage('')
+      setVerificationFile(null)
       return
     }
 
     setVerificationImage(URL.createObjectURL(file))
+    setVerificationFile(file)
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
 
-    const newPost = {
-      id: Date.now(),
-      food_item: reverifiedFoodItem,
-      title: form.title.trim(),
-      description: form.description.trim(),
-      pickup_location: form.pickup_location.trim(),
-      status: 'available',
-      claimed_by: '',
-      created_at: getTodayStamp(),
+    if (!isAuthed) {
+      toast.info('Please log in to share an item.')
+      navigate('/login', { state: { from: { pathname: '/marketplace' } } })
+      return
     }
 
-    setSharePosts((currentPosts) => [newPost, ...currentPosts])
-    setForm(blankForm)
-    setVerificationImage('')
-    setIsShareModalOpen(false)
-    event.currentTarget.reset()
+    setPostsSaving(true)
+
+    try {
+      const createdPost = await createSharePost(
+        buildSharePostPayload(form, verificationFile),
+      )
+
+      setSharePosts((currentPosts) => [createdPost, ...currentPosts])
+      setForm({ ...blankForm, expiration_date: getDefaultExpirationDate() })
+      setVerificationImage('')
+      setVerificationFile(null)
+      setIsShareModalOpen(false)
+      event.currentTarget.reset()
+      toast.success('Marketplace post created.')
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Failed to create marketplace post.'))
+    } finally {
+      setPostsSaving(false)
+    }
   }
 
   function addPostToCart(postId, insertIndex = cartPostIds.length) {
@@ -425,53 +343,45 @@ export default function Marketplace() {
     )
   }
 
-  function claimCart() {
-    const claimedBy =
-      user?.display_name || user?.username || user?.email || 'You'
+  async function claimCart() {
     const cartIdSet = new Set(cartPostIds)
+    const nextClaimedPosts = []
 
-    setSharePosts((currentPosts) =>
-      currentPosts.map((post) =>
-        cartIdSet.has(post.id)
-          ? { ...post, status: 'claimed', claimed_by: claimedBy }
-          : post,
-      ),
-    )
-    setCartPostIds([])
+    try {
+      for (const postId of cartIdSet) {
+        nextClaimedPosts.push(await claimSharePost(postId))
+      }
+
+      setSharePosts((currentPosts) =>
+        currentPosts.map((post) => {
+          const claimedPost = nextClaimedPosts.find((item) => item.id === post.id)
+          return claimedPost || post
+        }),
+      )
+      setCartPostIds([])
+      toast.success('Meetup requested.')
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Failed to request meetup.'))
+    }
   }
 
-  function claimPost(postId) {
-    const claimedBy =
-      user?.display_name || user?.username || user?.email || 'You'
-
-    setSharePosts((currentPosts) =>
-      currentPosts.map((post) =>
-        post.id === postId
-          ? { ...post, status: 'claimed', claimed_by: claimedBy }
-          : post,
-      ),
-    )
-    removePostFromCart(postId)
+  async function claimPost(postId) {
+    try {
+      const claimedPost = await claimSharePost(postId)
+      setSharePosts((currentPosts) =>
+        currentPosts.map((post) => (post.id === postId ? claimedPost : post)),
+      )
+      removePostFromCart(postId)
+      toast.success('Meetup requested.')
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Failed to request meetup.'))
+    }
   }
 
   return (
     <DndProvider backend={HTML5Backend}>
       <main className="marketplace-page min-h-screen overflow-hidden text-ink">
-        <div className="marketplace-sticker-pattern" aria-hidden="true">
-          {marketplaceBackgroundStickers.map((sticker) => (
-            <span
-              className={`marketplace-sticker marketplace-sticker--${sticker.color} marketplace-sticker--${sticker.shape}`}
-              key={`${sticker.label}-${sticker.top}`}
-              style={{
-                '--sticker-left': sticker.left,
-                '--sticker-rotate': sticker.rotate,
-                '--sticker-top': sticker.top,
-              }}
-            >
-              {sticker.label}
-            </span>
-          ))}
-        </div>
+        <MarketplaceBackground />
         <MarketplaceDragLayer />
       <section className="pantry-dot-grid relative border-b-4 border-ink bg-moonstone px-5 py-8 md:px-10">
         <div className="plant-trail" aria-hidden="true">
@@ -563,7 +473,16 @@ export default function Marketplace() {
 
           <button
             className="pantry-button h-fit"
-            onClick={() => setIsShareModalOpen(true)}
+            disabled={status === 'loading'}
+            onClick={() => {
+              if (!isAuthed) {
+                toast.info('Please log in to share an item.')
+                navigate('/login', { state: { from: { pathname: '/marketplace' } } })
+                return
+              }
+
+              setIsShareModalOpen(true)
+            }}
             type="button"
           >
             Share item
@@ -588,7 +507,13 @@ export default function Marketplace() {
             />
           ))}
 
-          {filteredPosts.length === 0 && (
+          {postsLoading && (
+            <p className="pantry-card text-sm font-black uppercase tracking-[0.14em] text-ink/60 sm:col-span-2 lg:col-span-3">
+              Loading marketplace posts...
+            </p>
+          )}
+
+          {!postsLoading && filteredPosts.length === 0 && (
             <p className="pantry-card text-sm font-black uppercase tracking-[0.14em] text-ink/60 sm:col-span-2 lg:col-span-3">
               No share posts match this search.
             </p>
@@ -620,14 +545,14 @@ export default function Marketplace() {
 
       {isShareModalOpen && (
         <SharePostModal
-          foodItems={foodItems}
           form={form}
+          isSaving={postsSaving}
           onClose={() => setIsShareModalOpen(false)}
           onImageUpload={handleImageUpload}
           onSubmit={handleSubmit}
           onUpdateForm={updateForm}
+          postSuggestions={sharePosts}
           reverifiedFoodItem={reverifiedFoodItem}
-          selectedInventoryItem={selectedInventoryItem}
         />
       )}
       </main>
