@@ -1,4 +1,5 @@
 from django.db import DatabaseError, transaction
+from django.db.models import F
 from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.exceptions import ValidationError
@@ -6,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.models import ImpactLog, Notification
+from core.services.impact_calculator import calculate_impact
 
 from ..models import Post, PostRequest
 from ..serializers import PostRequestReadSerializer
@@ -124,10 +126,23 @@ class PostRequestActionView(APIView):
                 post.save(update_fields=["status", "claimed_by_user", "claimed_by", "updated_at"])
 
                 try:
+                    impact = calculate_impact(post)
                     ImpactLog.objects.create(
                         food_item=post.food_item,
+                        user=post.owner,
+                        household=getattr(post.owner, "default_household", None),
                         action="share_post_claimed",
                         dollars_saved=post.resolved_estimated_price,
+                        water_saved_gallons=impact.water_gallons,
+                        co2_saved_kg=impact.co2_kg,
+                        electricity_saved_kwh=impact.kwh,
+                    )
+                    from users.models import User
+                    User.objects.filter(pk=post.owner_id).update(
+                        total_water_saved_gallons=F("total_water_saved_gallons") + impact.water_gallons,
+                        total_co2_saved_kg=F("total_co2_saved_kg") + impact.co2_kg,
+                        total_electricity_saved_kwh=F("total_electricity_saved_kwh") + impact.kwh,
+                        total_posts_shared=F("total_posts_shared") + 1,
                     )
                 except DatabaseError:
                     pass

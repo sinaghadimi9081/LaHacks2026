@@ -16,6 +16,12 @@ class User(AbstractUser):
         related_name="default_users",
     )
 
+    # Cumulative environmental impact stats
+    total_water_saved_gallons = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_co2_saved_kg = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_electricity_saved_kwh = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_posts_shared = models.PositiveIntegerField(default=0)
+
     objects = UserManager()
     REQUIRED_FIELDS = ["email"]
 
