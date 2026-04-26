@@ -1,12 +1,22 @@
+import LocationPickerMap from './LocationPickerMap.jsx'
+
 function SharePostModal({
+  currentLocation,
   form,
   foodItems,
+  isResolvingLocation,
+  isSubmitting,
+  locationResolutionError,
   onClose,
   onImageUpload,
+  onResolveTypedAddress,
+  onSelectMapPoint,
   onSubmit,
   onUpdateForm,
+  onUseCurrentLocationForPost,
   reverifiedFoodItem,
   selectedInventoryItem,
+  selectedPickupPoint,
 }) {
   return (
     <div className="market-modal" role="dialog" aria-modal="true">
@@ -72,19 +82,77 @@ function SharePostModal({
           />
         </label>
 
-        <label className="block">
-          <span className="pantry-field-label">Pickup location</span>
-          <input
-            className="pantry-input"
-            onChange={(event) =>
-              onUpdateForm('pickup_location', event.target.value)
-            }
-            placeholder="Community fridge, lobby shelf, porch cooler..."
-            required
-            type="text"
-            value={form.pickup_location}
+        <div className="grid gap-4 rounded-2xl border border-ink/15 bg-white/70 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="pantry-field-label">Pickup location</p>
+              <p className="text-sm font-bold leading-7 text-ink/70">
+                Type an address, use current location, or click directly on the
+                map to set the pickup point.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                className="pantry-button pantry-button--accent"
+                onClick={onUseCurrentLocationForPost}
+                type="button"
+              >
+                {isResolvingLocation ? 'Resolving location...' : 'Use my current location'}
+              </button>
+              <button
+                className="pantry-button pantry-button--light"
+                onClick={onResolveTypedAddress}
+                type="button"
+              >
+                Find typed address
+              </button>
+            </div>
+          </div>
+
+          <label className="block">
+            <span className="pantry-field-label">Pickup address</span>
+            <input
+              className="pantry-input"
+              onChange={(event) => onUpdateForm('pickup_location', event.target.value)}
+              placeholder="Community fridge, lobby shelf, porch cooler..."
+              required
+              type="text"
+              value={form.pickup_location}
+            />
+          </label>
+
+          <LocationPickerMap
+            currentLocation={currentLocation}
+            onPickPoint={onSelectMapPoint}
+            selectedPoint={selectedPickupPoint}
           />
-        </label>
+
+          <div className="market-location-picker__meta">
+            <div>
+              <span>Selected point</span>
+              <strong>
+                {form.pickup_latitude && form.pickup_longitude
+                  ? `${Number(form.pickup_latitude).toFixed(5)}, ${Number(form.pickup_longitude).toFixed(5)}`
+                  : 'No coordinates yet'}
+              </strong>
+            </div>
+            <div>
+              <span>Location source</span>
+              <strong>
+                {selectedPickupPoint
+                  ? 'Map or device'
+                  : currentLocation
+                    ? 'Current location available'
+                    : 'Address only'}
+              </strong>
+            </div>
+          </div>
+
+          {locationResolutionError && (
+            <p className="market-location-picker__error">{locationResolutionError}</p>
+          )}
+        </div>
 
         <label className="block">
           <span className="pantry-field-label">Reverify with image</span>
@@ -119,8 +187,8 @@ function SharePostModal({
           </dl>
         </div>
 
-        <button className="pantry-button" type="submit">
-          Share item
+        <button className="pantry-button" disabled={isSubmitting} type="submit">
+          {isSubmitting ? 'Sharing item...' : 'Share item'}
         </button>
       </form>
     </div>

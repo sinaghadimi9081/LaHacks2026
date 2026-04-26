@@ -1,10 +1,22 @@
+from decimal import Decimal, ROUND_HALF_UP
+import re
+
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
+
+
+_UNIT_SEGMENT_PATTERN = re.compile(r"\b(?:apt|apartment|unit|suite|ste|floor|fl|room|rm|#)\b", re.IGNORECASE)
+_STREET_SEGMENT_PATTERN = re.compile(
+    r"\b(?:st|street|ave|avenue|rd|road|dr|drive|ln|lane|ct|court|blvd|boulevard|way|pl|place|terrace|ter|circle|cir)\b",
+    re.IGNORECASE,
+)
 
 
 class Post(models.Model):
     class Status(models.TextChoices):
         AVAILABLE = "available", "Available"
+        PENDING = "pending", "Pending"
         CLAIMED = "claimed", "Claimed"
 
     owner = models.ForeignKey(
@@ -85,3 +97,149 @@ class Post(models.Model):
                 return self.food_item.image_file.url
             return self.food_item.image_url
         return ""
+
+    def _viewer_request_from_prefetch(self, user):
+        prefetched = getattr(self, "_prefetched_objects_cache", {})
+        requests = prefetched.get("match_requests")
+        if requests is None:
+            return None
+
+        for post_request in requests:
+            if post_request.requester_id == user.id:
+                return post_request
+        return None
+
+    def get_request_for_user(self, user):
+        if not user or not user.is_authenticated:
+            return None
+
+        prefetched_request = self._viewer_request_from_prefetch(user)
+        if prefetched_request is not None:
+            return prefetched_request
+
+        return self.match_requests.select_related("requester").filter(requester=user).first()
+
+    def get_pending_request(self):
+        prefetched = getattr(self, "_prefetched_objects_cache", {})
+        requests = prefetched.get("match_requests")
+        if requests is not None:
+            for post_request in requests:
+                if post_request.status == PostRequest.Status.PENDING:
+                    return post_request
+            return None
+
+        return self.match_requests.select_related("requester").filter(
+            status=PostRequest.Status.PENDING
+        ).first()
+
+    def get_approved_request(self):
+        prefetched = getattr(self, "_prefetched_objects_cache", {})
+        requests = prefetched.get("match_requests")
+        if requests is not None:
+            for post_request in requests:
+                if post_request.status == PostRequest.Status.APPROVED:
+                    return post_request
+            return None
+
+        return self.match_requests.select_related("requester").filter(
+            status=PostRequest.Status.APPROVED
+        ).first()
+
+    def get_viewer_request_status(self, user):
+        if not user or not user.is_authenticated:
+            return None
+
+        if self.claimed_by_user_id == user.id and self.status == self.Status.CLAIMED:
+            return PostRequest.Status.APPROVED
+
+        post_request = self.get_request_for_user(user)
+        return post_request.status if post_request else None
+
+    def can_view_exact_location(self, user):
+        if not user or not user.is_authenticated:
+            return False
+        if self.owner_id == user.id:
+            return True
+        if self.claimed_by_user_id == user.id and self.status == self.Status.CLAIMED:
+            return True
+
+        return self.get_viewer_request_status(user) == PostRequest.Status.APPROVED
+
+    def get_public_pickup_location(self):
+        if not self.pickup_location:
+            return ""
+
+        segments = [segment.strip() for segment in self.pickup_location.split(",") if segment.strip()]
+        if not segments:
+            return ""
+
+        while segments and (
+            any(character.isdigit() for character in segments[0])
+            or _UNIT_SEGMENT_PATTERN.search(segments[0])
+            or _STREET_SEGMENT_PATTERN.search(segments[0])
+        ):
+            segments.pop(0)
+
+        if not segments:
+            return "Approximate pickup area"
+
+        return ", ".join(segments[:2])
+
+    def _rounded_coordinate(self, value):
+        if value in (None, ""):
+            return None
+
+        return Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    def get_public_pickup_latitude(self):
+        return self._rounded_coordinate(self.pickup_latitude)
+
+    def get_public_pickup_longitude(self):
+        return self._rounded_coordinate(self.pickup_longitude)
+
+
+class PostRequest(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        DECLINED = "declined", "Declined"
+
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name="match_requests",
+    )
+    requester = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="post_requests",
+    )
+    status = models.CharField(
+        max_length=50,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["post", "requester"],
+                name="unique_post_request_per_requester",
+            ),
+            models.UniqueConstraint(
+                fields=["post"],
+                condition=Q(status="pending"),
+                name="unique_pending_post_request",
+            ),
+            models.UniqueConstraint(
+                fields=["post"],
+                condition=Q(status="approved"),
+                name="unique_approved_post_request",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.requester} -> {self.post} ({self.status})"

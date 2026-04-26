@@ -2,8 +2,11 @@ import { useEffect } from 'react'
 import { useDrag } from 'react-dnd'
 import { getEmptyImage } from 'react-dnd-html5-backend'
 
+import { formatDistanceMiles } from '../marketplaceLocation.js'
+
 const postStatusStyles = {
   available: 'bg-citrus text-ink',
+  pending: 'bg-mustard text-white',
   claimed: 'bg-phthalo text-white',
 }
 
@@ -24,29 +27,54 @@ function formatPostDate(date) {
   return new Intl.DateTimeFormat('en', {
     month: 'short',
     day: 'numeric',
-  }).format(new Date(`${date}T12:00:00`))
+  }).format(new Date(String(date).includes('T') ? date : `${date}T12:00:00`))
 }
 
 function MarketplacePostCard({
   index,
   isInCart,
+  isSelected,
   onAddToCart,
   onClaimPost,
+  onSelectPost,
   post,
 }) {
   const tilt = index % 2 === 0 ? '-1.2deg' : '1deg'
-  const isClaimed = post.status === 'claimed'
+  const isUnavailable = post.status !== 'available'
   const foodStatusClass = foodStatusCardClasses[post.food_item.status] || ''
+  const requestLabel =
+    post.viewer_request_status === 'approved'
+      ? 'matched'
+      : post.viewer_request_status === 'pending'
+        ? 'pending approval'
+        : post.status === 'pending'
+          ? 'owner reviewing'
+          : post.claimed_by || 'open'
+  const actionLabel = post.is_owner
+    ? post.status === 'pending'
+      ? 'Review requests'
+      : 'Your listing'
+    : post.status === 'claimed'
+      ? post.viewer_request_status === 'approved'
+        ? 'Matched'
+        : 'Already matched'
+      : post.status === 'pending'
+        ? post.viewer_request_status === 'pending'
+          ? 'Request pending'
+          : 'Awaiting owner'
+        : isInCart
+          ? 'Request meetup'
+          : 'Add to basket'
   const [{ isDragging }, dragRef, previewRef] = useDrag(
     () => ({
-      canDrag: !isClaimed,
+      canDrag: !isUnavailable && !post.is_owner,
       collect: (monitor) => ({
         isDragging: monitor.isDragging(),
       }),
       item: { post, type: 'MARKETPLACE_POST' },
       type: 'MARKETPLACE_POST',
     }),
-    [isClaimed, post],
+    [isUnavailable, post],
   )
 
   useEffect(() => {
@@ -56,8 +84,11 @@ function MarketplacePostCard({
   return (
     <article
       className={`market-post-card ingredient-card ${foodStatusClass} ${
-        isClaimed ? 'opacity-75' : 'cursor-grab active:cursor-grabbing'
-      } ${isDragging ? 'market-post-card--dragging' : ''}`}
+        isUnavailable || post.is_owner ? 'opacity-75' : 'cursor-grab active:cursor-grabbing'
+      } ${isDragging ? 'market-post-card--dragging' : ''} ${
+        isSelected ? 'market-post-card--selected' : ''
+      }`}
+      onClick={() => onSelectPost?.(post.id)}
       ref={dragRef}
       style={{ '--tilt': tilt }}
     >
@@ -95,7 +126,11 @@ function MarketplacePostCard({
             <span
               className={`rounded-full border border-ink/15 px-2.5 py-1.5 text-[0.65rem] font-black uppercase shadow-sticker ${postStatusStyles[post.status]}`}
             >
-              {post.status === 'claimed' ? 'requested' : post.status}
+              {post.status === 'claimed'
+                ? 'matched'
+                : post.status === 'pending'
+                  ? 'pending'
+                  : post.status}
             </span>
           </div>
         </div>
@@ -114,22 +149,22 @@ function MarketplacePostCard({
             <dd>{formatPostDate(post.created_at)}</dd>
           </div>
           <div>
+            <dt>distance</dt>
+            <dd>{formatDistanceMiles(post.distance_miles)}</dd>
+          </div>
+          <div>
             <dt>request</dt>
-            <dd>{post.claimed_by || 'open'}</dd>
+            <dd>{requestLabel}</dd>
           </div>
         </dl>
 
         <button
           className="pantry-button w-full"
-          disabled={isClaimed}
+          disabled={post.is_owner || (isUnavailable && !isInCart)}
           onClick={() => (isInCart ? onClaimPost(post.id) : onAddToCart(post.id))}
           type="button"
         >
-          {isClaimed
-            ? 'Meetup requested'
-            : isInCart
-              ? 'Request meetup'
-              : 'Add to basket'}
+          {actionLabel}
         </button>
       </div>
     </article>
