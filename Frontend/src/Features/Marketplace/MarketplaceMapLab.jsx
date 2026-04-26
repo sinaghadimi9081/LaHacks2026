@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Circle,
   CircleMarker,
@@ -8,10 +8,17 @@ import {
   Tooltip,
   useMap,
 } from 'react-leaflet'
+import { toast } from 'react-toastify'
 
 import 'leaflet/dist/leaflet.css'
 import { useAuth } from '../../Auth/useAuth.jsx'
-import { createMarketplaceMapPosts } from './marketplaceMapLabData.js'
+import {
+  approveShareRequest,
+  claimSharePost,
+  declineShareRequest,
+  fetchIncomingShareRequests,
+  fetchShareFeed,
+} from '../../Utils/shareApi.jsx'
 import './marketplaceMapLab.css'
 
 const MAP_CENTER = [34.0835, -118.257]
@@ -38,14 +45,11 @@ const statusStyles = {
 }
 
 function getClaimName(user) {
-  return user?.display_name || user?.username || user?.email || 'Demo Neighbor'
+  return user?.display_name || user?.username || user?.email || 'Neighbor'
 }
 
 function formatDateTime(value) {
-  if (!value) {
-    return 'Not yet'
-  }
-
+  if (!value) return 'Not yet'
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
@@ -54,15 +58,16 @@ function formatDateTime(value) {
   }).format(new Date(value))
 }
 
-function formatPostedDate(date) {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date(`${date}T12:00:00`))
+function formatPostedDate(value) {
+  if (!value) return ''
+  const dateStr = value.includes('T') ? value : `${value}T12:00:00`
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(
+    new Date(dateStr),
+  )
 }
 
 function isExactLocationVisible(post) {
-  return post.status === 'matched'
+  return post.status === 'matched' && post.exact_location?.point != null
 }
 
 function toRadians(value) {
@@ -70,89 +75,105 @@ function toRadians(value) {
 }
 
 function getDistanceMiles(fromPoint, toPoint) {
-  if (!fromPoint || !toPoint) {
-    return null
-  }
-
+  if (!fromPoint || !toPoint) return null
   const earthRadiusMiles = 3958.8
   const [fromLat, fromLng] = fromPoint
   const [toLat, toLng] = toPoint
   const deltaLat = toRadians(toLat - fromLat)
   const deltaLng = toRadians(toLng - fromLng)
-  const latitudeA = toRadians(fromLat)
-  const latitudeB = toRadians(toLat)
-
-  const haversine =
-    Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
-    Math.cos(latitudeA) *
-      Math.cos(latitudeB) *
-      Math.sin(deltaLng / 2) *
-      Math.sin(deltaLng / 2)
-
-  const arc = 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine))
-  return earthRadiusMiles * arc
+  const latA = toRadians(fromLat)
+  const latB = toRadians(toLat)
+  const h =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(latA) * Math.cos(latB) * Math.sin(deltaLng / 2) ** 2
+  return earthRadiusMiles * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
 }
 
 function formatDistanceMiles(distanceMiles) {
-  if (distanceMiles == null) {
-    return 'Unknown'
-  }
-
-  if (distanceMiles < 0.2) {
-    return '< 0.2 mi'
-  }
-
+  if (distanceMiles == null) return 'Unknown'
+  if (distanceMiles < 0.2) return '< 0.2 mi'
   return `${distanceMiles.toFixed(1)} mi`
 }
 
 function formatAccuracyMeters(accuracy) {
-  if (typeof accuracy !== 'number' || Number.isNaN(accuracy)) {
-    return 'Unknown'
-  }
-
+  if (typeof accuracy !== 'number' || Number.isNaN(accuracy)) return 'Unknown'
   return `${Math.round(accuracy)} m`
 }
 
 function getLocationErrorMessage(error) {
-  if (error.code === error.PERMISSION_DENIED) {
-    return 'Location permission was denied in the browser.'
-  }
-
-  if (error.code === error.POSITION_UNAVAILABLE) {
-    return (
-      error.message ||
-      'The browser or operating system could not determine your current location.'
-    )
-  }
-
-  if (error.code === error.TIMEOUT) {
-    return 'Location request timed out.'
-  }
-
+  if (error.code === error.PERMISSION_DENIED) return 'Location permission was denied.'
+  if (error.code === error.POSITION_UNAVAILABLE)
+    return error.message || 'Could not determine your current location.'
+  if (error.code === error.TIMEOUT) return 'Location request timed out.'
   return error.message || 'Could not read current location.'
+}
+
+function normalizeMapPost(post) {
+  const publicLat = post.public_pickup_latitude != null
+    ? parseFloat(post.public_pickup_latitude)
+    : null
+  const publicLng = post.public_pickup_longitude != null
+    ? parseFloat(post.public_pickup_longitude)
+    : null
+  const exactLat =
+    post.exact_location_visible && post.pickup_latitude != null
+      ? parseFloat(post.pickup_latitude)
+      : null
+  const exactLng =
+    post.exact_location_visible && post.pickup_longitude != null
+      ? parseFloat(post.pickup_longitude)
+      : null
+  const mapStatus = post.status === 'claimed' ? 'matched' : post.status
+
+  return {
+    id: post.id,
+    title: post.title || 'Untitled',
+    description: post.description || '',
+    owner_name:
+      post.owner?.full_name || post.owner?.display_name || post.owner?.username || 'Neighbor',
+    neighborhood_name: post.public_pickup_location || 'Local area',
+    neighborhood_hint: post.public_pickup_location
+      ? `Pickup area: ${post.public_pickup_location}`
+      : 'Approximate neighborhood',
+    public_center: publicLat != null && publicLng != null ? [publicLat, publicLng] : null,
+    public_radius_meters: 500,
+    exact_location: {
+      point: exactLat != null && exactLng != null ? [exactLat, exactLng] : null,
+      address: post.exact_location_visible ? post.pickup_location || '' : '',
+      pickup_notes: post.description || '',
+    },
+    food_item: {
+      name: post.food_item?.name || post.item_name || post.title,
+      image: post.food_item?.image || '',
+    },
+    status: mapStatus,
+    claimed_by: post.claimed_by || '',
+    requested_at:
+      mapStatus === 'pending' ? post.updated_at || null : null,
+    matched_at: mapStatus === 'matched' ? post.updated_at || null : null,
+    created_at: post.created_at ? post.created_at.split('T')[0] : '',
+    is_owner: post.is_owner || false,
+    viewer_request_status: post.viewer_request_status || null,
+  }
 }
 
 function MapViewportController({ focusPoint }) {
   const map = useMap()
 
   useEffect(() => {
-    if (!focusPoint) {
-      return
-    }
-
-    map.setView(focusPoint, 12, {
-      animate: true,
-      duration: 0.8,
-    })
+    if (!focusPoint) return
+    map.setView(focusPoint, 12, { animate: true, duration: 0.8 })
   }, [focusPoint, map])
 
   return null
 }
 
 export default function MarketplaceMapLab() {
-  const { user } = useAuth()
-  const [posts, setPosts] = useState(() => createMarketplaceMapPosts())
-  const [selectedPostId, setSelectedPostId] = useState(301)
+  const { user, isAuthed, status: authStatus } = useAuth()
+  const [posts, setPosts] = useState([])
+  const [pendingRequestsByPostId, setPendingRequestsByPostId] = useState({})
+  const [feedState, setFeedState] = useState('loading')
+  const [selectedPostId, setSelectedPostId] = useState(null)
   const [userLocation, setUserLocation] = useState(null)
   const [locationState, setLocationState] = useState('idle')
   const [locationError, setLocationError] = useState('')
@@ -164,48 +185,69 @@ export default function MarketplaceMapLab() {
     timestamp: null,
   })
 
+  const loadFeed = useCallback(async () => {
+    if (!isAuthed) return
+    setFeedState('loading')
+    try {
+      const response = await fetchShareFeed()
+      const normalized = (response.posts || [])
+        .map(normalizeMapPost)
+        .filter((p) => p.public_center != null)
+      setPosts(normalized)
+      setSelectedPostId((prev) => {
+        if (normalized.some((p) => p.id === prev)) return prev
+        return normalized[0]?.id ?? null
+      })
+      setFeedState('ready')
+    } catch {
+      setFeedState('error')
+    }
+  }, [isAuthed])
+
+  const loadIncomingRequests = useCallback(async () => {
+    if (!isAuthed) return
+    try {
+      const response = await fetchIncomingShareRequests({ status: 'pending' })
+      const map = {}
+      for (const req of response.requests || []) {
+        if (req.post?.id) map[req.post.id] = req.id
+      }
+      setPendingRequestsByPostId(map)
+    } catch {
+      // Non-critical
+    }
+  }, [isAuthed])
+
+  useEffect(() => {
+    if (authStatus !== 'ready') return
+    loadFeed()
+    loadIncomingRequests()
+  }, [authStatus, loadFeed, loadIncomingRequests])
+
   useEffect(() => {
     let permissionStatus = null
-
-    async function readPermissionState() {
-      if (!navigator.permissions?.query) {
-        return
-      }
-
+    async function read() {
+      if (!navigator.permissions?.query) return
       try {
-        permissionStatus = await navigator.permissions.query({
-          name: 'geolocation',
-        })
+        permissionStatus = await navigator.permissions.query({ name: 'geolocation' })
         setLocationPermission(permissionStatus.state)
-        permissionStatus.onchange = () => {
-          setLocationPermission(permissionStatus.state)
-        }
+        permissionStatus.onchange = () => setLocationPermission(permissionStatus.state)
       } catch {
         setLocationPermission('unknown')
       }
     }
-
-    readPermissionState()
-
+    read()
     return () => {
-      if (permissionStatus) {
-        permissionStatus.onchange = null
-      }
+      if (permissionStatus) permissionStatus.onchange = null
     }
   }, [])
 
   const selectedPost = useMemo(
-    () => posts.find((post) => post.id === selectedPostId) || posts[0],
+    () => posts.find((p) => p.id === selectedPostId) || posts[0] || null,
     [posts, selectedPostId],
   )
-  const pendingPosts = useMemo(
-    () => posts.filter((post) => post.status === 'pending'),
-    [posts],
-  )
-  const matchedPosts = useMemo(
-    () => posts.filter((post) => post.status === 'matched'),
-    [posts],
-  )
+  const pendingPosts = useMemo(() => posts.filter((p) => p.status === 'pending'), [posts])
+  const matchedPosts = useMemo(() => posts.filter((p) => p.status === 'matched'), [posts])
   const postsWithDistance = useMemo(
     () =>
       posts.map((post) => ({
@@ -216,28 +258,16 @@ export default function MarketplaceMapLab() {
   )
   const sortedPosts = useMemo(
     () =>
-      [...postsWithDistance].sort((firstPost, secondPost) => {
-        if (firstPost.distance_miles == null && secondPost.distance_miles == null) {
-          return firstPost.id - secondPost.id
-        }
-
-        if (firstPost.distance_miles == null) {
-          return 1
-        }
-
-        if (secondPost.distance_miles == null) {
-          return -1
-        }
-
-        return firstPost.distance_miles - secondPost.distance_miles
+      [...postsWithDistance].sort((a, b) => {
+        if (a.distance_miles == null && b.distance_miles == null) return a.id - b.id
+        if (a.distance_miles == null) return 1
+        if (b.distance_miles == null) return -1
+        return a.distance_miles - b.distance_miles
       }),
     [postsWithDistance],
   )
   const nearestPosts = sortedPosts.slice(0, 3)
-  const selectedDistanceMiles = getDistanceMiles(
-    userLocation,
-    selectedPost?.public_center,
-  )
+  const selectedDistanceMiles = getDistanceMiles(userLocation, selectedPost?.public_center)
 
   function requestCurrentLocation() {
     if (!navigator.geolocation) {
@@ -259,15 +289,9 @@ export default function MarketplaceMapLab() {
     let settled = false
 
     function handleSuccess(position) {
-      if (settled) {
-        return
-      }
-
+      if (settled) return
       settled = true
-      if (watchId != null) {
-        navigator.geolocation.clearWatch(watchId)
-      }
-
+      if (watchId != null) navigator.geolocation.clearWatch(watchId)
       setUserLocation([position.coords.latitude, position.coords.longitude])
       setLocationMeta({
         accuracy: position.coords.accuracy,
@@ -279,109 +303,110 @@ export default function MarketplaceMapLab() {
     }
 
     function handleFailure(error) {
-      if (settled) {
-        return
-      }
-
+      if (settled) return
       settled = true
-      if (watchId != null) {
-        navigator.geolocation.clearWatch(watchId)
-      }
-
+      if (watchId != null) navigator.geolocation.clearWatch(watchId)
       setLocationState('error')
       setLocationError(getLocationErrorMessage(error))
     }
 
     watchId = navigator.geolocation.watchPosition(
-      (position) => {
-        handleSuccess(position)
-      },
+      handleSuccess,
       (error) => {
         if (error.code === error.POSITION_UNAVAILABLE) {
-          navigator.geolocation.getCurrentPosition(
-            handleSuccess,
-            handleFailure,
-            {
-              enableHighAccuracy: true,
-              timeout: 30000,
-              maximumAge: 0,
-            },
-          )
+          navigator.geolocation.getCurrentPosition(handleSuccess, handleFailure, {
+            enableHighAccuracy: true,
+            timeout: 30000,
+            maximumAge: 0,
+          })
           return
         }
-
         handleFailure(error)
       },
-      {
-        enableHighAccuracy: false,
-        timeout: 20000,
-        maximumAge: 0,
-      },
+      { enableHighAccuracy: false, timeout: 20000, maximumAge: 0 },
     )
   }
 
-  function requestMatch(postId) {
+  async function requestMatch(postId) {
     const claimant = getClaimName(user)
-
-    setPosts((currentPosts) =>
-      currentPosts.map((post) =>
-        post.id === postId && post.status === 'available'
-          ? {
-              ...post,
-              status: 'pending',
-              claimed_by: claimant,
-              requested_at: new Date().toISOString(),
-            }
-          : post,
+    setPosts((current) =>
+      current.map((p) =>
+        p.id === postId && p.status === 'available'
+          ? { ...p, status: 'pending', claimed_by: claimant, requested_at: new Date().toISOString() }
+          : p,
       ),
     )
     setSelectedPostId(postId)
+
+    try {
+      await claimSharePost(postId)
+      await Promise.all([loadFeed(), loadIncomingRequests()])
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || 'Could not request this item.')
+      await loadFeed()
+    }
   }
 
-  function approveMatch(postId) {
-    setPosts((currentPosts) =>
-      currentPosts.map((post) =>
-        post.id === postId && post.status === 'pending'
-          ? {
-              ...post,
-              status: 'matched',
-              matched_at: new Date().toISOString(),
-            }
-          : post,
+  async function approveMatch(postId) {
+    const requestId = pendingRequestsByPostId[postId]
+    if (!requestId) {
+      toast.error('Could not find the pending request to approve.')
+      return
+    }
+
+    setPosts((current) =>
+      current.map((p) =>
+        p.id === postId && p.status === 'pending'
+          ? { ...p, status: 'matched', matched_at: new Date().toISOString() }
+          : p,
       ),
     )
     setSelectedPostId(postId)
+
+    try {
+      await approveShareRequest(requestId)
+      await Promise.all([loadFeed(), loadIncomingRequests()])
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || 'Could not approve request.')
+      await loadFeed()
+    }
   }
 
-  function declineMatch(postId) {
-    setPosts((currentPosts) =>
-      currentPosts.map((post) =>
-        post.id === postId && post.status === 'pending'
-          ? {
-              ...post,
-              status: 'available',
-              claimed_by: '',
-              requested_at: '',
-              matched_at: '',
-            }
-          : post,
+  async function declineMatch(postId) {
+    const requestId = pendingRequestsByPostId[postId]
+    if (!requestId) {
+      toast.error('Could not find the pending request to decline.')
+      return
+    }
+
+    setPosts((current) =>
+      current.map((p) =>
+        p.id === postId && p.status === 'pending'
+          ? { ...p, status: 'available', claimed_by: '', requested_at: null, matched_at: null }
+          : p,
       ),
     )
+
+    try {
+      await declineShareRequest(requestId)
+      await Promise.all([loadFeed(), loadIncomingRequests()])
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || 'Could not decline request.')
+      await loadFeed()
+    }
   }
 
-  function resetLab() {
-    setPosts(createMarketplaceMapPosts())
-    setSelectedPostId(301)
+  function refreshAll() {
+    loadFeed()
+    loadIncomingRequests()
     setUserLocation(null)
     setLocationState('idle')
     setLocationError('')
-    setLocationMeta({
-      accuracy: null,
-      latitude: null,
-      longitude: null,
-      timestamp: null,
-    })
+    setLocationMeta({ accuracy: null, latitude: null, longitude: null, timestamp: null })
   }
+
+  const mapCenter =
+    selectedPost?.public_center || (posts[0]?.public_center ?? MAP_CENTER)
 
   return (
     <main className="marketplace-page min-h-screen overflow-hidden text-ink">
@@ -389,15 +414,14 @@ export default function MarketplaceMapLab() {
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
           <div>
             <p className="mb-4 w-fit rounded-full border border-ink/15 bg-white/80 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] shadow-sticker backdrop-blur">
-              privacy-first marketplace prototype
+              privacy-first marketplace
             </p>
             <h1 className="max-w-4xl text-5xl font-black uppercase leading-[0.88] md:text-7xl">
               Neighborhood map, exact address after match
             </h1>
             <p className="mt-5 max-w-3xl text-lg font-bold leading-8 text-ink/75">
-              This test page uses OpenStreetMap tiles to show only a broad
-              pickup neighborhood in public. The exact street-level pickup point
-              stays hidden until the owner approves a match request.
+              OpenStreetMap shows only a broad pickup neighborhood in public. The exact
+              street-level pickup point stays hidden until the owner approves a match request.
             </p>
           </div>
 
@@ -427,23 +451,21 @@ export default function MarketplaceMapLab() {
                 Public neighborhood view
               </h2>
             </div>
-            <button className="pantry-button pantry-button--light" onClick={resetLab} type="button">
-              Reset demo
+            <button className="pantry-button pantry-button--light" onClick={refreshAll} type="button">
+              Refresh
             </button>
           </div>
 
           <div className="market-map-notice">
-            <strong>Public map rule:</strong> everyone sees the neighborhood
-            area. Only matched posts reveal the exact pickup pin and address.
+            <strong>Public map rule:</strong> everyone sees the neighborhood area. Only matched
+            posts reveal the exact pickup pin and address.
           </div>
 
           <div className="market-map-location-bar">
             <div>
               <p className="pantry-label">Nearby mode</p>
               <p className="market-map-location-bar__copy">
-                Use the browser&apos;s current location to rank listings by
-                distance from you. The app still uses the public neighborhood
-                center, not the hidden exact address.
+                Use the browser&apos;s current location to rank listings by distance from you.
               </p>
             </div>
 
@@ -466,152 +488,157 @@ export default function MarketplaceMapLab() {
                 <span>Permission state: {locationPermission}</span>
                 {userLocation && (
                   <>
-                    <span>
-                      Location active. Showing nearby products around your
-                      current position.
-                    </span>
+                    <span>Location active. Showing nearby listings around your position.</span>
                     <span>
                       Accuracy: {formatAccuracyMeters(locationMeta.accuracy)} at{' '}
-                      {locationMeta.latitude?.toFixed(5)},{' '}
-                      {locationMeta.longitude?.toFixed(5)}
+                      {locationMeta.latitude?.toFixed(5)}, {locationMeta.longitude?.toFixed(5)}
                     </span>
                   </>
                 )}
                 {!userLocation && locationState !== 'error' && (
-                  <span>Current location is optional for this test page.</span>
+                  <span>Current location is optional.</span>
                 )}
                 {locationError && <span>{locationError}</span>}
               </div>
             </div>
           </div>
 
-          <MapContainer
-            center={MAP_CENTER}
-            className="market-map-canvas"
-            scrollWheelZoom
-            zoom={12}
-          >
-            <TileLayer attribution={TILE_ATTRIBUTION} url={TILE_URL} />
-            <MapViewportController
-              focusPoint={userLocation || selectedPost?.public_center || MAP_CENTER}
-            />
+          {feedState === 'loading' && (
+            <p className="py-8 text-center text-sm font-black uppercase tracking-[0.14em] text-ink/60">
+              Loading listings...
+            </p>
+          )}
 
-            {posts.map((post) => {
-              const isSelected = post.id === selectedPostId
-              const style = statusStyles[post.status]
+          {feedState === 'ready' && posts.length === 0 && (
+            <p className="py-8 text-center text-sm font-black uppercase tracking-[0.14em] text-ink/60">
+              No listings with location data found.
+            </p>
+          )}
 
-              return (
-                <Circle
-                  center={post.public_center}
-                  eventHandlers={{ click: () => setSelectedPostId(post.id) }}
-                  key={`area-${post.id}`}
-                  pathOptions={{
-                    color: style.circle,
-                    fillColor: style.fill,
-                    fillOpacity: isSelected ? 0.34 : 0.22,
-                    weight: isSelected ? 3 : 2,
-                  }}
-                  radius={post.public_radius_meters}
-                />
-              )
-            })}
+          {feedState === 'ready' && posts.length > 0 && (
+            <MapContainer
+              center={mapCenter}
+              className="market-map-canvas"
+              scrollWheelZoom
+              zoom={12}
+            >
+              <TileLayer attribution={TILE_ATTRIBUTION} url={TILE_URL} />
+              <MapViewportController
+                focusPoint={userLocation || selectedPost?.public_center || mapCenter}
+              />
 
-            {posts.map((post) => {
-              const isSelected = post.id === selectedPostId
-              const style = statusStyles[post.status]
+              {posts.map((post) => {
+                const isSelected = post.id === selectedPostId
+                const style = statusStyles[post.status] || statusStyles.available
 
-              return (
-                <CircleMarker
-                  center={post.public_center}
-                  eventHandlers={{ click: () => setSelectedPostId(post.id) }}
-                  key={`public-pin-${post.id}`}
-                  pathOptions={{
-                    color: '#12312a',
-                    fillColor: style.circle,
-                    fillOpacity: 1,
-                    weight: isSelected ? 3 : 2,
-                  }}
-                  radius={isSelected ? 10 : 8}
-                >
-                  <Tooltip
-                    className="market-map-tooltip"
-                    direction="top"
-                    opacity={1}
-                    permanent={isSelected}
+                return (
+                  <Circle
+                    center={post.public_center}
+                    eventHandlers={{ click: () => setSelectedPostId(post.id) }}
+                    key={`area-${post.id}`}
+                    pathOptions={{
+                      color: style.circle,
+                      fillColor: style.fill,
+                      fillOpacity: isSelected ? 0.34 : 0.22,
+                      weight: isSelected ? 3 : 2,
+                    }}
+                    radius={post.public_radius_meters}
+                  />
+                )
+              })}
+
+              {posts.map((post) => {
+                const isSelected = post.id === selectedPostId
+                const style = statusStyles[post.status] || statusStyles.available
+
+                return (
+                  <CircleMarker
+                    center={post.public_center}
+                    eventHandlers={{ click: () => setSelectedPostId(post.id) }}
+                    key={`public-pin-${post.id}`}
+                    pathOptions={{
+                      color: '#12312a',
+                      fillColor: style.circle,
+                      fillOpacity: 1,
+                      weight: isSelected ? 3 : 2,
+                    }}
+                    radius={isSelected ? 10 : 8}
                   >
-                    <div>
-                      <strong>{post.neighborhood_name}</strong>
-                      <span>{post.title}</span>
-                    </div>
-                  </Tooltip>
-                </CircleMarker>
-              )
-            })}
+                    <Tooltip
+                      className="market-map-tooltip"
+                      direction="top"
+                      opacity={1}
+                      permanent={isSelected}
+                    >
+                      <div>
+                        <strong>{post.neighborhood_name}</strong>
+                        <span>{post.title}</span>
+                      </div>
+                    </Tooltip>
+                  </CircleMarker>
+                )
+              })}
 
-            {userLocation && (
-              <CircleMarker
-                center={userLocation}
-                pathOptions={{
-                  color: '#12312a',
-                  fillColor: '#2563eb',
-                  fillOpacity: 1,
-                  weight: 3,
-                }}
-                radius={9}
-              >
-                <Tooltip
-                  className="market-map-tooltip"
-                  direction="top"
-                  opacity={1}
-                  permanent
-                >
-                  <div>
-                    <strong>Your location</strong>
-                    <span>Used only to rank nearby listings.</span>
-                  </div>
-                </Tooltip>
-              </CircleMarker>
-            )}
-
-            {posts
-              .filter((post) => isExactLocationVisible(post))
-              .map((post) => (
-                <Polyline
-                  key={`line-${post.id}`}
+              {userLocation && (
+                <CircleMarker
+                  center={userLocation}
                   pathOptions={{
                     color: '#12312a',
-                    dashArray: '8 8',
-                    opacity: 0.75,
-                    weight: 2,
-                  }}
-                  positions={[post.public_center, post.exact_location.point]}
-                />
-              ))}
-
-            {posts
-              .filter((post) => isExactLocationVisible(post))
-              .map((post) => (
-                <CircleMarker
-                  center={post.exact_location.point}
-                  eventHandlers={{ click: () => setSelectedPostId(post.id) }}
-                  key={`exact-pin-${post.id}`}
-                  pathOptions={{
-                    color: '#7d4a16',
-                    fillColor: '#ff785a',
+                    fillColor: '#2563eb',
                     fillOpacity: 1,
-                    weight: 2,
+                    weight: 3,
                   }}
-                  radius={7}
+                  radius={9}
                 >
-                  <Tooltip className="market-map-tooltip" direction="top" opacity={1}>
+                  <Tooltip className="market-map-tooltip" direction="top" opacity={1} permanent>
                     <div>
-                      <strong>Exact pickup unlocked</strong>
-                      <span>{post.exact_location.address}</span>
+                      <strong>Your location</strong>
+                      <span>Used only to rank nearby listings.</span>
                     </div>
                   </Tooltip>
                 </CircleMarker>
-              ))}
-          </MapContainer>
+              )}
+
+              {posts
+                .filter((post) => isExactLocationVisible(post))
+                .map((post) => (
+                  <Polyline
+                    key={`line-${post.id}`}
+                    pathOptions={{
+                      color: '#12312a',
+                      dashArray: '8 8',
+                      opacity: 0.75,
+                      weight: 2,
+                    }}
+                    positions={[post.public_center, post.exact_location.point]}
+                  />
+                ))}
+
+              {posts
+                .filter((post) => isExactLocationVisible(post))
+                .map((post) => (
+                  <CircleMarker
+                    center={post.exact_location.point}
+                    eventHandlers={{ click: () => setSelectedPostId(post.id) }}
+                    key={`exact-pin-${post.id}`}
+                    pathOptions={{
+                      color: '#7d4a16',
+                      fillColor: '#ff785a',
+                      fillOpacity: 1,
+                      weight: 2,
+                    }}
+                    radius={7}
+                  >
+                    <Tooltip className="market-map-tooltip" direction="top" opacity={1}>
+                      <div>
+                        <strong>Exact pickup unlocked</strong>
+                        <span>{post.exact_location.address}</span>
+                      </div>
+                    </Tooltip>
+                  </CircleMarker>
+                ))}
+            </MapContainer>
+          )}
 
           <div className="market-map-legend">
             <div>
@@ -642,18 +669,24 @@ export default function MarketplaceMapLab() {
                   </h2>
                 </div>
                 <span
-                  className={`rounded-full border border-ink/15 px-3 py-1.5 text-xs font-black uppercase shadow-sticker ${statusStyles[selectedPost.status].badge}`}
+                  className={`rounded-full border border-ink/15 px-3 py-1.5 text-xs font-black uppercase shadow-sticker ${(statusStyles[selectedPost.status] || statusStyles.available).badge}`}
                 >
                   {selectedPost.status}
                 </span>
               </div>
 
               <div className="market-map-selected">
-                <img
-                  alt={`${selectedPost.food_item.name} listing`}
-                  className="market-map-selected__image"
-                  src={selectedPost.food_item.image}
-                />
+                {selectedPost.food_item.image ? (
+                  <img
+                    alt={`${selectedPost.food_item.name} listing`}
+                    className="market-map-selected__image"
+                    src={selectedPost.food_item.image}
+                  />
+                ) : (
+                  <div className="market-map-selected__image bg-cream grid place-items-center text-4xl">
+                    🥬
+                  </div>
+                )}
 
                 <dl className="receipt-lines">
                   <div>
@@ -718,21 +751,27 @@ export default function MarketplaceMapLab() {
                   <>
                     <strong>Neighborhood only</strong>
                     <p>
-                      The consumer does not see the street-level address until
-                      the owner approves the request.
+                      The exact street-level address stays hidden until the owner approves the
+                      request.
                     </p>
                   </>
                 )}
               </div>
 
               <div className="mt-5 flex flex-wrap gap-3">
-                {selectedPost.status === 'available' && (
+                {selectedPost.status === 'available' && !selectedPost.is_owner && (
                   <button
                     className="pantry-button"
                     onClick={() => requestMatch(selectedPost.id)}
                     type="button"
                   >
                     Request match
+                  </button>
+                )}
+
+                {selectedPost.status === 'available' && selectedPost.is_owner && (
+                  <button className="pantry-button pantry-button--light" disabled type="button">
+                    Your listing
                   </button>
                 )}
 
@@ -754,7 +793,7 @@ export default function MarketplaceMapLab() {
           <aside className="pantry-card">
             <div className="flex items-start justify-between gap-4 border-b border-dashed border-ink/20 pb-4">
               <div>
-                <p className="pantry-label">Owner approval sandbox</p>
+                <p className="pantry-label">Owner approval panel</p>
                 <h2 className="mt-2 text-3xl font-black uppercase leading-none">
                   Match queue
                 </h2>
@@ -765,50 +804,50 @@ export default function MarketplaceMapLab() {
             </div>
 
             <p className="mt-4 text-sm font-bold leading-7 text-ink/75">
-              This panel is exposed only for testing. In the real product, the
-              owner would approve the request from their own marketplace inbox.
+              Pending requests on listings you own. Approve to reveal the exact pickup address to
+              the requester.
             </p>
 
             <div className="market-map-queue">
-              {pendingPosts.length === 0 ? (
+              {pendingPosts.filter((p) => p.is_owner).length === 0 ? (
                 <div className="market-map-queue__empty">
-                  No pending match requests. Request one from a listing card to
-                  test the reveal flow.
+                  No pending requests on your listings.
                 </div>
               ) : (
-                pendingPosts.map((post) => (
-                  <article className="market-map-request" key={post.id}>
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-[0.14em] text-tomato">
-                        {post.neighborhood_name}
-                      </p>
-                      <h3 className="mt-1 text-lg font-black uppercase leading-none">
-                        {post.title}
-                      </h3>
-                      <p className="mt-2 text-sm font-bold text-ink/70">
-                        Requested by {post.claimed_by} on{' '}
-                        {formatDateTime(post.requested_at)}
-                      </p>
-                    </div>
+                pendingPosts
+                  .filter((p) => p.is_owner)
+                  .map((post) => (
+                    <article className="market-map-request" key={post.id}>
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-tomato">
+                          {post.neighborhood_name}
+                        </p>
+                        <h3 className="mt-1 text-lg font-black uppercase leading-none">
+                          {post.title}
+                        </h3>
+                        <p className="mt-2 text-sm font-bold text-ink/70">
+                          Requested by {post.claimed_by} on {formatDateTime(post.requested_at)}
+                        </p>
+                      </div>
 
-                    <div className="flex flex-wrap gap-3">
-                      <button
-                        className="pantry-button"
-                        onClick={() => approveMatch(post.id)}
-                        type="button"
-                      >
-                        Approve reveal
-                      </button>
-                      <button
-                        className="pantry-button pantry-button--light"
-                        onClick={() => declineMatch(post.id)}
-                        type="button"
-                      >
-                        Decline
-                      </button>
-                    </div>
-                  </article>
-                ))
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          className="pantry-button"
+                          onClick={() => approveMatch(post.id)}
+                          type="button"
+                        >
+                          Approve reveal
+                        </button>
+                        <button
+                          className="pantry-button pantry-button--light"
+                          onClick={() => declineMatch(post.id)}
+                          type="button"
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    </article>
+                  ))
               )}
             </div>
 
@@ -824,7 +863,7 @@ export default function MarketplaceMapLab() {
                       type="button"
                     >
                       <strong>{post.title}</strong>
-                      <span>{post.exact_location.address}</span>
+                      <span>{post.exact_location.address || post.neighborhood_name}</span>
                     </button>
                   ))}
                 </div>
@@ -856,13 +895,16 @@ export default function MarketplaceMapLab() {
                 <em>{formatDistanceMiles(post.distance_miles)}</em>
               </button>
             ))}
+            {nearestPosts.length === 0 && feedState === 'ready' && (
+              <p className="text-sm font-bold text-ink/60">No listings to show.</p>
+            )}
           </div>
         </div>
 
         <div className="mb-5">
           <p className="pantry-label">Listing cards</p>
           <h2 className="mt-2 text-4xl font-black uppercase leading-none">
-            Consumer test feed
+            Live feed
           </h2>
         </div>
 
@@ -875,11 +917,17 @@ export default function MarketplaceMapLab() {
               key={post.id}
               onClick={() => setSelectedPostId(post.id)}
             >
-              <img
-                alt={`${post.food_item.name} listing`}
-                className="market-map-post__image"
-                src={post.food_item.image}
-              />
+              {post.food_item.image ? (
+                <img
+                  alt={`${post.food_item.name} listing`}
+                  className="market-map-post__image"
+                  src={post.food_item.image}
+                />
+              ) : (
+                <div className="market-map-post__image bg-cream grid place-items-center text-4xl">
+                  🥬
+                </div>
+              )}
 
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -891,7 +939,7 @@ export default function MarketplaceMapLab() {
                   </h3>
                 </div>
                 <span
-                  className={`rounded-full border border-ink/15 px-2.5 py-1 text-[0.65rem] font-black uppercase shadow-sticker ${statusStyles[post.status].badge}`}
+                  className={`rounded-full border border-ink/15 px-2.5 py-1 text-[0.65rem] font-black uppercase shadow-sticker ${(statusStyles[post.status] || statusStyles.available).badge}`}
                 >
                   {post.status}
                 </span>
@@ -912,13 +960,19 @@ export default function MarketplaceMapLab() {
                 </div>
               </div>
 
-              {post.status === 'available' && (
+              {post.status === 'available' && !post.is_owner && (
                 <button
                   className="pantry-button w-full"
-                  onClick={() => requestMatch(post.id)}
+                  onClick={(e) => { e.stopPropagation(); requestMatch(post.id) }}
                   type="button"
                 >
                   Request match
+                </button>
+              )}
+
+              {post.status === 'available' && post.is_owner && (
+                <button className="pantry-button pantry-button--light w-full" disabled type="button">
+                  Your listing
                 </button>
               )}
 
@@ -931,7 +985,7 @@ export default function MarketplaceMapLab() {
               {post.status === 'matched' && (
                 <button
                   className="pantry-button pantry-button--light w-full"
-                  onClick={() => setSelectedPostId(post.id)}
+                  onClick={(e) => { e.stopPropagation(); setSelectedPostId(post.id) }}
                   type="button"
                 >
                   View exact pickup
@@ -939,6 +993,12 @@ export default function MarketplaceMapLab() {
               )}
             </article>
           ))}
+
+          {feedState === 'ready' && sortedPosts.length === 0 && (
+            <p className="pantry-card text-sm font-black uppercase tracking-[0.14em] text-ink/60 md:col-span-2 xl:col-span-4">
+              No listings available on the marketplace yet.
+            </p>
+          )}
         </div>
       </section>
     </main>

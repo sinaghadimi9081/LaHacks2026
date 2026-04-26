@@ -12,10 +12,8 @@ from rest_framework.test import APITestCase
 from households.models import Household, HouseholdMembership
 
 from .models import ParsedReceiptItem, Receipt
-from .receipt_processing import (
-    ReceiptProcessingResult,
-    map_veryfi_document_to_receipt_result,
-)
+from .receipt_processing import ReceiptProcessingResult
+from .veryfi_provider import map_document_to_result as map_veryfi_document_to_receipt_result
 from .receipt_parser import (
     extract_receipt_total_from_text,
     extract_store_name,

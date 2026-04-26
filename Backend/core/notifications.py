@@ -2,6 +2,7 @@ import logging
 
 from django.conf import settings
 from django.core.mail import send_mail
+
 from .models import Notification
 from households.models import HouseholdMembership
 
@@ -9,17 +10,11 @@ logger = logging.getLogger(__name__)
 
 
 class NotificationService:
-    # ------------------------------------------------------------------ #
-    #  Household expiration alerts (existing)
-    # ------------------------------------------------------------------ #
     @staticmethod
     def notify_household_expiration(household, food_item, days_left):
-        """
-        Notifies all active members of a household about an expiring food item.
-        """
         memberships = HouseholdMembership.objects.filter(
             household=household,
-            status=HouseholdMembership.Status.ACTIVE
+            status=HouseholdMembership.Status.ACTIVE,
         ).select_related('user')
 
         title = f"Expiration Alert: {food_item.name}"
@@ -32,21 +27,11 @@ class NotificationService:
 
         for membership in memberships:
             user = membership.user
-            # 1. Website Notification
             NotificationService._send_website_notification(user, title, message)
-
-            # 2. Email Notification
             NotificationService._send_email(user, title, message)
-
-            # 3. Mobile App Push (Placeholder)
             NotificationService._send_push_notification(user, title, message)
-
-            # 4. App Ping (Placeholder)
             NotificationService._ping_app(user, title, message)
 
-    # ------------------------------------------------------------------ #
-    #  Welcome email - sent when a new account is created
-    # ------------------------------------------------------------------ #
     @staticmethod
     def notify_welcome(user):
         title = "Welcome to NeighborFridge!"
@@ -64,9 +49,6 @@ class NotificationService:
         NotificationService._send_website_notification(user, title, message)
         NotificationService._send_email(user, title, message)
 
-    # ------------------------------------------------------------------ #
-    #  New share post - email the poster confirming their listing
-    # ------------------------------------------------------------------ #
     @staticmethod
     def notify_new_share_post(share_post):
         user = share_post.owner
@@ -86,9 +68,6 @@ class NotificationService:
         NotificationService._send_website_notification(user, title, message)
         NotificationService._send_email(user, title, message)
 
-    # ------------------------------------------------------------------ #
-    #  Claim request - email the post owner when someone claims their item
-    # ------------------------------------------------------------------ #
     @staticmethod
     def notify_claim_request(share_post, claimer):
         owner = share_post.owner
@@ -108,16 +87,9 @@ class NotificationService:
         NotificationService._send_website_notification(owner, title, message)
         NotificationService._send_email(owner, title, message)
 
-    # ------------------------------------------------------------------ #
-    #  Low-level delivery channels
-    # ------------------------------------------------------------------ #
     @staticmethod
     def _send_website_notification(user, title, message):
-        Notification.objects.create(
-            user=user,
-            title=title,
-            message=message
-        )
+        Notification.objects.create(user=user, title=title, message=message)
 
     @staticmethod
     def _send_email(user, title, message):
@@ -136,7 +108,7 @@ class NotificationService:
 
     @staticmethod
     def _send_push_notification(user, title, message):
-        # Placeholder for mobile push notification logic
+        # Placeholder for mobile push notification
         pass
 
     @staticmethod
