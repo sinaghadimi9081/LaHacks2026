@@ -7,6 +7,7 @@ import FoodItem from './components/FoodItem.jsx'
 import FoodItemNoImage from './components/FoodItemNoImage.jsx'
 import InventoryApprovals from './components/InventoryApprovals.jsx'
 import SharePostModal from '../Marketplace/components/SharePostModal.jsx'
+import { getLocationErrorMessage, requestBrowserLocation } from '../Marketplace/marketplaceLocation.js'
 
 const filterOptions = ['all', 'fresh', 'use soon', 'feed today', 'critical']
 
@@ -272,39 +273,34 @@ export default function Inventory() {
   }
 
   async function handleUseCurrentLocationForPost() {
-    if (!navigator.geolocation) return
-
     setIsResolvingLocation(true)
     setLocationResolutionError('')
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const lat = position.coords.latitude
-        const lng = position.coords.longitude
-        setCurrentLocation([lat, lng])
-        try {
-          const resolved = await resolveShareLocation({ latitude: lat, longitude: lng })
-          setSellForm((current) => ({
-            ...current,
-            pickup_location: resolved.pickup_location,
-            pickup_latitude: String(resolved.pickup_latitude),
-            pickup_longitude: String(resolved.pickup_longitude),
-          }))
-        } catch {
-          setSellForm((current) => ({
-            ...current,
-            pickup_latitude: String(lat),
-            pickup_longitude: String(lng),
-          }))
-        } finally {
-          setIsResolvingLocation(false)
-        }
-      },
-      () => {
-        setLocationResolutionError('Could not access your current location.')
-        setIsResolvingLocation(false)
-      },
-    )
+    try {
+      const location = await requestBrowserLocation()
+      setCurrentLocation(location.point)
+      try {
+        const resolved = await resolveShareLocation({
+          latitude: location.latitude,
+          longitude: location.longitude,
+        })
+        setSellForm((current) => ({
+          ...current,
+          pickup_location: resolved.pickup_location,
+          pickup_latitude: String(resolved.pickup_latitude),
+          pickup_longitude: String(resolved.pickup_longitude),
+        }))
+      } catch {
+        setSellForm((current) => ({
+          ...current,
+          pickup_latitude: String(location.latitude),
+          pickup_longitude: String(location.longitude),
+        }))
+      }
+    } catch (error) {
+      setLocationResolutionError(getLocationErrorMessage(error))
+    } finally {
+      setIsResolvingLocation(false)
+    }
   }
 
   async function handleSellSubmit(event) {
