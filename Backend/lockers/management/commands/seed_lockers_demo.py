@@ -35,41 +35,6 @@ SITES = [
         "longitude": Decimal("-118.268200"),
         "description": "Silver Lake neighborhood fridge lockers on Sunset.",
     },
-    {
-        "name": "Echo Park Lockers",
-        "address_label": "1632 W Temple St, Los Angeles, CA 90026",
-        "latitude": Decimal("34.073800"),
-        "longitude": Decimal("-118.256300"),
-        "description": "Community lockers near Echo Park Lake.",
-    },
-    {
-        "name": "Koreatown Plaza Lockers",
-        "address_label": "928 S Western Ave, Los Angeles, CA 90006",
-        "latitude": Decimal("34.053500"),
-        "longitude": Decimal("-118.309100"),
-        "description": "Lockers in the heart of K-Town for sharing home-cooked extras.",
-    },
-    {
-        "name": "Hollywood & Vine Lockers",
-        "address_label": "6250 Hollywood Blvd, Los Angeles, CA 90028",
-        "latitude": Decimal("34.101600"),
-        "longitude": Decimal("-118.325800"),
-        "description": "Public food-share lockers near the Hollywood & Vine metro station.",
-    },
-    {
-        "name": "Venice Boardwalk Lockers",
-        "address_label": "1800 Ocean Front Walk, Venice, CA 90291",
-        "latitude": Decimal("33.990900"),
-        "longitude": Decimal("-118.476500"),
-        "description": "Beach-side lockers for the Venice community.",
-    },
-    {
-        "name": "Pasadena Old Town Lockers",
-        "address_label": "55 S Raymond Ave, Pasadena, CA 91105",
-        "latitude": Decimal("34.145400"),
-        "longitude": Decimal("-118.148500"),
-        "description": "Food-share lockers in Old Town Pasadena.",
-    },
 ]
 
 
@@ -224,4 +189,3 @@ class Command(BaseCommand):
             _ = listing
 
         return created
-
