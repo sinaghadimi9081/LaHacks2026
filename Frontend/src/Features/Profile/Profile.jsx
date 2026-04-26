@@ -31,6 +31,18 @@ function ProfileCard({ title, children }) {
   )
 }
 
+const profileStickerStyles = ['bg-citrus rotate-6', 'bg-petal -rotate-6', 'bg-moonstone rotate-3']
+
+function ProfileSticker({ children, index = 0 }) {
+  return (
+    <span
+      className={`fruit-sticker static min-h-10 min-w-10 px-3 ${profileStickerStyles[index % profileStickerStyles.length]}`}
+    >
+      <span>{children}</span>
+    </span>
+  )
+}
+
 export default function Profile() {
   const { user, refreshUser, saveProfile, saveHousehold } = useAuth()
 
@@ -551,12 +563,12 @@ export default function Profile() {
                         key={invitation.id}
                         className="rounded-xl border border-ink/15 bg-white/85 p-4 shadow-sticker"
                       >
-                        <p className="text-sm font-black text-ink">
-                          {invitation.invited_email || invitation.email}
-                        </p>
-                        <p className="mt-1 text-sm font-bold text-ink/60">
-                          Status: {invitation.status || 'pending'}
-                        </p>
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-sm font-black text-ink">
+                            {invitation.invited_email || invitation.email}
+                          </p>
+                          <ProfileSticker>{invitation.status || 'pending'}</ProfileSticker>
+                        </div>
                       </div>
                     ))
                   ) : (
@@ -589,9 +601,7 @@ export default function Profile() {
                         </p>
                       </div>
 
-                      <span className="rounded-full border-2 border-ink bg-petal px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-ink">
-                        {household.status || 'active'}
-                      </span>
+                      <ProfileSticker>{household.status || 'active'}</ProfileSticker>
                     </div>
                   </div>
                 ))}
@@ -620,7 +630,11 @@ export default function Profile() {
                           <p className="mt-1 text-sm font-bold text-ink/60">
                             @{member.username} · {member.email}
                           </p>
-                          <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-ink/55">
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <ProfileSticker>{member.role}</ProfileSticker>
+                            <ProfileSticker index={1}>{member.status}</ProfileSticker>
+                          </div>
+                          <p className="sr-only">
                             {member.role} · {member.status}
                           </p>
                         </div>
