@@ -136,7 +136,7 @@ export default function Home() {
             <img
               alt="A colorful pantry illustration for NeighborFridge"
               className="aspect-[4/3] w-full rounded-2xl border-4 border-ink bg-white/80 object-cover shadow-pop"
-              src={heroImage}
+              src="./../../../public/thumbnail.png"
             />
           </div>
         </div>
