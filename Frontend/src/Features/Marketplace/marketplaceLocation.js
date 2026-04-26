@@ -103,17 +103,22 @@ export function requestBrowserLocation() {
     }
 
     if (!window.isSecureContext) {
-      reject(new Error('Location access requires https or localhost.'))
+      reject(
+        new Error(
+          `Location access requires https or localhost. (Current origin: ${window.location?.origin || 'unknown'})`,
+        ),
+      )
       return
     }
 
-    let watchId = null
     let settled = false
+    const overallTimeoutMs = 45000
+    let overallTimeoutId = null
 
     function cleanup() {
-      if (watchId != null) {
-        navigator.geolocation.clearWatch(watchId)
-        watchId = null
+      if (overallTimeoutId != null) {
+        window.clearTimeout(overallTimeoutId)
+        overallTimeoutId = null
       }
     }
 
@@ -143,28 +148,35 @@ export function requestBrowserLocation() {
       reject(error)
     }
 
-    watchId = navigator.geolocation.watchPosition(
+    overallTimeoutId = window.setTimeout(() => {
+      handleFailure({
+        code: 3,
+        message: 'Location request timed out.',
+      })
+    }, overallTimeoutMs)
+
+    const maximumAgeMs = 5 * 60 * 1000
+
+    navigator.geolocation.getCurrentPosition(
       handleSuccess,
-      (error) => {
-        if (error.code === error.POSITION_UNAVAILABLE) {
-          navigator.geolocation.getCurrentPosition(
-            handleSuccess,
-            handleFailure,
-            {
-              enableHighAccuracy: true,
-              timeout: 30000,
-              maximumAge: 0,
-            },
-          )
+      (initialError) => {
+        if (settled) return
+
+        if (initialError?.code === initialError?.PERMISSION_DENIED || initialError?.code === 1) {
+          handleFailure(initialError)
           return
         }
 
-        handleFailure(error)
+        navigator.geolocation.getCurrentPosition(handleSuccess, handleFailure, {
+          enableHighAccuracy: true,
+          timeout: 30000,
+          maximumAge: 0,
+        })
       },
       {
         enableHighAccuracy: false,
-        timeout: 20000,
-        maximumAge: 0,
+        timeout: 12000,
+        maximumAge: maximumAgeMs,
       },
     )
   })

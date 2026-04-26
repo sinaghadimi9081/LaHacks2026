@@ -19,6 +19,7 @@ import {
   fetchIncomingShareRequests,
   fetchShareFeed,
 } from '../../Utils/shareApi.jsx'
+import { getLocationErrorMessage, requestBrowserLocation } from './marketplaceLocation.js'
 import './marketplaceMapLab.css'
 
 const MAP_CENTER = [34.0835, -118.257]
@@ -98,14 +99,6 @@ function formatDistanceMiles(distanceMiles) {
 function formatAccuracyMeters(accuracy) {
   if (typeof accuracy !== 'number' || Number.isNaN(accuracy)) return 'Unknown'
   return `${Math.round(accuracy)} m`
-}
-
-function getLocationErrorMessage(error) {
-  if (error.code === error.PERMISSION_DENIED) return 'Location permission was denied.'
-  if (error.code === error.POSITION_UNAVAILABLE)
-    return error.message || 'Could not determine your current location.'
-  if (error.code === error.TIMEOUT) return 'Location request timed out.'
-  return error.message || 'Could not read current location.'
 }
 
 function normalizeMapPost(post) {
@@ -270,61 +263,23 @@ export default function MarketplaceMapLab() {
   const selectedDistanceMiles = getDistanceMiles(userLocation, selectedPost?.public_center)
 
   function requestCurrentLocation() {
-    if (!navigator.geolocation) {
-      setLocationState('error')
-      setLocationError('This browser does not support geolocation.')
-      return
-    }
-
-    if (!window.isSecureContext) {
-      setLocationState('error')
-      setLocationError('Location access requires https or localhost.')
-      return
-    }
-
     setLocationState('loading')
     setLocationError('')
-
-    let watchId = null
-    let settled = false
-
-    function handleSuccess(position) {
-      if (settled) return
-      settled = true
-      if (watchId != null) navigator.geolocation.clearWatch(watchId)
-      setUserLocation([position.coords.latitude, position.coords.longitude])
-      setLocationMeta({
-        accuracy: position.coords.accuracy,
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        timestamp: position.timestamp,
+    requestBrowserLocation()
+      .then((location) => {
+        setUserLocation(location.point)
+        setLocationMeta({
+          accuracy: location.accuracy,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          timestamp: location.timestamp,
+        })
+        setLocationState('granted')
       })
-      setLocationState('granted')
-    }
-
-    function handleFailure(error) {
-      if (settled) return
-      settled = true
-      if (watchId != null) navigator.geolocation.clearWatch(watchId)
-      setLocationState('error')
-      setLocationError(getLocationErrorMessage(error))
-    }
-
-    watchId = navigator.geolocation.watchPosition(
-      handleSuccess,
-      (error) => {
-        if (error.code === error.POSITION_UNAVAILABLE) {
-          navigator.geolocation.getCurrentPosition(handleSuccess, handleFailure, {
-            enableHighAccuracy: true,
-            timeout: 30000,
-            maximumAge: 0,
-          })
-          return
-        }
-        handleFailure(error)
-      },
-      { enableHighAccuracy: false, timeout: 20000, maximumAge: 0 },
-    )
+      .catch((error) => {
+        setLocationState('error')
+        setLocationError(getLocationErrorMessage(error))
+      })
   }
 
   async function requestMatch(postId) {

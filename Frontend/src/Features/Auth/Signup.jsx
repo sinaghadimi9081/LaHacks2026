@@ -13,6 +13,13 @@ const initialForm = {
   password_confirm: '',
 }
 
+const authStickers = [
+  { label: 'Join', color: 'fresh', shape: 'oval', top: '7rem', left: '5%', rotate: '-10deg' },
+  { label: 'Pantry', color: 'paper', shape: 'circle', top: '18rem', left: '82%', rotate: '12deg' },
+  { label: 'Household', color: 'ripe', shape: 'squircle', top: '36rem', left: '6%', rotate: '8deg' },
+  { label: 'Rescue', color: 'basil', shape: 'oval', top: '54rem', left: '78%', rotate: '-12deg' },
+]
+
 export default function Signup() {
   const navigate = useNavigate()
   const { signup } = useAuth()
@@ -45,8 +52,25 @@ export default function Signup() {
   }
 
   return (
-    <section className="pantry-shell">
-      <div className="pantry-card mx-auto max-w-2xl">
+    <main className="marketplace-page min-h-screen overflow-hidden text-ink">
+      <div className="marketplace-sticker-pattern" aria-hidden="true">
+        {authStickers.map((sticker) => (
+          <div
+            className={`marketplace-sticker marketplace-sticker--${sticker.color} marketplace-sticker--${sticker.shape}`}
+            key={`${sticker.label}-${sticker.top}`}
+            style={{
+              '--sticker-left': sticker.left,
+              '--sticker-rotate': sticker.rotate,
+              '--sticker-top': sticker.top,
+            }}
+          >
+            {sticker.label}
+          </div>
+        ))}
+      </div>
+
+      <section className="pantry-shell relative z-10">
+        <div className="pantry-card mx-auto max-w-2xl">
         <p className="pantry-label">
           Create account
         </p>
@@ -151,6 +175,7 @@ export default function Signup() {
           </div>
         </form>
       </div>
-    </section>
+      </section>
+    </main>
   )
 }

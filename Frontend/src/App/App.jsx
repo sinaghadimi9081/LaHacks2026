@@ -4,19 +4,19 @@ import { ToastContainer } from 'react-toastify'
 
 import RequireAuth from '../Auth/RequireAuth.jsx'
 import { useAuth } from '../Auth/useAuth.jsx'
-import Home from '../Features/Home/Home.jsx'
 import Login from '../Features/Auth/Login.jsx'
 import Signup from '../Features/Auth/Signup.jsx'
-import Profile from '../Features/Profile/Profile.jsx'
+import Empty from '../Features/Empty/Empty.jsx'
+import Home from '../Features/Home/Home.jsx'
+import Impact from '../Features/Impact/Impact.jsx'
 import Inventory from '../Features/Inventory/Inventory.jsx'
 import InventoryRequestListingPage from '../Features/Inventory/InventoryRequestListingPage.jsx'
+import Lockers from '../Features/Lockers/Lockers.jsx'
 import Inbox from '../Features/Messages/Inbox.jsx'
 import Marketplace from '../Features/Marketplace/Marketplace.jsx'
 import MarketplaceMapLab from '../Features/Marketplace/MarketplaceMapLab.jsx'
-
 import MarketplaceMatchLab from '../Features/Marketplace/MarketplaceMatchLab.jsx'
-import Lockers from '../Features/Lockers/Lockers.jsx'
-import Impact from '../Features/Impact/Impact.jsx'
+import Profile from '../Features/Profile/Profile.jsx'
 import ReceiptsWorkbench from '../Features/Receipts/ReceiptsWorkbench.jsx'
 import neighborFridgeMark from '../assets/neighborfridge-mark.png'
 import './app.css'
@@ -25,6 +25,7 @@ import 'react-toastify/dist/ReactToastify.css'
 function NavBar() {
   const { isAuthed, user, logout, status } = useAuth()
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
   const userMenuRef = useRef(null)
   const profileImageUrl = user?.profile_image_url || user?.profile_image || ''
   const profileName = user?.display_name || user?.username || 'Profile'
@@ -47,10 +48,32 @@ function NavBar() {
     return () => document.removeEventListener('pointerdown', handleDocumentPointerDown)
   }, [isUserMenuOpen])
 
+  useEffect(() => {
+    if (!isMobileNavOpen) {
+      return undefined
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        setIsMobileNavOpen(false)
+        setIsUserMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isMobileNavOpen])
+
+  function closeMenus() {
+    setIsMobileNavOpen(false)
+    setIsUserMenuOpen(false)
+  }
+
   return (
     <header className="border-b-4 border-ink bg-petal">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-4 md:px-10">
-        <Link to="/" className="brand-link no-underline">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 md:px-10">
+        <Link to="/" className="brand-link no-underline" onClick={closeMenus}>
           <img alt="" className="brand-mark" src={neighborFridgeMark} />
           <div className="brand-copy">
             <p className="brand-title text-sm font-black uppercase tracking-[0.18em] text-ink">
@@ -62,41 +85,63 @@ function NavBar() {
           </div>
         </Link>
 
-        <nav className="flex flex-wrap items-center gap-3">
-          <NavLink className="nav-pill" to="/dashboard">
+        <button
+          aria-expanded={isMobileNavOpen}
+          aria-label={isMobileNavOpen ? 'Close navigation' : 'Open navigation'}
+          className="mobile-nav-toggle"
+          onClick={() => {
+            setIsMobileNavOpen((currentValue) => !currentValue)
+            setIsUserMenuOpen(false)
+          }}
+          type="button"
+        >
+          <span className="mobile-nav-toggle__icon material-symbols-outlined" aria-hidden="true">
+            menu
+          </span>
+        </button>
+
+        <button
+          aria-label="Close navigation"
+          className={`mobile-nav-backdrop ${isMobileNavOpen ? 'mobile-nav-backdrop--open' : ''}`}
+          onClick={closeMenus}
+          type="button"
+        />
+
+        <nav className={`nav-links ${isMobileNavOpen ? 'nav-links--open' : ''}`}>
+          <NavLink className="nav-pill" onClick={closeMenus} to="/dashboard">
             Dashboard
           </NavLink>
 
-          <NavLink className="nav-pill" to="/receipts">
+          <NavLink className="nav-pill" onClick={closeMenus} to="/receipts">
             Receipts
           </NavLink>
 
-          <NavLink className="nav-pill" to="/marketplace">
+          <NavLink className="nav-pill" onClick={closeMenus} to="/marketplace">
             Marketplace
           </NavLink>
 
-          <NavLink className="nav-pill" to="/lockers">
+          <NavLink className="nav-pill" onClick={closeMenus} to="/lockers">
             Lockers
           </NavLink>
 
-          <NavLink className="nav-pill" to="/marketplace-map-lab">
+          {/* <NavLink className="nav-pill" onClick={closeMenus} to="/marketplace-map-lab">
             Map Lab
-          </NavLink>
+          </NavLink> */}
 
-          <NavLink className="nav-pill" to="/marketplace-match-lab">
+          {/* <NavLink className="nav-pill" onClick={closeMenus} to="/marketplace-match-lab">
             Match Lab
-          </NavLink>
+          </NavLink> */}
 
-          <NavLink className="nav-pill" to="/impact">
+          <NavLink className="nav-pill" onClick={closeMenus} to="/impact">
             Impact
           </NavLink>
 
           {!isAuthed && status !== 'loading' && (
             <>
-              <NavLink className="nav-pill" to="/login">
+              <NavLink className="nav-pill" onClick={closeMenus} to="/login">
                 Login
               </NavLink>
-              <NavLink className="nav-pill nav-pill-strong" to="/signup">
+              <NavLink className="nav-pill nav-pill-strong" onClick={closeMenus} to="/signup">
                 Sign up
               </NavLink>
             </>
@@ -110,11 +155,7 @@ function NavBar() {
                 type="button"
               >
                 <span className="nav-avatar" aria-hidden="true">
-                  {profileImageUrl ? (
-                    <img alt="" src={profileImageUrl} />
-                  ) : (
-                    profileInitial
-                  )}
+                  {profileImageUrl ? <img alt="" src={profileImageUrl} /> : profileInitial}
                 </span>
                 <span>{profileName}</span>
               </button>
@@ -123,17 +164,17 @@ function NavBar() {
                   <div className="nav-menu-item">
                     Credits: ${Number(creditsBalance || 0).toFixed(2)}
                   </div>
-                  <NavLink className="nav-menu-item" onClick={() => setIsUserMenuOpen(false)} to="/inbox">
+                  <NavLink className="nav-menu-item" onClick={closeMenus} to="/inbox">
                     Inbox
                   </NavLink>
-                  <NavLink className="nav-menu-item" onClick={() => setIsUserMenuOpen(false)} to="/profile">
+                  <NavLink className="nav-menu-item" onClick={closeMenus} to="/profile">
                     Profile
                   </NavLink>
                   <button
                     className="nav-menu-item nav-menu-item--danger"
                     type="button"
                     onClick={() => {
-                      setIsUserMenuOpen(false)
+                      closeMenus()
                       logout()
                     }}
                   >
@@ -206,6 +247,7 @@ export default function App() {
           />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/empty" element={<Empty />} />
           <Route
             path="/profile"
             element={

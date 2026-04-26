@@ -17,6 +17,7 @@ import { foodItems } from '../Inventory/inventoryData.js'
 import MarketplaceFeedMap from './components/MarketplaceFeedMap.jsx'
 import MarketplaceCart from './components/MarketplaceCart.jsx'
 import MarketplaceDragLayer from './components/MarketplaceDragLayer.jsx'
+import MarketplaceListingPreview from './components/MarketplaceListingPreview.jsx'
 import MarketplacePostCard from './components/MarketplacePostCard.jsx'
 import SharePostModal from './components/SharePostModal.jsx'
 import {
@@ -162,7 +163,7 @@ export default function Marketplace() {
   const [feedState, setFeedState] = useState('idle')
   const [feedError, setFeedError] = useState('')
   const [selectedPostDetail, setSelectedPostDetail] = useState(null)
-  const [, setSelectedPostDetailState] = useState('idle')
+  const [selectedPostDetailState, setSelectedPostDetailState] = useState('idle')
   const [selectedPostDetailError, setSelectedPostDetailError] = useState('')
   const [requestMode, setRequestMode] = useState('pickup')
   const [searchTerm, setSearchTerm] = useState('')
@@ -173,6 +174,7 @@ export default function Marketplace() {
   const [cartPostIds, setCartPostIds] = useState([])
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [isListingModalOpen, setIsListingModalOpen] = useState(false)
   const [isBasketMoving, setIsBasketMoving] = useState(false)
   const [basketPosition, setBasketPosition] = useState(null)
   const [basketTopOffset, setBasketTopOffset] = useState(24)
@@ -361,6 +363,10 @@ export default function Marketplace() {
     })
 
     return [...matchingPosts].sort((firstPost, secondPost) => {
+      if (firstPost.is_owner !== secondPost.is_owner) {
+        return firstPost.is_owner ? 1 : -1
+      }
+
       const statusPriority = {
         available: 0,
         pending: 1,
@@ -663,6 +669,15 @@ export default function Marketplace() {
     setCartPostIds((currentIds) => currentIds.filter((currentId) => currentId !== postId))
   }
 
+  function openListingModal(postId) {
+    setSelectedPostId(postId)
+    setIsListingModalOpen(true)
+  }
+
+  function closeListingModal() {
+    setIsListingModalOpen(false)
+  }
+
   async function buildClaimPayload() {
     if (requestMode !== 'delivery') {
       return { fulfillment_method: 'pickup' }
@@ -799,10 +814,10 @@ export default function Marketplace() {
           <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
             <div>
               <p className="mb-4 w-fit rounded-full border border-ink/15 bg-white/80 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] shadow-sticker backdrop-blur">
-                neighborhood feed
+                community feed
               </p>
               <h1 className="max-w-3xl text-6xl font-black uppercase leading-[0.85] md:text-8xl">
-                Share shelf
+                Marketplace
               </h1>
               <p className="mt-5 max-w-2xl text-lg font-bold leading-8 text-ink/75">
                 Browse live posts from nearby neighbors, request an item, and unlock the exact
@@ -901,7 +916,7 @@ export default function Marketplace() {
                       <button
                         className="market-map-nearby-strip__card"
                         key={post.id}
-                        onClick={() => setSelectedPostId(post.id)}
+                        onClick={() => openListingModal(post.id)}
                         type="button"
                       >
                         <strong>{post.title}</strong>
@@ -975,9 +990,10 @@ export default function Marketplace() {
                     key={post.id}
                     onAddToCart={addPostToCart}
                     onClaimPost={claimPost}
-                    onClearSelection={() => setSelectedPostId(null)}
-                    onSelectPost={setSelectedPostId}
+                    onClearSelection={() => {}}
+                    onSelectPost={openListingModal}
                     post={post}
+                    showInlinePreview={false}
                   />
                 ))}
 
@@ -997,7 +1013,7 @@ export default function Marketplace() {
                   locationMeta={locationMeta}
                   locationState={locationState}
                   onRequestCurrentLocation={requestCurrentLocation}
-                  onSelectPost={setSelectedPostId}
+                  onSelectPost={openListingModal}
                   selectedPost={selectedPost}
                   selectedPostId={selectedPostId}
                   userLocation={userLocation}
@@ -1034,6 +1050,156 @@ export default function Marketplace() {
                 </p>
               )}
             </div>
+
+            {isListingModalOpen && selectedPost && (
+              <div className="market-modal" role="dialog" aria-modal="true">
+                <button
+                  aria-label="Close selected listing"
+                  className="market-modal__scrim"
+                  onClick={closeListingModal}
+                  type="button"
+                />
+
+                <div className="market-modal__panel !max-w-6xl rounded-xl border border-ink/15 bg-cream p-5 shadow-pop">
+                  <div className="mb-4 flex flex-wrap items-start justify-between gap-4 border-b-2 border-moonstone pb-4">
+                    <div>
+                      <p className="pantry-label">Selected listing</p>
+                      <h2 className="mt-2 text-4xl font-black uppercase leading-none">
+                        {selectedPost.title}
+                      </h2>
+                    </div>
+                    <button
+                      className="pantry-filter-button shrink-0"
+                      onClick={closeListingModal}
+                      type="button"
+                    >
+                      Close
+                    </button>
+                  </div>
+
+                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(20rem,0.95fr)] lg:items-start">
+                    <MarketplaceFeedMap
+                      className="market-map-panel--compact"
+                      filteredPosts={filteredPosts}
+                      isLoadingFeed={feedState === 'loading'}
+                      locationError={locationError}
+                      locationMeta={locationMeta}
+                      locationState={locationState}
+                      onRequestCurrentLocation={requestCurrentLocation}
+                      onSelectPost={setSelectedPostId}
+                      selectedPost={selectedPost}
+                      selectedPostId={selectedPostId}
+                      userLocation={userLocation}
+                    />
+
+                    <div className="grid gap-4">
+                      <MarketplaceListingPreview
+                        onClearSelection={closeListingModal}
+                        post={selectedPost}
+                      />
+
+                      {!selectedPost.is_owner && selectedPost.status === 'available' && (
+                        <div className="market-map-address-card">
+                          <p className="pantry-label">Request method</p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {['pickup', 'delivery'].map((mode) => (
+                              <button
+                                className={`pantry-filter-button ${
+                                  requestMode === mode ? 'pantry-filter-button--active' : ''
+                                }`}
+                                key={mode}
+                                onClick={() => setRequestMode(mode)}
+                                type="button"
+                              >
+                                {mode === 'delivery' ? 'Simulated delivery' : 'Pickup'}
+                              </button>
+                            ))}
+                          </div>
+                          <p className="mt-3 text-sm font-bold leading-6 text-ink/70">
+                            {requestMode === 'delivery'
+                              ? 'Delivery uses your current location to estimate the request.'
+                              : 'Pickup reveals the exact address after the owner approves.'}
+                          </p>
+                        </div>
+                      )}
+
+                      {selectedPost.viewer_delivery_quote && (
+                        <div className="market-map-address-card market-map-address-card--revealed">
+                          <p className="pantry-label">Delivery quote</p>
+                          <strong>
+                            {selectedPost.viewer_delivery_quote.delivery_available
+                              ? `$${selectedPost.viewer_delivery_quote.estimated_fee} - ${selectedPost.viewer_delivery_quote.estimated_minutes} min`
+                              : 'Unavailable'}
+                          </strong>
+                          <p>{selectedPost.viewer_delivery_quote.message}</p>
+                          <span className="market-map-address-card__meta">
+                            Dropoff: {selectedPost.viewer_delivery_quote.dropoff_location}
+                          </span>
+                        </div>
+                      )}
+
+                      {selectedPostDetailState === 'loading' && (
+                        <p className="text-sm font-black uppercase tracking-[0.14em] text-ink/55">
+                          Loading listing details...
+                        </p>
+                      )}
+
+                      {selectedPostDetailError && (
+                        <div className="market-map-address-card">
+                          <p className="pantry-label">Detail error</p>
+                          <p>{selectedPostDetailError}</p>
+                          <button
+                            className="pantry-button mt-3"
+                            onClick={() => selectedPostId && loadSelectedPostDetail(selectedPostId, userLocation)}
+                            type="button"
+                          >
+                            Retry selected listing
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {selectedPost.is_owner ? (
+                          <button className="pantry-button w-full" disabled type="button">
+                            Your listing
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              className="pantry-button pantry-button--light w-full"
+                              disabled={
+                                selectedPost.status !== 'available' ||
+                                cartPostIds.includes(selectedPost.id)
+                              }
+                              onClick={() => addPostToCart(selectedPost.id)}
+                              type="button"
+                            >
+                              {cartPostIds.includes(selectedPost.id) ? 'Already in basket' : 'Add to basket'}
+                            </button>
+                            <button
+                              className="pantry-button w-full"
+                              disabled={selectedPost.status !== 'available'}
+                              onClick={() => claimPost(selectedPost.id)}
+                              type="button"
+                            >
+                              {selectedPost.viewer_request_status === 'pending'
+                                ? 'Request pending'
+                                : selectedPost.status === 'claimed'
+                                  ? 'Matched'
+                                  : selectedPost.status === 'pending'
+                                    ? 'Awaiting owner'
+                                    : requestMode === 'delivery'
+                                      ? 'Request delivery'
+                                      : 'Request meetup'}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {isShareModalOpen && (
               <SharePostModal

@@ -158,8 +158,8 @@ export default function Impact() {
       </div>
 
       {/* ─── hero ───────────────────────────────────────── */}
-      <section className="impact-hero">
-        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+      <section className="impact-hero ">
+        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end ">
           <div>
             <div className="impact-rank-badge">
               🏆 #{userRank} in your household
