@@ -28,6 +28,7 @@ class FoodItemSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'name',
+            'category_tag',
             'quantity',
             'expiration_date',
             'estimated_price',

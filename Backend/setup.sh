@@ -42,15 +42,16 @@ fi
 if [[ "$FRESH_DB" == true ]]; then
   echo "--fresh: removing db.sqlite3 and any auto-generated migration files."
   rm -f db.sqlite3
-  find users households core posts receipts \
+  find users households core posts receipts lockers \
     -path "*/migrations/*.py" -not -name "__init__.py" -delete 2>/dev/null || true
-  find users households core posts receipts \
+  find users households core posts receipts lockers \
     -path "*/migrations/*.pyc" -delete 2>/dev/null || true
 fi
 
 python scripts/rename_receipts_app.py
-python manage.py makemigrations users households core posts receipts
+python manage.py makemigrations users households core posts receipts lockers
 python manage.py migrate
+python manage.py seed_lockers_demo
 
 echo "Backend dependencies are installed and migrations are up to date."
 echo "Use 'source $VENV_DIR/bin/activate' if you want the virtualenv in your shell."

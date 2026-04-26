@@ -11,7 +11,9 @@ import Profile from '../Features/Profile/Profile.jsx'
 import Inventory from '../Features/Inventory/Inventory.jsx'
 import Marketplace from '../Features/Marketplace/Marketplace.jsx'
 import MarketplaceMapLab from '../Features/Marketplace/MarketplaceMapLab.jsx'
+
 import MarketplaceMatchLab from '../Features/Marketplace/MarketplaceMatchLab.jsx'
+import Lockers from '../Features/Lockers/Lockers.jsx'
 import Impact from '../Features/Impact/Impact.jsx'
 import ReceiptsWorkbench from '../Features/Receipts/ReceiptsWorkbench.jsx'
 import './app.css'
@@ -24,6 +26,7 @@ function NavBar() {
   const profileImageUrl = user?.profile_image_url || user?.profile_image || ''
   const profileName = user?.display_name || user?.username || 'Profile'
   const profileInitial = profileName.charAt(0).toUpperCase()
+  const creditsBalance = user?.credits_balance
 
   useEffect(() => {
     if (!isUserMenuOpen) {
@@ -71,6 +74,10 @@ function NavBar() {
             Marketplace
           </NavLink>
 
+          <NavLink className="nav-pill" to="/lockers">
+            Lockers
+          </NavLink>
+
           <NavLink className="nav-pill" to="/marketplace-map-lab">
             Map Lab
           </NavLink>
@@ -112,6 +119,9 @@ function NavBar() {
               </button>
               {isUserMenuOpen ? (
                 <div className="nav-user-popover">
+                  <div className="nav-menu-item">
+                    Credits: ${Number(creditsBalance || 0).toFixed(2)}
+                  </div>
                   <NavLink className="nav-menu-item" onClick={() => setIsUserMenuOpen(false)} to="/profile">
                     Profile
                   </NavLink>
@@ -146,6 +156,7 @@ export default function App() {
           <Route path="/dashboard" element={<Inventory />} />
           <Route path="/inventory" element={<Inventory />} />
           <Route path="/marketplace" element={<Marketplace />} />
+          <Route path="/lockers" element={<Lockers />} />
           <Route path="/marketplace-map-lab" element={<MarketplaceMapLab />} />
           <Route path="/marketplace-match-lab" element={<MarketplaceMatchLab />} />
           <Route path="/impact" element={<Impact />} />
