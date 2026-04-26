@@ -204,6 +204,7 @@ def confirm_receipt(request, receipt_id):
                 parsed_item.standardized_name,
             )
             parsed_item.quantity = int(item_data.get("quantity", parsed_item.quantity or 1))
+            parsed_item.category_tag = item_data.get("category_tag", parsed_item.category_tag or "")
             parsed_item.expiration_days = item_data.get(
                 "expiration_days",
                 parsed_item.expiration_days,
@@ -220,6 +221,7 @@ def confirm_receipt(request, receipt_id):
                     "name",
                     "standardized_name",
                     "quantity",
+                    "category_tag",
                     "expiration_days",
                     "estimated_price",
                     "image_url",
@@ -239,6 +241,7 @@ def confirm_receipt(request, receipt_id):
                     household=membership.household,
                     created_by=request.user,
                     name=parsed_item.standardized_name or parsed_item.name or "Unknown Item",
+                    category_tag=parsed_item.category_tag or "",
                     quantity=int(parsed_item.quantity or 1),
                     expiration_date=exp_date,
                     estimated_price=est_price,

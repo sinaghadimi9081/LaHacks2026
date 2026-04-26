@@ -16,6 +16,8 @@ class User(AbstractUser):
         related_name="default_users",
     )
 
+    credits_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
     # Cumulative environmental impact stats
     total_water_saved_gallons = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_co2_saved_kg = models.DecimalField(max_digits=12, decimal_places=2, default=0)
