@@ -205,13 +205,11 @@ class PostApiTests(TestCase):
         self.assertIsNone(post.claimed_by_user)
         self.assertEqual(post.match_requests.count(), 1)
         self.assertEqual(post.match_requests.first().status, PostRequest.Status.PENDING)
-<<<<<<< HEAD
         notification = Notification.objects.get(user=self.owner)
         self.assertEqual(notification.title, "New marketplace request")
         mock_send_email.assert_called_once()
         self.assertEqual(mock_send_email.call_args[0][0], self.owner)
         self.assertEqual(mock_send_email.call_args[0][1], "New marketplace request")
-=======
         self.assertEqual(
             post.match_requests.first().fulfillment_method,
             PostRequest.FulfillmentMethod.PICKUP,
@@ -269,7 +267,6 @@ class PostApiTests(TestCase):
             outgoing_response.data["requests"][0]["delivery_quote"]["pickup_location"],
             "Los Angeles, CA",
         )
->>>>>>> 92b1dc89eda102271060e2016956b8b74bb5b34d
 
     @patch("core.notifications.NotificationService._send_email")
     def test_owner_can_approve_request_and_requester_gains_exact_access(self, mock_send_email):
@@ -318,10 +315,6 @@ class PostApiTests(TestCase):
         self.assertEqual(mock_send_email.call_args[0][0], self.requester)
         self.assertEqual(mock_send_email.call_args[0][1], "Marketplace request approved")
 
-<<<<<<< HEAD
-    @patch("core.notifications.NotificationService._send_email")
-    def test_owner_can_decline_request_and_post_returns_to_available(self, mock_send_email):
-=======
     @patch("posts.serializers.request.reverse_geocode")
     def test_approved_delivery_request_reveals_exact_pickup_in_quote(self, mock_reverse_geocode):
         mock_reverse_geocode.return_value = {
@@ -368,8 +361,8 @@ class PostApiTests(TestCase):
             "UCLA Residence Hall, Los Angeles, CA",
         )
 
-    def test_owner_can_decline_request_and_post_returns_to_available(self):
->>>>>>> 92b1dc89eda102271060e2016956b8b74bb5b34d
+    @patch("core.notifications.NotificationService._send_email")
+    def test_owner_can_decline_request_and_post_returns_to_available(self, mock_send_email):
         post = self._create_post(title="Soup base")
         self.requester_client.patch(f"/api/share/{post.id}/claim/", {}, format="json")
         mock_send_email.reset_mock()
