@@ -1,6 +1,8 @@
 param(
     [Alias("NoRun")]
-    [switch]$NoRunFlag
+    [switch]$NoRunFlag,
+    [Alias("Fresh")]
+    [switch]$FreshFlag
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,6 +23,7 @@ function Invoke-Checked {
 }
 
 $noRun = $NoRunFlag -or $args -contains "--no-run" -or $args -contains "-NoRun"
+$fresh = $FreshFlag -or $args -contains "--fresh" -or $args -contains "-Fresh"
 
 if ($env:PYTHON_BIN) {
     $pythonBin = $env:PYTHON_BIN
@@ -64,7 +67,23 @@ if (-not (Test-Path ".env")) {
     }
 }
 
+if ($fresh) {
+    Write-Host "--fresh: removing db.sqlite3 and any auto-generated migration files."
+    if (Test-Path "db.sqlite3") {
+        Remove-Item "db.sqlite3" -Force
+    }
+    foreach ($app in @("users", "households", "core", "posts", "receipts")) {
+        $migrationsDir = Join-Path $app "migrations"
+        if (Test-Path $migrationsDir) {
+            Get-ChildItem -Path $migrationsDir -File |
+                Where-Object { $_.Name -ne "__init__.py" } |
+                Remove-Item -Force
+        }
+    }
+}
+
 Invoke-Checked $venvPython scripts/rename_receipts_app.py
+Invoke-Checked $venvPython manage.py makemigrations users households core posts receipts
 Invoke-Checked $venvPython manage.py migrate
 
 Write-Host "Backend dependencies are installed and migrations are up to date."
