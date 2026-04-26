@@ -47,8 +47,20 @@ class UserSerializer(serializers.ModelSerializer):
             "default_household",
             "households",
             "date_joined",
+            "total_water_saved_gallons",
+            "total_co2_saved_kg",
+            "total_electricity_saved_kwh",
+            "total_posts_shared",
         ]
-        read_only_fields = ["id", "date_joined", "households"]
+        read_only_fields = [
+            "id",
+            "date_joined",
+            "households",
+            "total_water_saved_gallons",
+            "total_co2_saved_kg",
+            "total_electricity_saved_kwh",
+            "total_posts_shared",
+        ]
 
     def get_profile_image_url(self, obj):
         if not obj.profile_image:
