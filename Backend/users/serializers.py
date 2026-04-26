@@ -153,17 +153,20 @@ class SignupSerializer(serializers.Serializer):
         user.default_household = household
         user.save(update_fields=["default_household"])
 
-        try:
-            from lockers.models import CreditTransaction
+        def grant_signup_bonus(user_id):
+            try:
+                from lockers.models import CreditTransaction
 
-            CreditTransaction.objects.create(
-                kind=CreditTransaction.Kind.SIGNUP_BONUS,
-                from_user=None,
-                to_user=user,
-                amount=Decimal("10.00"),
-            )
-        except Exception:
-            pass
+                CreditTransaction.objects.create(
+                    kind=CreditTransaction.Kind.SIGNUP_BONUS,
+                    from_user=None,
+                    to_user_id=user_id,
+                    amount=Decimal("10.00"),
+                )
+            except Exception:
+                pass
+
+        transaction.on_commit(lambda: grant_signup_bonus(user.id))
 
         return user
 

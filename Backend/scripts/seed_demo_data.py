@@ -1,27 +1,38 @@
 #!/usr/bin/env python3
 """
-Seed the NeighborFridge backend with demo users, share posts, and claims.
+Seed the NeighborFridge backend with demo users, share posts, claims,
+and (optionally) generated receipts that the local OCR can scan without
+hitting any external APIs.
 
 Usage (server must be running):
     python scripts/seed_demo_data.py
+    python scripts/seed_demo_data.py --reset             # wipe demo users first
     python scripts/seed_demo_data.py --base-url http://127.0.0.1:8000/api
+    python scripts/seed_demo_data.py --no-receipts        # skip OCR step
+    python scripts/seed_demo_data.py --skip-env-check     # don't touch .env
 
 What it does:
-    1. Signs up 6 demo users (each with their own auto-created household).
-    2. Logs each user in if signup says they already exist.
-    3. Creates 2-3 share posts per user using real Unsplash food photos.
-    4. Has several users claim each others' posts so the marketplace shows
+    1. Forces RECEIPT_PROCESSING_PROVIDER=local in Backend/.env so receipt
+       processing never calls Veryfi (or any other external service).
+    2. Optionally runs `manage.py reset_demo_users` first (--reset) to wipe
+       any existing demo accounts so the seed can re-create them with the
+       shared password.
+    3. Signs up 5 demo users (each with their own auto-created household).
+    4. Logs each user in if signup says they already exist.
+    5. Creates 2-3 share posts per user using real Unsplash food photos.
+    6. Has several users claim each others' posts so the marketplace shows
        both 'available' and 'claimed' items.
-    5. Prints a credentials table at the end so you can log in as any user
-       from the frontend.
-
-The script is idempotent for users (it logs in if the username already
-exists), but posts are appended on every run. Use ./setup.sh --fresh
-beforehand if you want a clean slate.
+    7. Generates a fake grocery receipt PNG per user using Pillow, uploads
+       it through /api/receipts/upload/ (which uses pytesseract locally),
+       and confirms the parsed items into the user's pantry.
 """
 
 import argparse
+import io
+import os
+import subprocess
 import sys
+from pathlib import Path
 from typing import Optional
 
 import requests
@@ -30,59 +41,54 @@ import requests
 DEFAULT_BASE_URL = "http://127.0.0.1:8000/api"
 SHARED_PASSWORD = "FreshFridge2026!"
 
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+ENV_FILE = BACKEND_DIR / ".env"
+ENV_EXAMPLE_FILE = BACKEND_DIR / ".env.example"
+
 
 # Real LA-area coordinates so OpenStreetMap doesn't have to be hit at all
 # (PostWriteSerializer skips geocoding when location + lat + lng are all sent).
 USERS = [
     {
-        "username": "anthony",
-        "email": "anthony@neighborfridge.test",
-        "display_name": "Anthony Park",
+        "username": "sinaghadimi",
+        "email": "ghadimi.cna@gmail.com",
+        "display_name": "Sina Ghadimi",
         "household_name": "Maple Court Co-op",
         "pickup_location": "Maple Court community fridge, Westwood, Los Angeles",
         "pickup_latitude": "34.068900",
         "pickup_longitude": "-118.445200",
     },
     {
-        "username": "maya",
-        "email": "maya@neighborfridge.test",
-        "display_name": "Maya Chen",
+        "username": "shervinss",
+        "email": "shervinshahidi@ucla.edu",
+        "display_name": "Shervin Shahidi",
         "household_name": "Oak Street House",
         "pickup_location": "Oak Street porch cooler, Santa Monica, CA",
         "pickup_latitude": "34.019500",
         "pickup_longitude": "-118.491200",
     },
     {
-        "username": "leo",
-        "email": "leo@neighborfridge.test",
-        "display_name": "Leo Park",
+        "username": "mina",
+        "email": "sinagh9081@gmail.com",
+        "display_name": "Mina G.",
         "household_name": "Cedar Avenue Loft",
         "pickup_location": "Cedar Ave lobby shelf, Venice, CA",
         "pickup_latitude": "33.985000",
         "pickup_longitude": "-118.469500",
     },
     {
-        "username": "nora",
-        "email": "nora@neighborfridge.test",
-        "display_name": "Nora Ali",
+        "username": "tina",
+        "email": "sina.ghadimi.home@gmail.com",
+        "display_name": "Tina G.",
         "household_name": "Pine Street Bungalow",
         "pickup_location": "Pine Street front desk, Beverly Hills, CA",
         "pickup_latitude": "34.073600",
         "pickup_longitude": "-118.400400",
     },
     {
-        "username": "mateo",
-        "email": "mateo@neighborfridge.test",
-        "display_name": "Mateo Diaz",
-        "household_name": "Juniper Avenue Studio",
-        "pickup_location": "Juniper Ave porch cooler, Culver City, CA",
-        "pickup_latitude": "34.021100",
-        "pickup_longitude": "-118.396500",
-    },
-    {
-        "username": "priya",
-        "email": "priya@neighborfridge.test",
-        "display_name": "Priya Shah",
+        "username": "hida",
+        "email": "sinaghadimi@g.ucla.edu",
+        "display_name": "Hida G.",
         "household_name": "Birch Lane Townhouse",
         "pickup_location": "Birch Lane shared fridge, Brentwood, Los Angeles",
         "pickup_latitude": "34.052400",
@@ -93,7 +99,7 @@ USERS = [
 
 # Each list is owned by USERS[i] (matched by index).
 POSTS_BY_USER = [
-    # 0 — Anthony
+    # 0 — sinaghadimi
     [
         {
             "title": "Honeycrisp apples",
@@ -113,27 +119,6 @@ POSTS_BY_USER = [
             "image_url": "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80",
             "recipe_uses": ["bread", "pancakes", "pizza dough"],
         },
-    ],
-    # 1 — Maya
-    [
-        {
-            "title": "Rainbow carrots",
-            "item_name": "Rainbow carrots",
-            "quantity_label": "1 bunch",
-            "estimated_price": "4.25",
-            "description": "Roasted these last week and they were amazing. Have an extra bunch I won't get to.",
-            "image_url": "https://images.unsplash.com/photo-1447175008436-054170c2e979?auto=format&fit=crop&w=800&q=80",
-            "recipe_uses": ["roast trays", "slaw", "stock"],
-        },
-        {
-            "title": "Cherry tomatoes",
-            "item_name": "Cherry tomatoes",
-            "quantity_label": "1 pint",
-            "estimated_price": "3.50",
-            "description": "Ripe and sweet. Best used today — pasta, salad, or a sheet pan.",
-            "image_url": "https://images.unsplash.com/photo-1546470427-e26264be0b0d?auto=format&fit=crop&w=800&q=80",
-            "recipe_uses": ["sauce", "salads", "salsa"],
-        },
         {
             "title": "Greek yogurt tub",
             "item_name": "Greek yogurt",
@@ -144,7 +129,7 @@ POSTS_BY_USER = [
             "recipe_uses": ["breakfast bowls", "marinades", "dips"],
         },
     ],
-    # 2 — Leo
+    # 1 — shervinss
     [
         {
             "title": "Basil bouquet",
@@ -160,12 +145,42 @@ POSTS_BY_USER = [
             "item_name": "Navel oranges",
             "quantity_label": "6 oranges",
             "estimated_price": "5.00",
-            "description": "Bright and juicy. We bought too many on a Costco run.",
+            "description": "Bright and juicy. Bought too many on a Costco run.",
             "image_url": "https://images.unsplash.com/photo-1582979512210-99b6a53386f9?auto=format&fit=crop&w=800&q=80",
             "recipe_uses": ["snacks", "juice", "salads"],
         },
     ],
-    # 3 — Nora
+    # 2 — mina
+    [
+        {
+            "title": "Rainbow carrots",
+            "item_name": "Rainbow carrots",
+            "quantity_label": "1 bunch",
+            "estimated_price": "4.25",
+            "description": "Roasted these last week and they were amazing. Have an extra bunch.",
+            "image_url": "https://images.unsplash.com/photo-1447175008436-054170c2e979?auto=format&fit=crop&w=800&q=80",
+            "recipe_uses": ["roast trays", "slaw", "stock"],
+        },
+        {
+            "title": "Cherry tomatoes",
+            "item_name": "Cherry tomatoes",
+            "quantity_label": "1 pint",
+            "estimated_price": "3.50",
+            "description": "Ripe and sweet. Best used today — pasta, salad, or a sheet pan.",
+            "image_url": "https://images.unsplash.com/photo-1546470427-e26264be0b0d?auto=format&fit=crop&w=800&q=80",
+            "recipe_uses": ["sauce", "salads", "salsa"],
+        },
+        {
+            "title": "Spinach clamshell",
+            "item_name": "Baby spinach",
+            "quantity_label": "5 oz container",
+            "estimated_price": "3.75",
+            "description": "Unopened. Use today or tomorrow for the best texture.",
+            "image_url": "https://images.unsplash.com/photo-1576045057995-568f588f82fb?auto=format&fit=crop&w=800&q=80",
+            "recipe_uses": ["smoothies", "salads", "saute"],
+        },
+    ],
+    # 3 — tina
     [
         {
             "title": "Pizza dough balls",
@@ -185,38 +200,8 @@ POSTS_BY_USER = [
             "image_url": "https://images.unsplash.com/photo-1627935722051-395636b0d8a5?auto=format&fit=crop&w=800&q=80",
             "recipe_uses": ["salads", "pizza", "snack plates"],
         },
-        {
-            "title": "Roma tomatoes",
-            "item_name": "Roma tomatoes",
-            "quantity_label": "5 tomatoes",
-            "estimated_price": "3.25",
-            "description": "Ripe and ready. Plan to use these soon after pickup.",
-            "image_url": "https://images.unsplash.com/photo-1582284540020-8acbe03f4924?auto=format&fit=crop&w=800&q=80",
-            "recipe_uses": ["sauce", "sandwiches", "salsa"],
-        },
     ],
-    # 4 — Mateo
-    [
-        {
-            "title": "Cilantro bunch",
-            "item_name": "Fresh cilantro",
-            "quantity_label": "1 bunch",
-            "estimated_price": "2.00",
-            "description": "Still fragrant. Best for tacos or rice bowls this week.",
-            "image_url": "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?auto=format&fit=crop&w=800&q=80",
-            "recipe_uses": ["tacos", "rice bowls", "chutney"],
-        },
-        {
-            "title": "Baby carrots",
-            "item_name": "Baby carrots",
-            "quantity_label": "12 oz bag",
-            "estimated_price": "2.50",
-            "description": "Sealed bag. Easy pickup for anyone packing lunches.",
-            "image_url": "https://images.unsplash.com/photo-1590868309235-ea34bed7bd7f?auto=format&fit=crop&w=800&q=80",
-            "recipe_uses": ["lunch sides", "hummus", "stir fry"],
-        },
-    ],
-    # 5 — Priya
+    # 4 — hida
     [
         {
             "title": "Lemons from the tree",
@@ -228,13 +213,13 @@ POSTS_BY_USER = [
             "recipe_uses": ["lemonade", "marinades", "baking"],
         },
         {
-            "title": "Spinach clamshell",
-            "item_name": "Baby spinach",
-            "quantity_label": "5 oz container",
-            "estimated_price": "3.75",
-            "description": "Unopened. Use today or tomorrow for the best texture.",
-            "image_url": "https://images.unsplash.com/photo-1576045057995-568f588f82fb?auto=format&fit=crop&w=800&q=80",
-            "recipe_uses": ["smoothies", "salads", "saute"],
+            "title": "Cilantro bunch",
+            "item_name": "Fresh cilantro",
+            "quantity_label": "1 bunch",
+            "estimated_price": "2.00",
+            "description": "Still fragrant. Best for tacos or rice bowls this week.",
+            "image_url": "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?auto=format&fit=crop&w=800&q=80",
+            "recipe_uses": ["tacos", "rice bowls", "chutney"],
         },
         {
             "title": "Whole-grain bread loaf",
@@ -249,15 +234,83 @@ POSTS_BY_USER = [
 ]
 
 
-# (claimer_index, owner_index, post_index_within_owner)
-# Build a believable mix of available + claimed posts across the feed.
+# (claimer_index, owner_index, post_index_within_owner, action)
+# Each entry first creates a PostRequest (the claimer pings the owner via
+# PATCH /share/<id>/claim/). Then, depending on `action`:
+#   "approve" - owner approves and the post becomes claimed
+#   "deny"    - owner declines and the post returns to available
+#   "request" - request stays pending so the marketplace shows it as
+#               'pending review'
 CLAIMS = [
-    (1, 0, 0),  # Maya claims Anthony's apples
-    (2, 1, 1),  # Leo claims Maya's cherry tomatoes
-    (3, 2, 0),  # Nora claims Leo's basil
-    (4, 3, 0),  # Mateo claims Nora's pizza dough
-    (5, 4, 1),  # Priya claims Mateo's baby carrots
-    (0, 5, 0),  # Anthony claims Priya's lemons
+    (1, 0, 0, "approve"),  # shervinss requests sinaghadimi's apples -> approved
+    (2, 1, 0, "approve"),  # mina requests shervinss's basil -> approved
+    (3, 2, 1, "approve"),  # tina requests mina's cherry tomatoes -> approved
+    (4, 3, 0, "request"),  # hida requests tina's pizza dough -> pending
+    (0, 4, 0, "request"),  # sinaghadimi requests hida's lemons -> pending
+    (2, 0, 2, "approve"),  # mina requests sinaghadimi's yogurt -> approved
+    (4, 2, 2, "deny"),     # hida requests mina's spinach -> denied
+]
+
+
+# Receipts: each user gets one fake grocery run.
+# Names use abbreviated grocery-receipt style so core/services/grocery_db.py
+# matches them locally without needing Ollama.
+RECEIPTS_BY_USER = [
+    # 0 — sinaghadimi
+    {
+        "store": "TRADER JOE'S",
+        "items": [
+            ("HNYCRSP APPL",   "6.75"),
+            ("ORG BANNAS",     "1.99"),
+            ("AVOCADO",        "1.49"),
+            ("WHOLE MILK GAL", "4.29"),
+            ("WHEAT BREAD",    "3.99"),
+        ],
+    },
+    # 1 — shervinss
+    {
+        "store": "RALPHS",
+        "items": [
+            ("BASIL",          "2.99"),
+            ("ROMA TOMATO",    "2.49"),
+            ("MOZZARELLA",     "5.49"),
+            ("OLIVE OIL",      "8.99"),
+            ("PASTA",          "1.79"),
+        ],
+    },
+    # 2 — mina
+    {
+        "store": "WHOLE FOODS",
+        "items": [
+            ("RAINBOW CARROT", "4.25"),
+            ("BABY SPINACH",   "3.75"),
+            ("GREEK YOGURT",   "5.50"),
+            ("BLUEBERRIES",    "4.99"),
+            ("EGGS DOZEN",     "5.49"),
+        ],
+    },
+    # 3 — tina
+    {
+        "store": "TARGET",
+        "items": [
+            ("PIZZA DOUGH",    "3.99"),
+            ("MOZZARELLA",     "5.49"),
+            ("CHERRY TOMATO",  "3.50"),
+            ("BUTTER",         "4.79"),
+            ("PARMESAN",       "6.49"),
+        ],
+    },
+    # 4 — hida
+    {
+        "store": "COSTCO WHOLESALE",
+        "items": [
+            ("LEMON",          "5.99"),
+            ("CILANTRO",       "1.49"),
+            ("CHICKEN BREAST", "14.99"),
+            ("BROWN RICE",     "9.49"),
+            ("OAT MILK",       "6.99"),
+        ],
+    },
 ]
 
 
@@ -294,13 +347,49 @@ def csrf_headers(session):
 
 
 def prime_csrf(session, base_url):
-    """Hit /auth/csrf/ to make sure a csrftoken cookie exists in the jar."""
     response = session.get(f"{base_url}/auth/csrf/", timeout=15)
     response.raise_for_status()
 
 
+# --- .env management ------------------------------------------------------
+
+
+def ensure_local_ocr_in_env():
+    """Force RECEIPT_PROCESSING_PROVIDER=local in Backend/.env (idempotent)."""
+    if not ENV_FILE.exists():
+        if ENV_EXAMPLE_FILE.exists():
+            ENV_FILE.write_text(ENV_EXAMPLE_FILE.read_text())
+            info(f"Created {ENV_FILE.name} from .env.example")
+        else:
+            ENV_FILE.write_text("")
+            info(f"Created empty {ENV_FILE.name}")
+
+    lines = ENV_FILE.read_text().splitlines()
+    found = False
+    new_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("RECEIPT_PROCESSING_PROVIDER="):
+            if stripped != "RECEIPT_PROCESSING_PROVIDER=local":
+                new_lines.append("RECEIPT_PROCESSING_PROVIDER=local")
+                info("Updated RECEIPT_PROCESSING_PROVIDER -> local in .env")
+            else:
+                new_lines.append(line)
+            found = True
+        else:
+            new_lines.append(line)
+
+    if not found:
+        new_lines.append("RECEIPT_PROCESSING_PROVIDER=local")
+        info("Added RECEIPT_PROCESSING_PROVIDER=local to .env")
+
+    ENV_FILE.write_text("\n".join(new_lines).rstrip() + "\n")
+
+
+# --- Auth -----------------------------------------------------------------
+
+
 def signup_or_login(session, base_url, user):
-    """Try signup; if user exists, log in instead. Returns the user payload."""
     prime_csrf(session, base_url)
 
     payload = {
@@ -320,12 +409,14 @@ def signup_or_login(session, base_url, user):
     )
 
     if response.status_code == 201:
-        success(f"Signed up {user['username']} ({user['display_name']})")
+        success(f"Signed up {user['username']} <{user['email']}>")
         return response.json().get("user", {})
 
-    # Likely already exists — try login.
     detail = _short_error(response)
-    info(f"Signup for {user['username']} returned {response.status_code} ({detail}); attempting login")
+    info(
+        f"Signup for {user['username']} returned {response.status_code} ({detail}); "
+        "attempting login"
+    )
 
     prime_csrf(session, base_url)
     login_response = session.post(
@@ -337,10 +428,14 @@ def signup_or_login(session, base_url, user):
     if login_response.status_code != 200:
         raise RuntimeError(
             f"Login failed for {user['username']} (status {login_response.status_code}): "
-            f"{_short_error(login_response)}"
+            f"{_short_error(login_response)}. "
+            "Re-run with --reset to wipe the existing accounts and start clean."
         )
-    success(f"Logged in {user['username']}")
+    success(f"Logged in {user['username']} <{user['email']}>")
     return login_response.json().get("user", {})
+
+
+# --- Posts / claims --------------------------------------------------------
 
 
 def create_post(session, base_url, user, post_payload):
@@ -371,7 +466,8 @@ def create_post(session, base_url, user, post_payload):
     return response.json()
 
 
-def claim_post(session, base_url, post_id):
+def request_post(session, base_url, post_id):
+    """Create (or refresh) a PostRequest for the given post as the current user."""
     response = session.patch(
         f"{base_url}/share/{post_id}/claim/",
         json={},
@@ -380,10 +476,205 @@ def claim_post(session, base_url, post_id):
     )
     if response.status_code != 200:
         raise RuntimeError(
-            f"Claim failed for post {post_id} (status {response.status_code}): "
+            f"Request for post {post_id} failed (status {response.status_code}): "
             f"{_short_error(response)}"
         )
     return response.json()
+
+
+def find_request_id(owner_session, base_url, post_id, requester_user_id):
+    """As the owner, find the request_id matching (post_id, requester_user_id)."""
+    response = owner_session.get(
+        f"{base_url}/share/requests/incoming/?status=pending",
+        headers=csrf_headers(owner_session),
+        timeout=20,
+    )
+    if response.status_code != 200:
+        raise RuntimeError(
+            f"Could not list incoming requests (status {response.status_code}): "
+            f"{_short_error(response)}"
+        )
+    requests_payload = response.json().get("requests", [])
+    for entry in requests_payload:
+        post = entry.get("post") or {}
+        requester = entry.get("requester") or {}
+        if post.get("id") == post_id and requester.get("id") == requester_user_id:
+            return entry.get("id")
+    return None
+
+
+def respond_to_request(owner_session, base_url, request_id, action):
+    """Owner approves or denies a pending PostRequest."""
+    if action not in ("approve", "deny"):
+        raise ValueError(f"Unknown request action: {action}")
+    response = owner_session.patch(
+        f"{base_url}/share/requests/{request_id}/{action}/",
+        json={},
+        headers=csrf_headers(owner_session),
+        timeout=20,
+    )
+    if response.status_code != 200:
+        raise RuntimeError(
+            f"Could not {action} request {request_id} "
+            f"(status {response.status_code}): {_short_error(response)}"
+        )
+    return response.json()
+
+
+# --- Receipt generation + upload ------------------------------------------
+
+
+def render_receipt_image(store, items, subtotal=None, tax=None, total=None):
+    """Render a receipt-style PNG into bytes that pytesseract can parse."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    width = 720
+    height = 200 + 60 * len(items) + 260
+    image = Image.new("RGB", (width, height), color="white")
+    draw = ImageDraw.Draw(image)
+
+    # Pillow >= 10 supports load_default(size=...). Fall back gracefully.
+    try:
+        font_big = ImageFont.load_default(size=42)
+        font_med = ImageFont.load_default(size=32)
+        font_small = ImageFont.load_default(size=26)
+    except TypeError:
+        font_big = ImageFont.load_default()
+        font_med = font_big
+        font_small = font_big
+
+    pad_x = 50
+    y = 40
+
+    header = store.upper()
+    header_box = draw.textbbox((0, 0), header, font=font_big)
+    header_w = header_box[2] - header_box[0]
+    draw.text(((width - header_w) // 2, y), header, fill="black", font=font_big)
+    y += 70
+
+    sub = "123 Main St  ·  Los Angeles, CA"
+    sub_box = draw.textbbox((0, 0), sub, font=font_small)
+    sub_w = sub_box[2] - sub_box[0]
+    draw.text(((width - sub_w) // 2, y), sub, fill="black", font=font_small)
+    y += 50
+
+    draw.line([(pad_x, y), (width - pad_x, y)], fill="black", width=2)
+    y += 30
+
+    if subtotal is None:
+        subtotal_value = sum(float(price) for _, price in items)
+    else:
+        subtotal_value = float(subtotal)
+
+    if tax is None:
+        tax_value = round(subtotal_value * 0.0975, 2)
+    else:
+        tax_value = float(tax)
+
+    if total is None:
+        total_value = round(subtotal_value + tax_value, 2)
+    else:
+        total_value = float(total)
+
+    for name, price in items:
+        line_name = name.upper()
+        price_text = f"${float(price):.2f}"
+        draw.text((pad_x, y), line_name, fill="black", font=font_med)
+        price_box = draw.textbbox((0, 0), price_text, font=font_med)
+        price_w = price_box[2] - price_box[0]
+        draw.text((width - pad_x - price_w, y), price_text, fill="black", font=font_med)
+        y += 50
+
+    y += 10
+    draw.line([(pad_x, y), (width - pad_x, y)], fill="black", width=2)
+    y += 30
+
+    def draw_total_line(label, amount, font):
+        nonlocal y
+        amount_text = f"${amount:.2f}"
+        draw.text((pad_x, y), label, fill="black", font=font)
+        amount_box = draw.textbbox((0, 0), amount_text, font=font)
+        amount_w = amount_box[2] - amount_box[0]
+        draw.text((width - pad_x - amount_w, y), amount_text, fill="black", font=font)
+        y += 50
+
+    draw_total_line("SUBTOTAL", subtotal_value, font_med)
+    draw_total_line("TAX", tax_value, font_med)
+    draw_total_line("TOTAL", total_value, font_big)
+
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    buffer.seek(0)
+    return buffer
+
+
+def upload_and_confirm_receipt(session, base_url, user, receipt_def):
+    image_buffer = render_receipt_image(receipt_def["store"], receipt_def["items"])
+    file_name = f"receipt_{user['username']}.png"
+
+    upload_response = session.post(
+        f"{base_url}/receipts/upload/",
+        files={"image": (file_name, image_buffer, "image/png")},
+        headers=csrf_headers(session),
+        timeout=120,
+    )
+    if upload_response.status_code != 201:
+        raise RuntimeError(
+            f"Receipt upload failed (status {upload_response.status_code}): "
+            f"{_short_error(upload_response)}"
+        )
+
+    receipt_payload = upload_response.json()
+    parsed_items = receipt_payload.get("parsed_items") or []
+    # ReceiptSerializer renames `id` to `receipt_id`. Accept either to be safe.
+    receipt_id = receipt_payload.get("receipt_id") or receipt_payload.get("id")
+    if not receipt_id:
+        raise RuntimeError("Receipt upload returned no receipt id.")
+
+    if not parsed_items:
+        warn(
+            f"  {user['username']}: receipt #{receipt_id} uploaded but the local "
+            "OCR found no items (tesseract may need to be installed)."
+        )
+        return receipt_payload
+
+    confirm_items = []
+    for item in parsed_items:
+        confirm_items.append(
+            {
+                "id": item["id"],
+                "selected": True,
+                "name": item.get("name", ""),
+                "standardized_name": item.get("standardized_name") or item.get("name", ""),
+                "quantity": item.get("quantity") or 1,
+                "expiration_days": item.get("expiration_days"),
+                "estimated_price": item.get("estimated_price"),
+                "image_url": item.get("image_url", ""),
+                "description": item.get("description", ""),
+            }
+        )
+
+    confirm_response = session.post(
+        f"{base_url}/receipts/{receipt_id}/confirm/",
+        json={"items": confirm_items},
+        headers=csrf_headers(session),
+        timeout=60,
+    )
+    if confirm_response.status_code not in (200, 201):
+        raise RuntimeError(
+            f"Receipt confirm failed (status {confirm_response.status_code}): "
+            f"{_short_error(confirm_response)}"
+        )
+
+    payload = confirm_response.json()
+    success(
+        f"  {user['username']}: receipt #{receipt_id} ({receipt_def['store']}) "
+        f"-> {payload.get('created_count', len(confirm_items))} pantry items"
+    )
+    return payload
+
+
+# --- Misc -----------------------------------------------------------------
 
 
 def _short_error(response) -> Optional[str]:
@@ -411,24 +702,51 @@ def _short_error(response) -> Optional[str]:
 
 def main():
     parser = argparse.ArgumentParser(description="Seed NeighborFridge demo data.")
-    parser.add_argument(
-        "--base-url",
-        default=DEFAULT_BASE_URL,
-        help=f"API base URL (default: {DEFAULT_BASE_URL})",
-    )
+    parser.add_argument("--base-url", default=DEFAULT_BASE_URL,
+                        help=f"API base URL (default: {DEFAULT_BASE_URL})")
+    parser.add_argument("--no-receipts", action="store_true",
+                        help="Skip generating + uploading fake receipts.")
+    parser.add_argument("--skip-env-check", action="store_true",
+                        help="Don't touch Backend/.env (assume it's already correct).")
+    parser.add_argument("--reset", action="store_true",
+                        help="Run `manage.py reset_demo_users` before seeding to wipe "
+                             "any existing demo accounts (and their posts / receipts / "
+                             "households) so the seed can re-create them with the "
+                             "shared password.")
     args = parser.parse_args()
     base_url = args.base_url.rstrip("/")
 
+    if not args.skip_env_check:
+        ensure_local_ocr_in_env()
+        info(
+            "Note: if the server was already running, restart it so the new "
+            ".env value is picked up."
+        )
+
+    if args.reset:
+        manage_py = BACKEND_DIR / "manage.py"
+        if not manage_py.exists():
+            fail(f"Cannot find manage.py at {manage_py} for --reset.")
+            sys.exit(1)
+        info("Running `manage.py reset_demo_users` to wipe existing demo accounts...")
+        try:
+            subprocess.run(
+                [sys.executable, str(manage_py), "reset_demo_users"],
+                cwd=str(BACKEND_DIR),
+                check=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            fail(f"reset_demo_users exited with status {exc.returncode}.")
+            sys.exit(1)
+
     info(f"Using API base: {base_url}")
 
-    # Quick reachability check.
     try:
         requests.get(f"{base_url}/auth/csrf/", timeout=5)
     except requests.RequestException as exc:
         fail(f"Cannot reach {base_url}. Is the Django server running? ({exc})")
         sys.exit(1)
 
-    # 1. Sign up / log in every user with their own session.
     sessions = []
     user_payloads = []
     for user in USERS:
@@ -441,7 +759,6 @@ def main():
         sessions.append(session)
         user_payloads.append(user_payload)
 
-    # 2. Create posts. Track them so we can claim by index later.
     posts_by_user = []
     for index, user in enumerate(USERS):
         owned = []
@@ -456,8 +773,7 @@ def main():
                 warn(str(exc))
         posts_by_user.append(owned)
 
-    # 3. Claims.
-    for claimer_idx, owner_idx, post_idx in CLAIMS:
+    for claimer_idx, owner_idx, post_idx, action in CLAIMS:
         owner_posts = posts_by_user[owner_idx]
         if post_idx >= len(owner_posts):
             warn(
@@ -465,27 +781,81 @@ def main():
             )
             continue
         post = owner_posts[post_idx]
+        claimer_username = USERS[claimer_idx]["username"]
+        owner_username = USERS[owner_idx]["username"]
+        post_title = post.get("title")
+        post_id = post["id"]
+
         try:
-            claim_post(sessions[claimer_idx], base_url, post["id"])
+            request_post(sessions[claimer_idx], base_url, post_id)
+        except Exception as exc:
+            warn(f"  {claimer_username} could not request #{post_id} ({exc})")
+            continue
+
+        if action == "request":
             success(
-                f"  {USERS[claimer_idx]['username']} claimed "
-                f"#{post['id']} '{post.get('title')}' from {USERS[owner_idx]['username']}"
+                f"  {claimer_username} requested #{post_id} '{post_title}' "
+                f"from {owner_username} (still pending)"
+            )
+            continue
+
+        claimer_user_id = (user_payloads[claimer_idx] or {}).get("id")
+        try:
+            request_id = find_request_id(
+                sessions[owner_idx], base_url, post_id, claimer_user_id,
+            )
+            if request_id is None:
+                raise RuntimeError(
+                    f"could not locate the pending request from user_id={claimer_user_id}"
+                )
+            respond_to_request(sessions[owner_idx], base_url, request_id, action)
+            verb = "approved" if action == "approve" else "denied"
+            success(
+                f"  {owner_username} {verb} {claimer_username}'s request "
+                f"for #{post_id} '{post_title}'"
             )
         except Exception as exc:
-            warn(str(exc))
+            warn(
+                f"  {owner_username} could not {action} {claimer_username}'s "
+                f"request for #{post_id} ({exc})"
+            )
 
-    # 4. Print credentials table.
+    if not args.no_receipts:
+        info("Generating + uploading fake receipts (local OCR only)...")
+        try:
+            from PIL import Image  # noqa: F401
+        except ImportError:
+            warn(
+                "Pillow is not importable in this venv. Skipping receipts. "
+                "Run pip install -r requirements.txt to fix."
+            )
+        else:
+            for index, user in enumerate(USERS):
+                try:
+                    upload_and_confirm_receipt(
+                        sessions[index],
+                        base_url,
+                        user,
+                        RECEIPTS_BY_USER[index],
+                    )
+                except Exception as exc:
+                    warn(f"  {user['username']}: receipt step failed ({exc})")
+
     print()
-    print(_color("=" * 72, "36"))
-    print(_color("Demo accounts", "1;36"))
-    print(_color("=" * 72, "36"))
-    print(f"{'Username':<10}  {'Password':<20}  Display name")
-    print(f"{'-' * 10:<10}  {'-' * 20:<20}  {'-' * 30}")
+    print(_color("=" * 84, "36"))
+    print(_color("Demo accounts (shared password)", "1;36"))
+    print(_color("=" * 84, "36"))
+    print(f"{'Username':<14}  {'Email':<34}  {'Display name':<22}")
+    print(f"{'-'*14:<14}  {'-'*34:<34}  {'-'*22:<22}")
     for user in USERS:
-        print(f"{user['username']:<10}  {SHARED_PASSWORD:<20}  {user['display_name']}")
+        print(
+            f"{user['username']:<14}  {user['email']:<34}  {user['display_name']:<22}"
+        )
     print()
-    print("Log in from the frontend with any username (or its email) and the shared")
-    print(f"password '{SHARED_PASSWORD}'. Each user owns their own household.")
+    print(f"Password for everyone: {_color(SHARED_PASSWORD, '1;33')}")
+    print()
+    print("Log in from the frontend with either the username or the email.")
+    print("Each user owns their own household with the same shared password.")
     print()
 
 

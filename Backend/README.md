@@ -28,6 +28,25 @@ Install dependencies without starting the server:
 ./setup.sh --no-run
 ```
 
+## Email Setup
+
+NeighborFridge now defaults to Django's console email backend in local dev, so teammates can run the app without SMTP credentials.
+
+If someone wants real email delivery locally:
+
+1. Copy `Backend/.env.example` to `Backend/.env` if they do not already have one.
+2. Set `EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend`.
+3. Set `EMAIL_HOST_USER` and `EMAIL_HOST_PASSWORD`.
+4. For Gmail, use a Google app password, not the normal account password.
+
+The setup scripts install `certifi` and run [`scripts/install_python_certificates.py`](./scripts/install_python_certificates.py) as a best-effort fix for Python TLS certificate issues on local machines.
+
+To test email after configuration:
+
+```bash
+python scripts/test_email.py your-email@example.com
+```
+
 ## Common Django Commands
 
 Run the development server:

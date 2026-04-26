@@ -6,7 +6,8 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from core.models import ImpactLog, Notification
+from core.models import ImpactLog
+from core.notifications import NotificationService
 from core.services.impact_calculator import calculate_impact
 
 from ..models import Post, PostRequest
@@ -94,11 +95,7 @@ class PostClaimView(APIView):
             post.save(update_fields=["status", "claimed_by_user", "claimed_by", "updated_at"])
 
         if post.owner_id:
-            Notification.objects.create(
-                user=post.owner,
-                title="New marketplace request",
-                message=f'{request.user.full_display_name} requested "{post.title}".',
-            )
+            NotificationService.notify_marketplace_request(post, request.user)
 
         response_payload = serialize_post(post, request, force_public=True)
         response_payload["request"] = PostRequestReadSerializer(
@@ -193,11 +190,7 @@ class PostRequestActionView(APIView):
                 except DatabaseError:
                     pass
 
-                Notification.objects.create(
-                    user=post_request.requester,
-                    title="Marketplace request approved",
-                    message=f'Your request for "{post.title}" was approved.',
-                )
+                NotificationService.notify_marketplace_request_approved(post_request)
             elif action == "decline":
                 post_request.status = PostRequest.Status.DECLINED
                 post_request.responded_at = now
@@ -208,11 +201,7 @@ class PostRequestActionView(APIView):
                 post.claimed_by = None
                 post.save(update_fields=["status", "claimed_by_user", "claimed_by", "updated_at"])
 
-                Notification.objects.create(
-                    user=post_request.requester,
-                    title="Marketplace request declined",
-                    message=f'Your request for "{post.title}" was declined.',
-                )
+                NotificationService.notify_marketplace_request_declined(post_request)
             else:
                 raise ValidationError({"detail": "Unsupported request action."})
 
