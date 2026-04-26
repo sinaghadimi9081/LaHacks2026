@@ -1,0 +1,291 @@
+/* ────────────────────────────────────────────────────────
+   Impact page — component styles
+   Follows the same Tailwind @layer pattern as index.css
+   ──────────────────────────────────────────────────────── */
+
+/* ── hero banner ────────────────────────────────────────── */
+.impact-hero {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 4px solid #12312a;
+  background-color: #cfe8d2;
+  background-image:
+    radial-gradient(circle, rgba(18, 49, 42, 0.13) 1px, transparent 1.1px),
+    linear-gradient(135deg, rgba(159, 207, 178, 0.22), transparent 42%);
+  background-size: 20px 20px;
+  padding: 2rem 1.25rem;
+}
+
+@media (min-width: 768px) {
+  .impact-hero {
+    padding: 2rem 2.5rem;
+  }
+}
+
+/* ── rank badge ─────────────────────────────────────────── */
+.impact-rank-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid rgba(18, 49, 42, 0.15);
+  border-radius: 9999px;
+  background: rgba(217, 232, 114, 0.85);
+  padding: 0.55rem 1.15rem;
+  box-shadow: 0 12px 24px -20px rgba(18, 49, 42, 0.4);
+  color: #12312a;
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* ── leaderboard ────────────────────────────────────────── */
+.impact-leaderboard {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.impact-leaderboard-row {
+  display: grid;
+  grid-template-columns: 2.25rem 1fr auto;
+  align-items: center;
+  gap: 0.85rem;
+  border: 1px solid rgba(18, 49, 42, 0.15);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 0.85rem 1rem;
+  box-shadow: 0 12px 24px -20px rgba(18, 49, 42, 0.4);
+  backdrop-filter: blur(8px);
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+.impact-leaderboard-row:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 44px -28px rgba(18, 49, 42, 0.45);
+}
+
+.impact-leaderboard-row--you {
+  border-color: rgba(23, 71, 51, 0.35);
+  background: rgba(207, 232, 210, 0.55);
+}
+
+.impact-leaderboard-position {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border: 1px solid rgba(18, 49, 42, 0.18);
+  border-radius: 9999px;
+  background: #174733;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.impact-leaderboard-position--gold {
+  background: #d9e872;
+  color: #12312a;
+}
+
+.impact-leaderboard-name {
+  font-size: 0.85rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #12312a;
+}
+
+.impact-leaderboard-stat {
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(18, 49, 42, 0.55);
+}
+
+/* ── metric cards grid ──────────────────────────────────── */
+.impact-metrics-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (min-width: 1024px) {
+  .impact-metrics-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.impact-metric-card {
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+  border: 1px solid rgba(18, 49, 42, 0.15);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  box-shadow: 0 18px 44px -28px rgba(18, 49, 42, 0.45);
+  backdrop-filter: blur(8px);
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.impact-metric-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 24px 60px -32px rgba(18, 49, 42, 0.45);
+}
+
+.impact-metric-card__emoji {
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+.impact-metric-card__label {
+  margin-top: 0.65rem;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.impact-metric-card__value {
+  display: block;
+  margin-top: 0.45rem;
+  font-size: 1.85rem;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* colour variants */
+.impact-metric-card--money {
+  background: #174733;
+  color: #fff;
+}
+.impact-metric-card--money .impact-metric-card__label {
+  color: rgba(217, 232, 114, 0.9);
+}
+
+.impact-metric-card--rescued {
+  background: #d9e872;
+  color: #12312a;
+}
+.impact-metric-card--rescued .impact-metric-card__label {
+  color: rgba(18, 49, 42, 0.6);
+}
+
+.impact-metric-card--co2 {
+  background: #9fcfb2;
+  color: #12312a;
+}
+.impact-metric-card--co2 .impact-metric-card__label {
+  color: rgba(18, 49, 42, 0.6);
+}
+
+.impact-metric-card--shared {
+  background: rgba(255, 255, 255, 0.8);
+  color: #12312a;
+}
+.impact-metric-card--shared .impact-metric-card__label {
+  color: rgba(18, 49, 42, 0.55);
+}
+
+/* ── progress bar ───────────────────────────────────────── */
+.impact-progress-shell {
+  border: 1px solid rgba(18, 49, 42, 0.15);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 12px 24px -20px rgba(18, 49, 42, 0.4);
+  backdrop-filter: blur(8px);
+}
+
+.impact-progress-track {
+  position: relative;
+  height: 0.65rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(18, 49, 42, 0.08);
+}
+
+.impact-progress-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #174733, #2f7d4f, #d9e872);
+  transition: width 800ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ── improvement tips ───────────────────────────────────── */
+.impact-tips-grid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .impact-tips-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .impact-tips-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.impact-tip-card {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 0.45rem;
+  border: 1px solid rgba(18, 49, 42, 0.15);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 1.15rem 1.25rem;
+  box-shadow: 0 12px 24px -20px rgba(18, 49, 42, 0.4);
+  backdrop-filter: blur(8px);
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.impact-tip-card:hover {
+  transform: translateY(-3px) rotate(-0.5deg);
+  box-shadow: 0 18px 44px -28px rgba(18, 49, 42, 0.45);
+}
+
+.impact-tip-card__emoji {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.impact-tip-card__title {
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #12312a;
+}
+
+.impact-tip-card__description {
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.65;
+  color: rgba(18, 49, 42, 0.6);
+}
+
+/* ── section divider ────────────────────────────────────── */
+.impact-section-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 2px solid #9fcfb2;
+  padding-bottom: 1rem;
+}
+
+/* ── sticker backgrounds (inventory-style) ──────────────── */
+.impact-sticker-pattern {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+}

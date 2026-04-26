@@ -896,13 +896,14 @@ export default function Marketplace() {
                 <div>
                   <p className="pantry-field-label">Filter posts</p>
                   <div className="flex flex-wrap gap-2">
-                    {feedFilters.map((filter) => (
+                    {feedFilters.map((filter, index) => (
                       <button
                         className={`pantry-filter-button px-3 py-2 text-[0.7rem] ${
                           activeFilter === filter ? 'pantry-filter-button--active' : ''
                         }`}
                         key={filter}
                         onClick={() => setActiveFilter(filter)}
+                        style={{ '--filter-tilt': index % 2 === 0 ? '-1.5deg' : '1.5deg' }}
                         type="button"
                       >
                         {filter}
