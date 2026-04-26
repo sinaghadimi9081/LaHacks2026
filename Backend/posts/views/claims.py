@@ -191,7 +191,7 @@ class PostRequestActionView(APIView):
                     pass
 
                 NotificationService.notify_marketplace_request_approved(post_request)
-            elif action == "decline":
+            elif action in {"decline", "deny"}:
                 post_request.status = PostRequest.Status.DECLINED
                 post_request.responded_at = now
                 post_request.save(update_fields=["status", "responded_at"])

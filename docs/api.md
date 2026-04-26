@@ -540,7 +540,7 @@ Approve a pending request. Post owner only. Moves post status to `claimed` and r
 
 ---
 
-### `PATCH /api/share/requests/<request_id>/decline/`
+### `PATCH /api/share/requests/<request_id>/decline/` (alias: `/deny/`)
 Decline a pending request. Post owner only. Moves post back to `available`.
 
 **Response** `200`
