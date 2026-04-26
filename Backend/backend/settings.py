@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "core",
+    "posts.apps.PostsConfig",
     "receipts.apps.ReceiptsConfig",
     "rest_framework_simplejwt.token_blacklist",
     "users",
@@ -147,3 +148,10 @@ VERYFI_USERNAME = os.getenv("VERYFI_USERNAME", "")
 VERYFI_API_KEY = os.getenv("VERYFI_API_KEY", "")
 VERYFI_AUTO_DELETE = env_flag("VERYFI_AUTO_DELETE", True)
 VERYFI_COMPUTE = env_flag("VERYFI_COMPUTE", True)
+
+NOMINATIM_BASE_URL = os.getenv("NOMINATIM_BASE_URL", "https://nominatim.openstreetmap.org")
+NOMINATIM_EMAIL = os.getenv("NOMINATIM_EMAIL", "")
+NOMINATIM_USER_AGENT = os.getenv(
+    "NOMINATIM_USER_AGENT",
+    "NeighborFridge/1.0 (hackathon-app; contact via project maintainer)",
+)

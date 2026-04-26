@@ -64,6 +64,7 @@ if (-not (Test-Path ".env")) {
     }
 }
 
+Invoke-Checked $venvPython scripts/rename_receipts_app.py
 Invoke-Checked $venvPython manage.py migrate
 
 Write-Host "Backend dependencies are installed and migrations are up to date."

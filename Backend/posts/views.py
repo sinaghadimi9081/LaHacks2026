@@ -1,17 +1,18 @@
 from math import asin, cos, radians, sin, sqrt
 
+from django.db import DatabaseError
 from django.db.models import Q
 from rest_framework import generics, permissions, status
 from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import ImpactLog, Notification, SharePost
-from .serializers import (
-    NotificationSerializer,
-    SharePostReadSerializer,
-    SharePostWriteSerializer,
-)
+from core.models import ImpactLog, Notification
+
+from .location_services import GeocodingError, geocode_address, reverse_geocode
+from .models import Post
+from .serializers import NotificationSerializer, PostReadSerializer, PostWriteSerializer
 
 
 def _distance_miles(latitude_a, longitude_a, latitude_b, longitude_b):
@@ -20,7 +21,6 @@ def _distance_miles(latitude_a, longitude_a, latitude_b, longitude_b):
     longitude_delta = radians(longitude_b - longitude_a)
     latitude_a = radians(latitude_a)
     latitude_b = radians(latitude_b)
-
     arc = (
         sin(latitude_delta / 2) ** 2
         + cos(latitude_a) * cos(latitude_b) * sin(longitude_delta / 2) ** 2
@@ -46,7 +46,7 @@ def _serializer_context(request):
 
 
 def _filtered_posts(request, base_queryset):
-    queryset = base_queryset.select_related("owner", "food_item", "claimed_by_user")
+    queryset = base_queryset.select_related("owner", "claimed_by_user")
 
     status_value = request.query_params.get("status")
     if status_value:
@@ -82,7 +82,6 @@ def _filtered_posts(request, base_queryset):
             raise ValidationError(
                 {"detail": "lat, lng, and radius_miles must be provided together for location filters."}
             )
-
         try:
             latitude = float(latitude)
             longitude = float(longitude)
@@ -96,7 +95,6 @@ def _filtered_posts(request, base_queryset):
         for post in queryset:
             if post.pickup_latitude is None or post.pickup_longitude is None:
                 continue
-
             if (
                 _distance_miles(
                     latitude,
@@ -107,17 +105,16 @@ def _filtered_posts(request, base_queryset):
                 <= radius_miles
             ):
                 filtered_ids.append(post.id)
-
         queryset = queryset.filter(id__in=filtered_ids)
 
     return queryset.order_by("-created_at")
 
 
-class SharePostFeedView(generics.ListAPIView):
-    serializer_class = SharePostReadSerializer
+class PostFeedView(generics.ListAPIView):
+    serializer_class = PostReadSerializer
 
     def get_queryset(self):
-        return _filtered_posts(self.request, SharePost.objects.all())
+        return _filtered_posts(self.request, Post.objects.all())
 
     def get_serializer_context(self):
         return _serializer_context(self.request)
@@ -128,28 +125,26 @@ class SharePostFeedView(generics.ListAPIView):
         return Response({"posts": serializer.data}, status=status.HTTP_200_OK)
 
 
-class SharePostCreateView(generics.CreateAPIView):
-    serializer_class = SharePostWriteSerializer
+class PostCreateView(generics.CreateAPIView):
+    serializer_class = PostWriteSerializer
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         post = serializer.save(owner=request.user)
-        response_serializer = SharePostReadSerializer(
+        response_serializer = PostReadSerializer(
             post,
             context=_serializer_context(request),
         )
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
 
-class MySharePostListView(generics.ListAPIView):
-    serializer_class = SharePostReadSerializer
+class MyPostListView(generics.ListAPIView):
+    serializer_class = PostReadSerializer
 
     def get_queryset(self):
-        return _filtered_posts(
-            self.request,
-            SharePost.objects.filter(owner=self.request.user),
-        )
+        return _filtered_posts(self.request, Post.objects.filter(owner=self.request.user))
 
     def get_serializer_context(self):
         return _serializer_context(self.request)
@@ -160,20 +155,21 @@ class MySharePostListView(generics.ListAPIView):
         return Response({"posts": serializer.data}, status=status.HTTP_200_OK)
 
 
-class SharePostDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = SharePost.objects.select_related("owner", "food_item", "claimed_by_user")
+class PostDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Post.objects.select_related("owner", "claimed_by_user")
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_serializer_class(self):
         if self.request.method in permissions.SAFE_METHODS:
-            return SharePostReadSerializer
-        return SharePostWriteSerializer
+            return PostReadSerializer
+        return PostWriteSerializer
 
     def get_serializer_context(self):
         return _serializer_context(self.request)
 
     def perform_update(self, serializer):
-        share_post = self.get_object()
-        if share_post.owner_id != self.request.user.id:
+        post = self.get_object()
+        if post.owner_id != self.request.user.id:
             raise PermissionDenied("You can only edit your own posts.")
         serializer.save()
 
@@ -188,10 +184,7 @@ class SharePostDetailView(generics.RetrieveUpdateDestroyAPIView):
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
-        response_serializer = SharePostReadSerializer(
-            instance,
-            context=_serializer_context(request),
-        )
+        response_serializer = PostReadSerializer(instance, context=_serializer_context(request))
         return Response(response_serializer.data, status=status.HTTP_200_OK)
 
     def retrieve(self, request, *args, **kwargs):
@@ -205,35 +198,56 @@ class SharePostDetailView(generics.RetrieveUpdateDestroyAPIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class SharePostClaimView(APIView):
-    def patch(self, request, share_post_id):
-        share_post = generics.get_object_or_404(
-            SharePost.objects.select_related("owner", "food_item", "claimed_by_user"),
-            pk=share_post_id,
+class PostClaimView(APIView):
+    def patch(self, request, post_id):
+        post = generics.get_object_or_404(
+            Post.objects.select_related("owner", "claimed_by_user"),
+            pk=post_id,
         )
 
-        if share_post.owner_id == request.user.id:
+        if post.owner_id == request.user.id:
             raise ValidationError({"detail": "You cannot claim your own post."})
-
-        if share_post.status == SharePost.Status.CLAIMED and share_post.claimed_by_user_id not in (None, request.user.id):
+        if post.status == Post.Status.CLAIMED and post.claimed_by_user_id not in (None, request.user.id):
             raise ValidationError({"detail": "This post has already been claimed."})
 
-        share_post.status = SharePost.Status.CLAIMED
-        share_post.claimed_by_user = request.user
-        share_post.claimed_by = request.user.full_display_name
-        share_post.save(update_fields=["status", "claimed_by_user", "claimed_by", "updated_at"])
+        post.status = Post.Status.CLAIMED
+        post.claimed_by_user = request.user
+        post.claimed_by = request.user.full_display_name
+        post.save(update_fields=["status", "claimed_by_user", "claimed_by", "updated_at"])
 
-        ImpactLog.objects.create(
-            food_item=share_post.food_item,
-            action="share_post_claimed",
-            dollars_saved=share_post.resolved_estimated_price,
-        )
+        try:
+            ImpactLog.objects.create(
+                food_item=post.food_item,
+                action="share_post_claimed",
+                dollars_saved=post.resolved_estimated_price,
+            )
+        except DatabaseError:
+            pass
 
-        serializer = SharePostReadSerializer(
-            share_post,
-            context=_serializer_context(request),
-        )
+        serializer = PostReadSerializer(post, context=_serializer_context(request))
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class PostLocationResolveView(APIView):
+    def post(self, request):
+        address = request.data.get("pickup_location") or request.data.get("address")
+        latitude = request.data.get("pickup_latitude") or request.data.get("latitude")
+        longitude = request.data.get("pickup_longitude") or request.data.get("longitude")
+
+        try:
+            if address:
+                location = geocode_address(address)
+            else:
+                if latitude in (None, "") or longitude in (None, ""):
+                    raise ValidationError(
+                        {"detail": "Provide an address or both latitude and longitude."}
+                    )
+                location = reverse_geocode(latitude, longitude)
+        except GeocodingError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+
+        return Response(location, status=status.HTTP_200_OK)
+
 
 class NotificationListView(generics.ListAPIView):
     serializer_class = NotificationSerializer
@@ -253,10 +267,13 @@ class NotificationReadView(APIView):
 
     def patch(self, request, notification_id):
         notification = generics.get_object_or_404(
-            Notification, pk=notification_id, user=request.user
+            Notification,
+            pk=notification_id,
+            user=request.user,
         )
         notification.is_read = True
         notification.save(update_fields=["is_read"])
         return Response(
-            {"detail": "Notification marked as read."}, status=status.HTTP_200_OK
+            {"detail": "Notification marked as read."},
+            status=status.HTTP_200_OK,
         )
