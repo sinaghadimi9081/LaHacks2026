@@ -45,33 +45,6 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='ImpactLog',
             fields=[
-                (
-                    "id",
-                    models.BigAutoField(
-                        auto_created=True,
-                        primary_key=True,
-                        serialize=False,
-                        verbose_name="ID",
-                    ),
-                ),
-                ("action", models.CharField(max_length=100)),
-                (
-                    "dollars_saved",
-                    models.DecimalField(decimal_places=2, default=0.0, max_digits=10),
-                ),
-                (
-                    "water_saved_gallons",
-                    models.DecimalField(decimal_places=2, default=0, max_digits=10),
-                ),
-                (
-                    "co2_saved_kg",
-                    models.DecimalField(decimal_places=2, default=0, max_digits=10),
-                ),
-                (
-                    "electricity_saved_kwh",
-                    models.DecimalField(decimal_places=2, default=0, max_digits=10),
-                ),
-                ("created_at", models.DateTimeField(auto_now_add=True)),
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('action', models.CharField(max_length=100)),
                 ('dollars_saved', models.DecimalField(decimal_places=2, default=0.0, max_digits=10)),

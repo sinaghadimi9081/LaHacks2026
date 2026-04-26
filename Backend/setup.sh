@@ -32,8 +32,7 @@ fi
 
 source "$VENV_DIR/bin/activate"
 
-python -m pip install --upgrade pip setuptools wheel
-python -m pip install -r requirements.txt
+python -m pip install --disable-pip-version-check -r requirements.txt
 python scripts/install_python_certificates.py || \
   echo "Warning: Python certificate bootstrap failed. SMTP over TLS may fail until certs are configured."
 
@@ -88,16 +87,7 @@ ensure_tesseract() {
 
 ensure_tesseract
 
-  find users households core posts receipts lockers \
-    -path "*/migrations/*.py" -not -name "__init__.py" -delete 2>/dev/null || true
-  find users households core posts receipts lockers \
-    -path "*/migrations/*.pyc" -delete 2>/dev/null || true
-fi
-
-python scripts/rename_receipts_app.py
-python manage.py makemigrations users households core posts receipts lockers
 python manage.py migrate
-python manage.py seed_lockers_demo
 
 echo "Using committed Django migrations from the repo."
 echo "If you are actively changing models, run 'python manage.py makemigrations' manually."

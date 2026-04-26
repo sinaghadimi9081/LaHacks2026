@@ -56,8 +56,7 @@ if (-not (Test-Path $venvPip)) {
     Invoke-Checked $venvPython -m ensurepip --upgrade
 }
 
-Invoke-Checked $venvPython -m pip install --upgrade pip setuptools wheel
-Invoke-Checked $venvPython -m pip install -r requirements.txt
+Invoke-Checked $venvPython -m pip install --disable-pip-version-check -r requirements.txt
 try {
     Invoke-Checked $venvPython scripts/install_python_certificates.py
 } catch {
