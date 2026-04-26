@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 
 import { useAuth } from '../../Auth/useAuth.jsx'
@@ -13,12 +13,9 @@ const authStickers = [
 
 export default function Login() {
   const navigate = useNavigate()
-  const location = useLocation()
   const { login } = useAuth()
   const [form, setForm] = useState({ identifier: '', password: '' })
   const [submitting, setSubmitting] = useState(false)
-
-  const from = location.state?.from?.pathname || '/profile'
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -31,7 +28,7 @@ export default function Login() {
 
     try {
       await login(form)
-      navigate(from, { replace: true })
+      navigate('/', { replace: true })
     } catch (error) {
       const detail = error?.response?.data?.detail || 'Login failed.'
       toast.error(detail)
