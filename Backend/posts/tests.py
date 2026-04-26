@@ -7,7 +7,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from core.models import Notification
-from .models import Post, PostRequest
+from .models import Post, PostRequest, PostRequestMessage
 
 User = get_user_model()
 
@@ -420,3 +420,51 @@ class PostApiTests(TestCase):
         self.assertEqual(response.data["pickup_location"], "Bruin Plaza, Los Angeles, CA")
         self.assertEqual(response.data["pickup_latitude"], "34.071234")
         self.assertEqual(response.data["pickup_longitude"], "-118.444321")
+
+    @patch("core.notifications.NotificationService._send_email")
+    def test_approved_match_can_exchange_messages(self, mock_send_email):
+        post = self._create_post(title="Oat milk pickup")
+        self.requester_client.patch(f"/api/share/{post.id}/claim/", {}, format="json")
+        request_id = PostRequest.objects.get(post=post, requester=self.requester).id
+
+        self.owner_client.patch(
+            f"/api/share/requests/{request_id}/approve/",
+            {},
+            format="json",
+        )
+
+        send_response = self.requester_client.post(
+            f"/api/share/requests/{request_id}/messages/",
+            {"body": "Can I come by around 6pm?"},
+            format="json",
+        )
+        self.assertEqual(send_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(send_response.data["message"]["body"], "Can I come by around 6pm?")
+        self.assertTrue(send_response.data["message"]["is_mine"])
+
+        list_response = self.owner_client.get(f"/api/share/requests/{request_id}/messages/")
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_response.data["request"]["status"], PostRequest.Status.APPROVED)
+        self.assertEqual(len(list_response.data["messages"]), 1)
+        self.assertEqual(list_response.data["messages"][0]["body"], "Can I come by around 6pm?")
+        self.assertFalse(list_response.data["messages"][0]["is_mine"])
+        self.assertEqual(PostRequestMessage.objects.count(), 1)
+
+    @patch("core.notifications.NotificationService._send_email")
+    def test_only_approved_participants_can_open_messages(self, mock_send_email):
+        post = self._create_post(title="Bread pickup")
+        self.requester_client.patch(f"/api/share/{post.id}/claim/", {}, format="json")
+        request_id = PostRequest.objects.get(post=post, requester=self.requester).id
+
+        pending_response = self.requester_client.get(f"/api/share/requests/{request_id}/messages/")
+        self.assertEqual(pending_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Messaging unlocks after the owner approves", str(pending_response.data))
+
+        self.owner_client.patch(
+            f"/api/share/requests/{request_id}/approve/",
+            {},
+            format="json",
+        )
+
+        forbidden_response = self.observer_client.get(f"/api/share/requests/{request_id}/messages/")
+        self.assertEqual(forbidden_response.status_code, status.HTTP_403_FORBIDDEN)

@@ -252,21 +252,33 @@ CLAIMS = [
 ]
 
 
-# Receipts: each user gets one fake grocery run.
+# Receipts: each user can have one or more fake grocery runs.
 # Names use abbreviated grocery-receipt style so core/services/grocery_db.py
 # matches them locally without needing Ollama.
 RECEIPTS_BY_USER = [
     # 0 — sinaghadimi
-    {
-        "store": "TRADER JOE'S",
-        "items": [
-            ("HNYCRSP APPL",   "6.75"),
-            ("ORG BANNAS",     "1.99"),
-            ("AVOCADO",        "1.49"),
-            ("WHOLE MILK GAL", "4.29"),
-            ("WHEAT BREAD",    "3.99"),
-        ],
-    },
+    [
+        {
+            "store": "TRADER JOE'S",
+            "items": [
+                ("HNYCRSP APPL",   "6.75"),
+                ("ORG BANNAS",     "1.99"),
+                ("AVOCADO",        "1.49"),
+                ("WHOLE MILK GAL", "4.29"),
+                ("WHEAT BREAD",    "3.99"),
+            ],
+        },
+        {
+            "store": "TRADER JOE'S",
+            "items": [
+                ("HNYCRSP GRP",   "6.75"),
+                ("ORG CUCUMB",    "1.99"),
+                ("AVOCADO",       "1.49"),
+                ("OAT MILK GAL",  "4.29"),
+                ("WHEAT BREAD",   "3.99"),
+            ],
+        },
+    ],
     # 1 — shervinss
     {
         "store": "RALPHS",
@@ -674,6 +686,12 @@ def upload_and_confirm_receipt(session, base_url, user, receipt_def):
     return payload
 
 
+def iter_receipt_defs(receipt_entry):
+    if isinstance(receipt_entry, list):
+        return receipt_entry
+    return [receipt_entry]
+
+
 # --- Misc -----------------------------------------------------------------
 
 
@@ -832,12 +850,13 @@ def main():
         else:
             for index, user in enumerate(USERS):
                 try:
-                    upload_and_confirm_receipt(
-                        sessions[index],
-                        base_url,
-                        user,
-                        RECEIPTS_BY_USER[index],
-                    )
+                    for receipt_def in iter_receipt_defs(RECEIPTS_BY_USER[index]):
+                        upload_and_confirm_receipt(
+                            sessions[index],
+                            base_url,
+                            user,
+                            receipt_def,
+                        )
                 except Exception as exc:
                     warn(f"  {user['username']}: receipt step failed ({exc})")
 

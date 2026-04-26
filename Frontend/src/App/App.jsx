@@ -4,19 +4,21 @@ import { ToastContainer } from 'react-toastify'
 
 import RequireAuth from '../Auth/RequireAuth.jsx'
 import { useAuth } from '../Auth/useAuth.jsx'
-import Home from '../Features/Home/Home.jsx'
 import Login from '../Features/Auth/Login.jsx'
 import Signup from '../Features/Auth/Signup.jsx'
 import Empty from '../Features/Empty/Empty.jsx'
-import Profile from '../Features/Profile/Profile.jsx'
+import Home from '../Features/Home/Home.jsx'
+import Impact from '../Features/Impact/Impact.jsx'
 import Inventory from '../Features/Inventory/Inventory.jsx'
+import InventoryRequestListingPage from '../Features/Inventory/InventoryRequestListingPage.jsx'
+import Lockers from '../Features/Lockers/Lockers.jsx'
+import Inbox from '../Features/Messages/Inbox.jsx'
 import Marketplace from '../Features/Marketplace/Marketplace.jsx'
 import MarketplaceMapLab from '../Features/Marketplace/MarketplaceMapLab.jsx'
-
 import MarketplaceMatchLab from '../Features/Marketplace/MarketplaceMatchLab.jsx'
-import Lockers from '../Features/Lockers/Lockers.jsx'
-import Impact from '../Features/Impact/Impact.jsx'
+import Profile from '../Features/Profile/Profile.jsx'
 import ReceiptsWorkbench from '../Features/Receipts/ReceiptsWorkbench.jsx'
+import neighborFridgeMark from '../assets/neighborfridge-mark.png'
 import './app.css'
 import 'react-toastify/dist/ReactToastify.css'
 
@@ -71,15 +73,13 @@ function NavBar() {
   return (
     <header className="border-b-4 border-ink bg-petal">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 md:px-10">
-        <Link to="/" className="flex min-w-0 items-center gap-3 no-underline" onClick={closeMenus}>
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-ink/15 bg-citrus text-lg font-black text-ink shadow-sticker">
-            NF
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-black uppercase tracking-[0.18em] text-ink">
+        <Link to="/" className="brand-link no-underline" onClick={closeMenus}>
+          <img alt="" className="brand-mark" src={neighborFridgeMark} />
+          <div className="brand-copy">
+            <p className="brand-title text-sm font-black uppercase tracking-[0.18em] text-ink">
               NeighborFridge
             </p>
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-tomato">
+            <p className="brand-subtitle text-xs font-black uppercase tracking-[0.14em] text-tomato">
               Pantry board
             </p>
           </div>
@@ -124,14 +124,14 @@ function NavBar() {
             Lockers
           </NavLink>
 
-          {/* <NavLink className="nav-pill" to="/marketplace-map-lab">
+          {/* <NavLink className="nav-pill" onClick={closeMenus} to="/marketplace-map-lab">
             Map Lab
           </NavLink> */}
 
-          {/* <NavLink className="nav-pill" to="/marketplace-match-lab">
+          {/* <NavLink className="nav-pill" onClick={closeMenus} to="/marketplace-match-lab">
             Match Lab
-          </NavLink>
- */}
+          </NavLink> */}
+
           <NavLink className="nav-pill" onClick={closeMenus} to="/impact">
             Impact
           </NavLink>
@@ -155,11 +155,7 @@ function NavBar() {
                 type="button"
               >
                 <span className="nav-avatar" aria-hidden="true">
-                  {profileImageUrl ? (
-                    <img alt="" src={profileImageUrl} />
-                  ) : (
-                    profileInitial
-                  )}
+                  {profileImageUrl ? <img alt="" src={profileImageUrl} /> : profileInitial}
                 </span>
                 <span>{profileName}</span>
               </button>
@@ -168,6 +164,9 @@ function NavBar() {
                   <div className="nav-menu-item">
                     Credits: ${Number(creditsBalance || 0).toFixed(2)}
                   </div>
+                  <NavLink className="nav-menu-item" onClick={closeMenus} to="/inbox">
+                    Inbox
+                  </NavLink>
                   <NavLink className="nav-menu-item" onClick={closeMenus} to="/profile">
                     Profile
                   </NavLink>
@@ -201,12 +200,51 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/dashboard" element={<Inventory />} />
           <Route path="/inventory" element={<Inventory />} />
+          <Route
+            path="/dashboard/requests/:requestId"
+            element={
+              <RequireAuth>
+                <InventoryRequestListingPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/inventory/requests/:requestId"
+            element={
+              <RequireAuth>
+                <InventoryRequestListingPage />
+              </RequireAuth>
+            }
+          />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/lockers" element={<Lockers />} />
           <Route path="/marketplace-map-lab" element={<MarketplaceMapLab />} />
           <Route path="/marketplace-match-lab" element={<MarketplaceMatchLab />} />
           <Route path="/impact" element={<Impact />} />
-          <Route path="/receipts" element={<ReceiptsWorkbench />} />
+          <Route
+            path="/inbox"
+            element={
+              <RequireAuth>
+                <Inbox />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/inbox/:requestId"
+            element={
+              <RequireAuth>
+                <Inbox />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/receipts"
+            element={
+              <RequireAuth>
+                <ReceiptsWorkbench />
+              </RequireAuth>
+            }
+          />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/empty" element={<Empty />} />

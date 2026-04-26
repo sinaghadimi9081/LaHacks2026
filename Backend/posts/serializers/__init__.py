@@ -1,3 +1,4 @@
+from .message import PostRequestMessageReadSerializer, PostRequestMessageWriteSerializer
 from .notification import NotificationSerializer
 from .post import (
     ApprovedPostReadSerializer,
@@ -11,6 +12,8 @@ __all__ = [
     "ApprovedPostReadSerializer",
     "NotificationSerializer",
     "PostOwnerSerializer",
+    "PostRequestMessageReadSerializer",
+    "PostRequestMessageWriteSerializer",
     "PostReadSerializer",
     "PostRequestReadSerializer",
     "PostRequestWriteSerializer",

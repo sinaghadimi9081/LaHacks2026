@@ -516,6 +516,109 @@ class ReceiptApiTests(APITestCase):
         self.assertEqual(receipt.store_name, "Target")
         self.assertEqual(str(receipt.detected_total_amount), "4.99")
 
+    def test_receipt_search_returns_matching_vendor_results_sorted_by_latest(self):
+        older_receipt = Receipt.objects.create(
+            uploaded_by=self.user,
+            household=self.household,
+            image="receipts/older-target.jpg",
+            store_name="Target",
+            detected_total_amount="12.99",
+            raw_text="TARGET\nTOTAL 12.99",
+        )
+        latest_receipt = Receipt.objects.create(
+            uploaded_by=self.user,
+            household=self.household,
+            image="receipts/latest-target.jpg",
+            store_name="Target",
+            detected_total_amount="19.99",
+            raw_text="TARGET\nTOTAL 19.99",
+        )
+        Receipt.objects.create(
+            uploaded_by=self.user,
+            household=self.household,
+            image="receipts/ralphs.jpg",
+            store_name="Ralphs",
+            detected_total_amount="9.99",
+            raw_text="RALPHS\nTOTAL 9.99",
+        )
+
+        response = self.client.get(
+            reverse("receipt-search"),
+            {"vendor_name": "target"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 2)
+        self.assertEqual(response.data["results"][0]["receipt_id"], latest_receipt.id)
+        self.assertEqual(response.data["results"][1]["receipt_id"], older_receipt.id)
+        self.assertEqual(response.data["results"][0]["store_name"], "Target")
+
+    def test_receipt_search_backfills_store_name_for_blank_rows(self):
+        receipt = Receipt.objects.create(
+            uploaded_by=self.user,
+            household=self.household,
+            image="receipts/test-receipt.jpg",
+            store_name="",
+            detected_total_amount="4.99",
+            raw_text="TARGET\nSPINACH 4.99\nTOTAL 4.99",
+        )
+
+        response = self.client.get(
+            reverse("receipt-search"),
+            {"vendor_name": "target"},
+        )
+
+        receipt.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["receipt_id"], receipt.id)
+        self.assertEqual(response.data["results"][0]["store_name"], "Target")
+        self.assertEqual(receipt.store_name, "Target")
+
+    def test_receipt_search_requires_vendor_name(self):
+        response = self.client.get(reverse("receipt-search"))
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("vendor", response.data["detail"].lower())
+
+    def test_receipt_search_matches_partial_vendor_name(self):
+        receipt = Receipt.objects.create(
+            uploaded_by=self.user,
+            household=self.household,
+            image="receipts/trader-joes.jpg",
+            store_name="Trader Joe's",
+            detected_total_amount="20.31",
+            raw_text="TRADER JOE'S\nTOTAL 20.31",
+        )
+
+        response = self.client.get(
+            reverse("receipt-search"),
+            {"vendor_name": "trader"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["receipt_id"], receipt.id)
+
+    def test_receipt_search_ignores_apostrophes_and_spacing(self):
+        receipt = Receipt.objects.create(
+            uploaded_by=self.user,
+            household=self.household,
+            image="receipts/trader-joes.jpg",
+            store_name="Trader Joe's",
+            detected_total_amount="20.31",
+            raw_text="TRADER JOE'S\nTOTAL 20.31",
+        )
+
+        response = self.client.get(
+            reverse("receipt-search"),
+            {"vendor_name": "trader joes"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["receipt_id"], receipt.id)
+
     def test_confirm_receipt_creates_food_items(self):
         from core.models import FoodItem
         from datetime import date, timedelta

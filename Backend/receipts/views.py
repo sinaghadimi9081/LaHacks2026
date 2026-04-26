@@ -17,7 +17,7 @@ from households.models import HouseholdMembership
 from .models import ParsedReceiptItem, Receipt
 from .receipt_parser import extract_receipt_total, extract_store_name
 from .receipt_processing import ReceiptProcessingError, process_receipt_image
-from .serializers import ReceiptSerializer
+from .serializers import ReceiptSearchResultSerializer, ReceiptSerializer
 
 
 def _active_household_membership(user):
@@ -88,6 +88,43 @@ def _persist_receipt_metadata(receipt):
 
     if update_fields:
         receipt.save(update_fields=update_fields)
+
+
+def _backfill_household_store_names(household):
+    receipts = Receipt.objects.filter(
+        household=household,
+        store_name="",
+    ).exclude(raw_text="")
+
+    for receipt in receipts.only("id", "store_name", "raw_text"):
+        store_name = extract_store_name(receipt.raw_text)
+        if not store_name:
+            continue
+        receipt.store_name = store_name
+        receipt.save(update_fields=["store_name"])
+
+
+def _normalize_vendor_text(value):
+    if not value:
+        return ""
+
+    return "".join(character.lower() for character in str(value) if character.isalnum())
+
+
+def _receipt_matches_vendor_query(receipt, vendor_name):
+    store_name = (receipt.store_name or "").strip()
+    if not store_name:
+        return False
+
+    raw_query = vendor_name.strip().lower()
+    normalized_query = _normalize_vendor_text(vendor_name)
+    raw_store_name = store_name.lower()
+    normalized_store_name = _normalize_vendor_text(store_name)
+
+    return (
+        (raw_query and raw_query in raw_store_name)
+        or (normalized_query and normalized_query in normalized_store_name)
+    )
 
 
 @api_view(["POST"])
@@ -168,6 +205,48 @@ def receipt_detail(request, receipt_id):
         context={"request": request},
     )
     return Response(serializer.data)
+
+
+@api_view(["GET"])
+def receipt_search(request):
+    membership = _active_household_membership(request.user)
+    vendor_name = (request.query_params.get("vendor_name") or "").strip()
+
+    if not vendor_name:
+        return Response(
+            {"detail": "Enter a vendor name to search receipts."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    _backfill_household_store_names(membership.household)
+
+    household_receipts = (
+        Receipt.objects.prefetch_related("parsed_items")
+        .filter(household=membership.household)
+        .order_by("-created_at")
+    )
+
+    receipts = [
+        receipt
+        for receipt in household_receipts
+        if _receipt_matches_vendor_query(receipt, vendor_name)
+    ]
+
+    if not receipts:
+        return Response(
+            {"detail": "Could not find a receipt for that vendor."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    for receipt in receipts:
+        _persist_receipt_metadata(receipt)
+
+    serializer = ReceiptSearchResultSerializer(
+        receipts,
+        many=True,
+        context={"request": request},
+    )
+    return Response({"results": serializer.data})
 
 
 @api_view(["POST"])
