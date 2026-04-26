@@ -149,6 +149,13 @@ function normalizePost(post, userLocation) {
   }
 }
 
+function getFulfillmentLabel(fulfillmentMethod) {
+  if (fulfillmentMethod === 'delivery') {
+    return 'Simulated delivery'
+  }
+  return 'Pickup'
+}
+
 export default function Marketplace() {
   const { isAuthed, status } = useAuth()
   const [sharePosts, setSharePosts] = useState([])
@@ -157,6 +164,7 @@ export default function Marketplace() {
   const [selectedPostDetail, setSelectedPostDetail] = useState(null)
   const [, setSelectedPostDetailState] = useState('idle')
   const [selectedPostDetailError, setSelectedPostDetailError] = useState('')
+  const [requestMode, setRequestMode] = useState('pickup')
   const [searchTerm, setSearchTerm] = useState('')
   const [activeFilter, setActiveFilter] = useState('all')
   const [form, setForm] = useState(blankForm)
