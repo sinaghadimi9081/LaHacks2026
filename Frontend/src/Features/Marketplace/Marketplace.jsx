@@ -107,6 +107,8 @@ function normalizePost(post, userLocation) {
     public_pickup_location:
       post?.public_pickup_location || post?.pickup_location || 'Approximate pickup area',
     public_pickup_longitude: post?.public_pickup_longitude ?? post?.pickup_longitude ?? null,
+    viewer_delivery_quote: post?.viewer_delivery_quote || post?.delivery_quote || null,
+    viewer_fulfillment_method: post?.viewer_fulfillment_method || post?.fulfillment_method || null,
     viewer_request_status: post?.viewer_request_status || null,
     food_item: {
       estimated_price:
@@ -147,6 +149,13 @@ function normalizePost(post, userLocation) {
   }
 }
 
+function getFulfillmentLabel(fulfillmentMethod) {
+  if (fulfillmentMethod === 'delivery') {
+    return 'Simulated delivery'
+  }
+  return 'Pickup'
+}
+
 export default function Marketplace() {
   const { isAuthed, status } = useAuth()
   const [sharePosts, setSharePosts] = useState([])
@@ -155,6 +164,7 @@ export default function Marketplace() {
   const [selectedPostDetail, setSelectedPostDetail] = useState(null)
   const [, setSelectedPostDetailState] = useState('idle')
   const [selectedPostDetailError, setSelectedPostDetailError] = useState('')
+  const [requestMode, setRequestMode] = useState('pickup')
   const [searchTerm, setSearchTerm] = useState('')
   const [activeFilter, setActiveFilter] = useState('all')
   const [form, setForm] = useState(blankForm)
@@ -653,6 +663,28 @@ export default function Marketplace() {
     setCartPostIds((currentIds) => currentIds.filter((currentId) => currentId !== postId))
   }
 
+  async function buildClaimPayload() {
+    if (requestMode !== 'delivery') {
+      return { fulfillment_method: 'pickup' }
+    }
+
+    let location = userLocation
+    if (!location) {
+      const currentLocation = await requestCurrentLocation()
+      location = currentLocation.point
+    }
+
+    if (!location) {
+      throw new Error('Turn on your current location before requesting simulated delivery.')
+    }
+
+    return {
+      fulfillment_method: 'delivery',
+      dropoff_latitude: String(location[0]),
+      dropoff_longitude: String(location[1]),
+    }
+  }
+
   async function claimPost(postId) {
     if (!isAuthed) {
       toast.error('Log in before requesting a meetup.')
@@ -660,7 +692,8 @@ export default function Marketplace() {
     }
 
     try {
-      const updatedPost = normalizePost(await claimSharePost(postId), userLocation)
+      const payload = await buildClaimPayload()
+      const updatedPost = normalizePost(await claimSharePost(postId, payload), userLocation)
       setSharePosts((currentPosts) =>
         currentPosts.map((post) => (post.id === postId ? updatedPost : post)),
       )
@@ -682,9 +715,10 @@ export default function Marketplace() {
 
     setIsClaimingCart(true)
     try {
+      const payload = await buildClaimPayload()
       const updatedPosts = []
       for (const postId of cartPostIds) {
-        const updatedPost = await claimSharePost(postId)
+        const updatedPost = await claimSharePost(postId, payload)
         updatedPosts.push(normalizePost(updatedPost, userLocation))
       }
 
@@ -989,6 +1023,11 @@ export default function Marketplace() {
                 onRemovePost={removePostFromCart}
                 onToggleOpen={() => setIsCartOpen((currentValue) => !currentValue)}
               />
+              {cartPosts.length > 0 && (
+                <p className="mt-2 text-center text-xs font-black uppercase tracking-[0.12em] text-ink/65">
+                  Basket mode: {getFulfillmentLabel(requestMode)}
+                </p>
+              )}
               {isClaimingCart && (
                 <p className="mt-2 text-center text-xs font-black uppercase tracking-[0.12em] text-ink/65">
                   Sending meetup requests...
