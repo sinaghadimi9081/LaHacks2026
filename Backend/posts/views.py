@@ -1,6 +1,6 @@
 from math import asin, cos, radians, sin, sqrt
 
-from django.db import DatabaseError
+from django.utils import timezone
 from django.db.models import Q
 from rest_framework import generics, permissions, status
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -46,7 +46,15 @@ def _serializer_context(request):
 
 
 def _filtered_posts(request, base_queryset):
-    queryset = base_queryset.select_related("owner", "claimed_by_user")
+    queryset = base_queryset.select_related("owner", "food_item", "claimed_by_user")
+    today = timezone.localdate()
+
+    if request.query_params.get("include_expired") != "true":
+        queryset = queryset.filter(
+            Q(expiration_date__gt=today)
+            | Q(expiration_date__isnull=True, food_item__expiration_date__gt=today)
+            | Q(expiration_date__isnull=True, food_item__expiration_date__isnull=True)
+        )
 
     status_value = request.query_params.get("status")
     if status_value:

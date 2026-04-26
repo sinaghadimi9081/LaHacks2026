@@ -18,6 +18,7 @@ import {
   resolveShareLocation,
   updateSharePost,
 } from '../../Utils/shareApi.jsx'
+import MarketplacePostForm from '../Marketplace/components/MarketplacePostForm.jsx'
 
 const marketTagStyles = [
   'bg-citrus rotate-[-6deg]',
@@ -25,18 +26,18 @@ const marketTagStyles = [
   'bg-moonstone rotate-[-4deg]',
 ]
 
+function getDefaultExpirationDate() {
+  const date = new Date()
+  date.setDate(date.getDate() + 7)
+  return date.toISOString().slice(0, 10)
+}
+
 const emptyPostForm = {
   item_name: '',
   quantity_label: '',
-  estimated_price: '',
-  title: '',
   description: '',
+  expiration_date: getDefaultExpirationDate(),
   pickup_location: '',
-  pickup_latitude: '',
-  pickup_longitude: '',
-  tags: '',
-  image_file: null,
-  image_preview: '',
 }
 
 function getErrorMessage(error, fallbackMessage) {
@@ -63,6 +64,7 @@ function toPostForm(post) {
     estimated_price: post.estimated_price ?? post.food_item?.estimated_price ?? '',
     title: post.title || '',
     description: post.description || '',
+    expiration_date: post.expiration_date || post.food_item?.expiration_date || '',
     pickup_location: post.pickup_location || '',
     pickup_latitude: post.pickup_latitude ?? '',
     pickup_longitude: post.pickup_longitude ?? '',
@@ -139,6 +141,8 @@ export default function Profile() {
   const [postsSaving, setPostsSaving] = useState(false)
   const [deletingPostId, setDeletingPostId] = useState(null)
   const [postForm, setPostForm] = useState(emptyPostForm)
+  const [postVerificationImage, setPostVerificationImage] = useState('')
+  const [postVerificationFile, setPostVerificationFile] = useState(null)
   const [editingPostId, setEditingPostId] = useState(null)
   const [editingPostForm, setEditingPostForm] = useState(emptyPostForm)
   const [locatingPost, setLocatingPost] = useState(false)
@@ -163,6 +167,12 @@ export default function Profile() {
   const householdForm = {
     name: householdDraft.name ?? user?.default_household?.name ?? '',
   }
+  const reverifiedPostFoodItem = useMemo(
+    () => ({
+      image: postVerificationImage || '/favicon.svg',
+    }),
+    [postVerificationImage],
+  )
 
   useEffect(() => {
     let isActive = true
@@ -290,48 +300,26 @@ export default function Profile() {
     setHouseholdDraft((current) => ({ ...current, [name]: value }))
   }
 
-  const handlePostFormChange = (event) => {
-    const { files, name, value } = event.target
-
-    if (name === 'image_file') {
-      const nextFile = files?.[0] || null
-      setPostForm((current) => ({
-        ...current,
-        image_file: nextFile,
-        image_preview: nextFile ? URL.createObjectURL(nextFile) : '',
-      }))
+  const handlePostFormChange = (fieldOrEvent, nextValue) => {
+    if (typeof fieldOrEvent === 'string') {
+      setPostForm((current) => ({ ...current, [fieldOrEvent]: nextValue }))
       return
     }
 
-    setPostForm((current) => ({
-      ...current,
-      [name]: value,
-      ...(name === 'pickup_location'
-        ? { pickup_latitude: '', pickup_longitude: '' }
-        : {}),
-    }))
+    const { name, value } = fieldOrEvent.target
+    setPostForm((current) => ({ ...current, [name]: value }))
   }
 
   const handleEditingPostChange = (event) => {
-    const { files, name, value } = event.target
+    const { name, value } = event.target
+    setEditingPostForm((current) => ({ ...current, [name]: value }))
+  }
 
-    if (name === 'image_file') {
-      const nextFile = files?.[0] || null
-      setEditingPostForm((current) => ({
-        ...current,
-        image_file: nextFile,
-        image_preview: nextFile ? URL.createObjectURL(nextFile) : current.image_preview,
-      }))
-      return
-    }
+  const handlePostImageUpload = (event) => {
+    const file = event.target.files?.[0]
 
-    setEditingPostForm((current) => ({
-      ...current,
-      [name]: value,
-      ...(name === 'pickup_location'
-        ? { pickup_latitude: '', pickup_longitude: '' }
-        : {}),
-    }))
+    setPostVerificationFile(file || null)
+    setPostVerificationImage(file ? URL.createObjectURL(file) : '')
   }
 
   const submitProfile = async (event) => {
@@ -438,20 +426,35 @@ export default function Profile() {
     }
   }
 
-  const buildPostPayload = (formState) => {
-    const payload = new FormData()
-    payload.append('item_name', formState.item_name.trim())
-    payload.append('quantity_label', formState.quantity_label.trim())
-    payload.append('title', formState.title.trim())
-    payload.append('description', formState.description.trim())
-    payload.append('pickup_location', formState.pickup_location.trim())
-    payload.append('tags', parseTagInput(formState.tags).join(','))
+  const buildPostPayload = (formState, imageFile = null) => {
+    if (imageFile) {
+      const payload = new FormData()
 
-    if (formState.pickup_latitude !== '') {
-      payload.append('pickup_latitude', formState.pickup_latitude)
+      payload.append('item_name', formState.item_name.trim())
+      payload.append('quantity_label', formState.quantity_label.trim())
+      payload.append('title', formState.item_name.trim())
+      payload.append('description', formState.description.trim())
+      payload.append('expiration_date', formState.expiration_date)
+      payload.append('pickup_location', formState.pickup_location.trim())
+      payload.append('image_file', imageFile)
+
+      if (formState.estimated_price !== undefined && formState.estimated_price !== '') {
+        payload.append('estimated_price', formState.estimated_price)
+      }
+
+      return payload
     }
-    if (formState.pickup_longitude !== '') {
-      payload.append('pickup_longitude', formState.pickup_longitude)
+
+    const payload = {
+      item_name: formState.item_name.trim(),
+      quantity_label: formState.quantity_label.trim(),
+      title: formState.item_name.trim(),
+      description: formState.description.trim(),
+      expiration_date: formState.expiration_date,
+      pickup_location: formState.pickup_location.trim(),
+      tags: parseTagInput(formState.tags || ''),
+      pickup_latitude: formState.pickup_latitude === '' ? null : formState.pickup_latitude,
+      pickup_longitude: formState.pickup_longitude === '' ? null : formState.pickup_longitude,
     }
     if (formState.estimated_price !== '') {
       payload.append('estimated_price', formState.estimated_price)
@@ -517,9 +520,14 @@ export default function Profile() {
     setPostsSaving(true)
 
     try {
-      const createdPost = await createSharePost(buildPostPayload(postForm))
+      const createdPost = await createSharePost(
+        buildPostPayload(postForm, postVerificationFile),
+      )
       setMyPosts((current) => [createdPost, ...current])
-      setPostForm(emptyPostForm)
+      setPostForm({ ...emptyPostForm, expiration_date: getDefaultExpirationDate() })
+      setPostVerificationImage('')
+      setPostVerificationFile(null)
+      event.currentTarget.reset()
       toast.success('Marketplace post created.')
     } catch (error) {
       toast.error(getErrorMessage(error, 'Failed to create marketplace post.'))
@@ -912,151 +920,16 @@ export default function Profile() {
 
           <ProfileCard title="My marketplace posts">
             <div className="space-y-5">
-              <form className="grid gap-4 md:grid-cols-2" onSubmit={submitPost}>
-                <label className="block">
-                  <span className="pantry-field-label">
-                    Item name
-                  </span>
-                  <input
-                    className="pantry-input"
-                    name="item_name"
-                    onChange={handlePostFormChange}
-                    placeholder="Honeycrisp apples"
-                    required
-                    value={postForm.item_name}
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="pantry-field-label">
-                    Quantity
-                  </span>
-                  <input
-                    className="pantry-input"
-                    name="quantity_label"
-                    onChange={handlePostFormChange}
-                    placeholder="8 apples"
-                    value={postForm.quantity_label}
-                  />
-                </label>
-
-                <label className="block md:col-span-2">
-                  <span className="pantry-field-label">
-                    Title
-                  </span>
-                  <input
-                    className="pantry-input"
-                    name="title"
-                    onChange={handlePostFormChange}
-                    placeholder="Apple snack pack"
-                    required
-                    value={postForm.title}
-                  />
-                </label>
-
-                <label className="block md:col-span-2">
-                  <span className="pantry-field-label">
-                    Description
-                  </span>
-                  <textarea
-                    className="pantry-input min-h-28 resize-y"
-                    name="description"
-                    onChange={handlePostFormChange}
-                    placeholder="Condition, timing, and anything a neighbor should know."
-                    value={postForm.description}
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="pantry-field-label">
-                    Pickup address
-                  </span>
-                  <input
-                    className="pantry-input"
-                    name="pickup_location"
-                    onChange={handlePostFormChange}
-                    placeholder="Enter an address or use your location"
-                    required
-                    value={postForm.pickup_location}
-                  />
-                </label>
-
-                <div className="block">
-                  <span className="pantry-field-label">
-                    Location helper
-                  </span>
-                  <button
-                    className="pantry-button pantry-button--light w-full"
-                    disabled={locatingPost}
-                    onClick={() => void applyCurrentLocation('create')}
-                    type="button"
-                  >
-                    {locatingPost ? 'Finding your location...' : 'Use my location'}
-                  </button>
-                </div>
-
-                <label className="block">
-                  <span className="pantry-field-label">
-                    Estimated price
-                  </span>
-                  <input
-                    className="pantry-input"
-                    min="0"
-                    name="estimated_price"
-                    onChange={handlePostFormChange}
-                    placeholder="6.75"
-                    step="0.01"
-                    type="number"
-                    value={postForm.estimated_price}
-                  />
-                </label>
-
-                <label className="block md:col-span-2">
-                  <span className="pantry-field-label">
-                    Post picture
-                  </span>
-                  <input
-                    accept="image/*"
-                    className="pantry-input file:mr-4 file:rounded-full file:border-0 file:bg-citrus file:px-4 file:py-2 file:font-black file:text-ink"
-                    name="image_file"
-                    onChange={handlePostFormChange}
-                    type="file"
-                  />
-                  {postForm.image_preview ? (
-                    <img
-                      alt="New marketplace post preview"
-                      className="mt-3 h-44 w-full rounded-2xl object-cover shadow-sticker"
-                      src={postForm.image_preview}
-                    />
-                  ) : null}
-                </label>
-
-                <label className="block md:col-span-2">
-                  <span className="pantry-field-label">
-                    Tags
-                  </span>
-                  <input
-                    className="pantry-input"
-                    name="tags"
-                    onChange={handlePostFormChange}
-                    placeholder="snack plates, salads, crumble"
-                    value={postForm.tags}
-                  />
-                  <p className="mt-2 text-sm font-bold text-ink/55">
-                    Use the same short recipe-style tags you use in inventory cards. We keep the map point behind the scenes once the address is resolved.
-                  </p>
-                </label>
-
-                <div className="md:col-span-2">
-                  <button
-                    className="pantry-button pantry-button--accent"
-                    disabled={postsSaving}
-                    type="submit"
-                  >
-                    {postsSaving ? 'Saving post...' : 'Create post'}
-                  </button>
-                </div>
-              </form>
+              <MarketplacePostForm
+                form={postForm}
+                isSaving={postsSaving}
+                onImageUpload={handlePostImageUpload}
+                onSubmit={submitPost}
+                onUpdateForm={handlePostFormChange}
+                postSuggestions={myPosts}
+                reverifiedFoodItem={reverifiedPostFoodItem}
+                submitLabel="Create post"
+              />
 
               {postsLoading ? (
                 <p className="text-sm font-bold text-ink/60">Loading your posts...</p>
@@ -1075,7 +948,7 @@ export default function Profile() {
                           <div className="grid gap-4 md:grid-cols-2">
                             <label className="block">
                               <span className="pantry-field-label">
-                                Item name
+                                Post title
                               </span>
                               <input
                                 className="pantry-input"
@@ -1094,18 +967,6 @@ export default function Profile() {
                                 name="quantity_label"
                                 onChange={handleEditingPostChange}
                                 value={activeForm.quantity_label}
-                              />
-                            </label>
-
-                            <label className="block md:col-span-2">
-                              <span className="pantry-field-label">
-                                Title
-                              </span>
-                              <input
-                                className="pantry-input"
-                                name="title"
-                                onChange={handleEditingPostChange}
-                                value={activeForm.title}
                               />
                             </label>
 
@@ -1224,10 +1085,10 @@ export default function Profile() {
                             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                               <div>
                                 <p className="text-xs font-black uppercase tracking-[0.14em] text-tomato">
-                                  {post.item_name || post.food_item?.name}
+                                  @{post.owner?.username || user?.username || 'you'}
                                 </p>
                                 <h3 className="mt-1 text-2xl font-black uppercase leading-none text-ink">
-                                  {post.title}
+                                  {post.title || post.item_name || post.food_item?.name}
                                 </h3>
                                 <p className="mt-3 text-sm font-bold leading-7 text-ink/70">
                                   {post.description || 'No extra details added yet.'}

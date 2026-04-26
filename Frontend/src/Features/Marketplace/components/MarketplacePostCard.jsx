@@ -7,24 +7,100 @@ const postStatusStyles = {
   claimed: 'bg-phthalo text-white',
 }
 
-const foodStatusStyles = {
-  fresh: 'bg-phthalo text-white',
-  'use soon': 'bg-moonstone text-ink',
-  'feed today': 'bg-mustard text-white',
+const expirationTagStyles = {
   critical: 'bg-danger text-white',
-}
-
-const foodStatusCardClasses = {
-  critical: 'ingredient-card--critical',
-  'feed today': 'ingredient-card--feed-today',
-  'use soon': 'ingredient-card--use-soon',
+  expired: 'bg-danger text-white',
+  low_priority: 'bg-phthalo text-white',
+  'use soon': 'bg-mustard text-white',
 }
 
 function formatPostDate(date) {
+  const parsedDate =
+    typeof date === 'string' && date.includes('T')
+      ? new Date(date)
+      : new Date(`${date}T12:00:00`)
+
   return new Intl.DateTimeFormat('en', {
     month: 'short',
     day: 'numeric',
-  }).format(new Date(`${date}T12:00:00`))
+  }).format(parsedDate)
+}
+
+function getExpirationDate(post) {
+  return post.expiration_date || post.food_item?.expiration_date || ''
+}
+
+function parseDateKey(dateValue) {
+  if (!dateValue) {
+    return null
+  }
+
+  const [year, month, day] = dateValue.slice(0, 10).split('-').map(Number)
+
+  if (!year || !month || !day) {
+    return null
+  }
+
+  return Date.UTC(year, month - 1, day)
+}
+
+function getTodayKey() {
+  const today = new Date()
+  return Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+}
+
+function getDaysLeft(post) {
+  const expirationKey = parseDateKey(getExpirationDate(post))
+
+  if (expirationKey === null) {
+    return null
+  }
+
+  return Math.round((expirationKey - getTodayKey()) / 86400000)
+}
+
+function formatExpirationDate(post) {
+  const expirationDate = getExpirationDate(post)
+
+  if (!expirationDate) {
+    return 'not set'
+  }
+
+  return formatPostDate(expirationDate)
+}
+
+function getExpirationState(post) {
+  const daysLeft = getDaysLeft(post)
+
+  if (daysLeft !== null && daysLeft <= 0) {
+    return {
+      cardClass: 'ingredient-card--critical',
+      label: 'expired',
+      tag: 'expired',
+    }
+  }
+
+  if (daysLeft !== null && daysLeft <= 1) {
+    return {
+      cardClass: 'ingredient-card--critical',
+      label: 'critical',
+      tag: 'critical',
+    }
+  }
+
+  if (daysLeft !== null && daysLeft <= 3) {
+    return {
+      cardClass: 'ingredient-card--feed-today',
+      label: 'use soon',
+      tag: 'use soon',
+    }
+  }
+
+  return {
+    cardClass: '',
+    label: 'low_priority',
+    tag: 'low_priority',
+  }
 }
 
 function MarketplacePostCard({
@@ -36,7 +112,8 @@ function MarketplacePostCard({
 }) {
   const tilt = index % 2 === 0 ? '-1.2deg' : '1deg'
   const isClaimed = post.status === 'claimed'
-  const foodStatusClass = foodStatusCardClasses[post.food_item.status] || ''
+  const expirationState = getExpirationState(post)
+  const ownerUsername = post.owner?.username || 'neighbor'
   const [{ isDragging }, dragRef, previewRef] = useDrag(
     () => ({
       canDrag: !isClaimed,
@@ -55,7 +132,7 @@ function MarketplacePostCard({
 
   return (
     <article
-      className={`market-post-card ingredient-card ${foodStatusClass} ${
+      className={`market-post-card ingredient-card ${expirationState.cardClass} ${
         isClaimed ? 'opacity-75' : 'cursor-grab active:cursor-grabbing'
       } ${isDragging ? 'market-post-card--dragging' : ''}`}
       ref={dragRef}
@@ -68,16 +145,16 @@ function MarketplacePostCard({
           <span>{post.food_item.quantity}</span>
         </div>
         <span
-          className={`absolute right-0 top-14 -rotate-6 z-20 rounded-full border border-ink/15 px-2.5 py-1.5 text-[0.65rem] font-black uppercase leading-none shadow-sticker ${foodStatusStyles[post.food_item.status] || 'bg-white text-ink'}`}
+          className={`absolute right-0 top-14 -rotate-6 z-20 rounded-full border border-ink/15 px-2.5 py-1.5 text-[0.65rem] font-black uppercase leading-none shadow-sticker ${expirationTagStyles[expirationState.tag] || 'bg-white text-ink'}`}
         >
-          {post.food_item.status}
+          {expirationState.label}
         </span>
 
         <img
           alt={`${post.food_item.name} shared food`}
           className="food-item-image"
           loading="lazy"
-          src={post.food_item.image}
+          src={post.food_item.image || '/favicon.svg'}
         />
       </div>
 
@@ -85,10 +162,10 @@ function MarketplacePostCard({
         <div className="flex items-start justify-between gap-3 border-b-2 border-moonstone pb-3">
           <div className="min-w-0">
             <p className="text-[0.65rem] font-black uppercase tracking-[0.14em] text-tomato">
-              {post.food_item.name}
+              @{ownerUsername}
             </p>
             <h2 className="mt-1 text-2xl font-black uppercase leading-none">
-              {post.title}
+              {post.title || post.item_name || post.food_item.name}
             </h2>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2">
@@ -112,6 +189,10 @@ function MarketplacePostCard({
           <div>
             <dt>posted</dt>
             <dd>{formatPostDate(post.created_at)}</dd>
+          </div>
+          <div>
+            <dt>expires</dt>
+            <dd>{formatExpirationDate(post)}</dd>
           </div>
           <div>
             <dt>request</dt>

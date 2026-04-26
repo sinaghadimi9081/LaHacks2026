@@ -49,9 +49,22 @@ class ImpactLog(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="impact_logs",
     )
-    user = models.ForeignKey(
+    item_name = models.CharField(max_length=255, blank=True, default="")
+    quantity_label = models.CharField(max_length=100, blank=True, default="")
+    estimated_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    image_url = models.URLField(max_length=500, blank=True, null=True)
+    image_file = models.ImageField(upload_to="share_post_images/", blank=True, null=True)
+    expiration_date = models.DateField(blank=True, null=True)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    pickup_location = models.CharField(max_length=255)
+    pickup_latitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
+    pickup_longitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
+    tags = models.JSONField(default=list, blank=True)
+    status = models.CharField(max_length=50, choices=Status.choices, default=Status.AVAILABLE)
+    claimed_by = models.CharField(max_length=255, blank=True, null=True)
+    claimed_by_user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,

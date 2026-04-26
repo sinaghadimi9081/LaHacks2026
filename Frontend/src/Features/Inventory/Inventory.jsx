@@ -14,6 +14,31 @@ const blankSellForm = {
   pickup_location: '',
 }
 
+const startingInventories = {
+  your: {
+    label: 'Your inventory',
+    description: 'All tracked groceries and pantry notes.',
+    items: [...foodItems, ...pantryNotes],
+  },
+  groceries: {
+    label: 'Groceries',
+    description: 'Receipt-tracked food items only.',
+    items: [...foodItems],
+  },
+  pantryNotes: {
+    label: 'Pantry notes',
+    description: 'Quick notes and no-image pantry items.',
+    items: [...pantryNotes],
+  },
+  shared: {
+    label: 'Shared inventory',
+    description: 'Items connected to neighbors or household sharing.',
+    items: [...foodItems, ...pantryNotes].filter(
+      (item) => item.owner_name || item.status !== 'fresh',
+    ),
+  },
+}
+
 function getItemKey(item) {
   return item.id || `${item.name}-${item.created_at || item.expiration_date}`
 }
@@ -21,20 +46,47 @@ function getItemKey(item) {
 export default function Inventory() {
   const [searchTerm, setSearchTerm] = useState('')
   const [activeFilter, setActiveFilter] = useState('all')
-  const [inventoryItems, setInventoryItems] = useState(() => [
-    ...foodItems,
-    ...pantryNotes,
-  ])
+  const [selectedInventoryId, setSelectedInventoryId] = useState('your')
+  const [inventoryDropdownOpen, setInventoryDropdownOpen] = useState(false)
+  const [inventoryDropdownSearch, setInventoryDropdownSearch] = useState('')
+  const [inventoryCollections, setInventoryCollections] = useState(startingInventories)
+
   const [editingItem, setEditingItem] = useState(null)
   const [editedQuantity, setEditedQuantity] = useState('')
   const [sellItem, setSellItem] = useState(null)
   const [sellForm, setSellForm] = useState(blankSellForm)
   const [verificationImage, setVerificationImage] = useState('')
 
+  const selectedInventory = inventoryCollections[selectedInventoryId]
+  const inventoryItems = selectedInventory.items
+
+  const inventoryOptions = useMemo(
+    () =>
+      Object.entries(inventoryCollections).map(([id, inventory]) => ({
+        id,
+        ...inventory,
+      })),
+    [inventoryCollections],
+  )
+
+  const filteredInventoryOptions = useMemo(() => {
+    const search = inventoryDropdownSearch.trim().toLowerCase()
+
+    if (!search) return inventoryOptions
+
+    return inventoryOptions.filter((inventory) =>
+      [inventory.label, inventory.description]
+        .join(' ')
+        .toLowerCase()
+        .includes(search),
+    )
+  }, [inventoryDropdownSearch, inventoryOptions])
+
   const totalValue = inventoryItems.reduce(
     (sum, item) => sum + Number(item.estimated_price || 0),
     0,
   )
+
   const soonCount = inventoryItems.filter((item) => item.status !== 'fresh').length
   const normalizedSearch = searchTerm.trim().toLowerCase()
 
@@ -55,6 +107,7 @@ export default function Inventory() {
       const matchesSearch =
         normalizedSearch.length === 0 ||
         searchableText.includes(normalizedSearch)
+
       const matchesFilter =
         activeFilter === 'all' || item.status === activeFilter
 
@@ -67,7 +120,9 @@ export default function Inventory() {
     () => inventoryItems.filter(matchesSearchAndFilter),
     [inventoryItems, matchesSearchAndFilter],
   )
+
   const visibleCount = filteredInventoryItems.length
+
   const sellFoodItems = useMemo(
     () =>
       inventoryItems.map((item) => ({
@@ -77,6 +132,7 @@ export default function Inventory() {
       })),
     [inventoryItems],
   )
+
   const selectedSellItem = useMemo(
     () =>
       sellFoodItems.find((item) => item.name === sellForm.foodItemName) ||
@@ -84,6 +140,7 @@ export default function Inventory() {
       sellFoodItems[0],
     [sellFoodItems, sellForm.foodItemName, sellItem],
   )
+
   const reverifiedFoodItem = useMemo(
     () =>
       selectedSellItem
@@ -95,6 +152,26 @@ export default function Inventory() {
         : foodItems[0],
     [selectedSellItem, verificationImage],
   )
+
+  function selectInventory(inventoryId) {
+    setSelectedInventoryId(inventoryId)
+    setInventoryDropdownOpen(false)
+    setInventoryDropdownSearch('')
+    setSearchTerm('')
+    setActiveFilter('all')
+    setEditingItem(null)
+    setSellItem(null)
+  }
+
+  function updateCurrentInventoryItems(updateFn) {
+    setInventoryCollections((currentCollections) => ({
+      ...currentCollections,
+      [selectedInventoryId]: {
+        ...currentCollections[selectedInventoryId],
+        items: updateFn(currentCollections[selectedInventoryId].items),
+      },
+    }))
+  }
 
   function openEditQuantity(item) {
     setEditingItem(item)
@@ -109,10 +186,17 @@ export default function Inventory() {
     }
 
     const newQuantity = editedQuantity.trim()
-    const isZero = newQuantity === '0' || newQuantity.startsWith('0 ') || newQuantity.toLowerCase() === 'none'
-    
+    const isZero =
+      newQuantity === '0' ||
+      newQuantity.startsWith('0 ') ||
+      newQuantity.toLowerCase() === 'none'
+
     if (isZero) {
-      if (window.confirm(`It looks like you're out of ${editingItem.name}. Would you like to delete this item?`)) {
+      if (
+        window.confirm(
+          `It looks like you're out of ${editingItem.name}. Would you like to delete this item?`,
+        )
+      ) {
         handleDeleteItem(editingItem)
         setEditingItem(null)
         setEditedQuantity('')
@@ -121,20 +205,23 @@ export default function Inventory() {
     }
 
     const editingKey = getItemKey(editingItem)
-    setInventoryItems((currentItems) =>
+
+    updateCurrentInventoryItems((currentItems) =>
       currentItems.map((item) =>
         getItemKey(item) === editingKey
           ? { ...item, quantity: newQuantity }
           : item,
       ),
     )
+
     setEditingItem(null)
     setEditedQuantity('')
   }
 
   function handleDeleteItem(itemToDelete) {
     const deleteKey = getItemKey(itemToDelete)
-    setInventoryItems((currentItems) =>
+
+    updateCurrentInventoryItems((currentItems) =>
       currentItems.filter((item) => getItemKey(item) !== deleteKey),
     )
   }
@@ -145,12 +232,14 @@ export default function Inventory() {
       image: item.image || foodItems[0].image,
       recipe_uses: item.recipe_uses || item.notes || [],
     })
+
     setSellForm({
       foodItemName: item.name,
       title: item.name,
       description: `${item.quantity} available.`,
       pickup_location: '',
     })
+
     setVerificationImage('')
   }
 
@@ -200,12 +289,80 @@ export default function Inventory() {
 
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
           <div>
-            <p className="mb-4 w-fit rounded-full border border-ink/15 bg-white/80 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] shadow-sticker backdrop-blur">
-              your inventory
-            </p>
+        <div className="relative mb-4 w-fit">
+          <button
+            className="group flex items-center gap-2 rounded-full border-2 border-ink bg-white/95 px-5 py-3 text-xs font-black uppercase tracking-[0.22em] shadow-[0_8px_0_rgba(27,51,43,0.15)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_0_rgba(27,51,43,0.18)]"
+            onClick={() => setInventoryDropdownOpen((open) => !open)}
+            type="button"
+          >
+            {selectedInventory.label}
+            <span className="text-sm transition group-hover:translate-y-0.5">⌄</span>
+          </button>
+
+          {inventoryDropdownOpen && (
+            <div className="absolute left-0 top-14 z-50 w-[22rem] rounded-[1.75rem] border-2 border-ink bg-white/95 p-4 shadow-[0_18px_40px_rgba(27,51,43,0.18)] backdrop-blur">
+              <label className="relative block">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl text-ink/55">
+                  ⌕
+                </span>
+
+                <input
+                  autoFocus
+                  className="w-full rounded-2xl border border-ink/15 bg-white px-12 py-3 text-sm font-bold text-ink outline-none transition placeholder:text-ink/35 focus:border-ink focus:ring-4 focus:ring-mustard/25"
+                  onChange={(event) =>
+                    setInventoryDropdownSearch(event.target.value)
+                  }
+                  placeholder="Search inventories..."
+                  type="search"
+                  value={inventoryDropdownSearch}
+                />
+              </label>
+
+              <div className="mt-3 grid max-h-80 gap-2 overflow-y-auto pr-1">
+                {filteredInventoryOptions.map((inventory) => {
+                  const isActive = selectedInventoryId === inventory.id
+
+                  return (
+                    <button
+                      className={`group items-center gap-3 rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-[0_10px_22px_rgba(27,51,43,0.12)] ${
+                        isActive
+                          ? 'border-mustard bg-mustard/25'
+                          : 'border-transparent bg-white hover:bg-moonstone/35'
+                      }`}
+                      key={inventory.id}
+                      onClick={() => selectInventory(inventory.id)}
+                      type="button"
+                    >
+
+                  <span className="flex items-center justify-between w-full">
+                    <span className="text-sm font-black uppercase tracking-wide text-ink">
+                      {inventory.label}
+                        {isActive && (
+                        <span className="text-l font-black text-ink/60"> ✓ </span>
+                      )}
+                    </span>
+                    <span className="text-xs font-black text-ink/60">
+
+                      {inventory.items.length}                     
+                    </span>
+                  </span>
+                    </button>
+                  )
+                })}
+
+                {filteredInventoryOptions.length === 0 && (
+                  <p className="rounded-2xl border border-dashed border-ink/20 bg-moonstone/30 p-4 text-xs font-black uppercase tracking-[0.14em] text-ink/55">
+                    No inventories found.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
             <h1 className="max-w-3xl text-6xl font-black uppercase leading-[0.85] md:text-8xl">
               Pantry pop
             </h1>
+
             <p className="mt-5 max-w-2xl text-lg font-bold leading-8 text-ink/75">
               A bright ingredient board for tracking what is fresh, what needs
               attention, and what can become dinner later.
@@ -260,10 +417,7 @@ export default function Inventory() {
             </div>
           </div>
 
-          <button
-            className="pantry-button h-fit"
-            type="button"
-          >
+          <button className="pantry-button h-fit" type="button">
             Add items
           </button>
 
@@ -273,7 +427,7 @@ export default function Inventory() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-4 px-5 py-8 sm:grid-cols-2 md:px-10 lg:grid-cols-3 xl:grid-cols-4 grid-flow-row-dense">
+      <section className="mx-auto grid max-w-7xl grid-flow-row-dense gap-4 px-5 py-8 sm:grid-cols-2 md:px-10 lg:grid-cols-3 xl:grid-cols-4">
         {filteredInventoryItems.map((item, index) =>
           item.image ? (
             <FoodItem
@@ -295,6 +449,7 @@ export default function Inventory() {
             />
           ),
         )}
+
         {filteredInventoryItems.length === 0 && (
           <p className="pantry-card text-sm font-black uppercase tracking-[0.14em] text-ink/60 sm:col-span-2 lg:col-span-3 xl:col-span-4">
             No inventory items match this search.
@@ -322,6 +477,7 @@ export default function Inventory() {
                   {editingItem.name}
                 </h2>
               </div>
+
               <button
                 className="pantry-filter-button shrink-0"
                 onClick={() => setEditingItem(null)}
@@ -342,11 +498,15 @@ export default function Inventory() {
               />
             </label>
 
-            <div className="grid grid-cols-2 gap-3 mt-2">
+            <div className="mt-2 grid grid-cols-2 gap-3">
               <button
-                className="pantry-button !bg-petal !text-danger !border-danger/20"
+                className="pantry-button !border-danger/20 !bg-petal !text-danger"
                 onClick={() => {
-                  if (window.confirm(`Are you sure you want to delete ${editingItem.name}?`)) {
+                  if (
+                    window.confirm(
+                      `Are you sure you want to delete ${editingItem.name}?`,
+                    )
+                  ) {
                     handleDeleteItem(editingItem)
                     setEditingItem(null)
                     setEditedQuantity('')
@@ -356,6 +516,7 @@ export default function Inventory() {
               >
                 Delete
               </button>
+
               <button className="pantry-button" type="submit">
                 Save amount
               </button>
