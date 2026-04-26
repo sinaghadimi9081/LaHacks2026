@@ -8,7 +8,7 @@
   position: relative;
   overflow: hidden;
   border-bottom: 4px solid #12312a;
-  background-color: #cfe8d2;
+  background-color: #9fcfb2;
   background-image:
     radial-gradient(circle, rgba(18, 49, 42, 0.13) 1px, transparent 1.1px),
     linear-gradient(135deg, rgba(159, 207, 178, 0.22), transparent 42%);

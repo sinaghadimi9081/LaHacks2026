@@ -363,6 +363,10 @@ export default function Marketplace() {
     })
 
     return [...matchingPosts].sort((firstPost, secondPost) => {
+      if (firstPost.is_owner !== secondPost.is_owner) {
+        return firstPost.is_owner ? 1 : -1
+      }
+
       const statusPriority = {
         available: 0,
         pending: 1,
