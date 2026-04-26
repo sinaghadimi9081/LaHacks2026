@@ -355,7 +355,7 @@ code {
   }
 
   .market-cart-dock {
-    @apply fixed bottom-4 right-4 z-30 w-[min(20rem,calc(100vw-2rem))] p-0 md:bottom-6 md:right-6;
+    @apply fixed right-4 top-4 z-30 w-[min(20rem,calc(100vw-2rem))] p-0 md:right-6 md:top-6;
   }
 
   .market-cart-dock--moved {

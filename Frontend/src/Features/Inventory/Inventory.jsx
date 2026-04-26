@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 
 import FoodItem from './components/FoodItem.jsx'
 import FoodItemNoImage from './components/FoodItemNoImage.jsx'
+import InventoryApprovals from './components/InventoryApprovals.jsx'
 import { foodItems, pantryNotes } from './inventoryData.js'
 import SharePostModal from '../Marketplace/components/SharePostModal.jsx'
 
@@ -272,6 +273,8 @@ export default function Inventory() {
           </p>
         </div>
       </section>
+
+      <InventoryApprovals />
 
       <section className="mx-auto grid max-w-7xl gap-4 px-5 py-8 sm:grid-cols-2 md:px-10 lg:grid-cols-3 xl:grid-cols-4 grid-flow-row-dense">
         {filteredInventoryItems.map((item, index) =>

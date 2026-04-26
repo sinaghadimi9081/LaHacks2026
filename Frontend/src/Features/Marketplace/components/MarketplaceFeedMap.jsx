@@ -28,6 +28,7 @@ function MapViewportController({ focusPoint }) {
 }
 
 export default function MarketplaceFeedMap({
+  className = '',
   filteredPosts,
   isLoadingFeed,
   locationError,
@@ -50,7 +51,7 @@ export default function MarketplaceFeedMap({
     DEFAULT_MARKETPLACE_CENTER
 
   return (
-    <article className="pantry-card market-map-panel">
+    <article className={`pantry-card market-map-panel ${className}`}>
       <div className="market-map-panel__header">
         <div>
           <p className="pantry-label">OpenStreetMap marketplace view</p>
@@ -171,7 +172,7 @@ export default function MarketplaceFeedMap({
                     <span>
                       {post.food_item.name}
                       {post.distance_miles != null
-                        ? ` • ${formatDistanceMiles(post.distance_miles)}`
+                        ? ` - ${formatDistanceMiles(post.distance_miles)}`
                         : ''}
                     </span>
                   </div>
