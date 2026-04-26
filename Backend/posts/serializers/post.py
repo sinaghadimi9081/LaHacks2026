@@ -2,10 +2,10 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from core.models import FoodItem, Notification
+from core.models import FoodItem
 
-from .location_services import GeocodingError, geocode_address, reverse_geocode
-from .models import Post, PostRequest
+from ..location_services import GeocodingError, geocode_address, reverse_geocode
+from ..models import Post
 
 
 def _format_coordinate(value):
@@ -111,15 +111,9 @@ class BasePostReadSerializer(serializers.ModelSerializer):
         latitude, longitude = self._distance_coordinates(obj)
         if not reference_point or latitude is None or longitude is None:
             return None
-
-        ref_latitude, ref_longitude = reference_point
+        ref_lat, ref_lng = reference_point
         return round(
-            self.context["distance_fn"](
-                ref_latitude,
-                ref_longitude,
-                float(latitude),
-                float(longitude),
-            ),
+            self.context["distance_fn"](ref_lat, ref_lng, float(latitude), float(longitude)),
             2,
         )
 
@@ -177,38 +171,6 @@ class ApprovedPostReadSerializer(BasePostReadSerializer):
         return True
 
 
-class PostRequestReadSerializer(serializers.ModelSerializer):
-    requester = PostOwnerSerializer(read_only=True)
-    post = serializers.SerializerMethodField()
-
-    class Meta:
-        model = PostRequest
-        fields = [
-            "id",
-            "status",
-            "created_at",
-            "responded_at",
-            "requester",
-            "post",
-        ]
-        read_only_fields = fields
-
-    def get_post(self, obj):
-        serializer_class = self.context.get("post_serializer_class")
-        request = self.context.get("request")
-        if serializer_class is None:
-            if request is not None and obj.post.can_view_exact_location(request.user):
-                serializer_class = ApprovedPostReadSerializer
-            else:
-                serializer_class = PostReadSerializer
-        serializer_context = {
-            "request": request,
-            "reference_point": self.context.get("reference_point"),
-            "distance_fn": self.context.get("distance_fn"),
-        }
-        return serializer_class(obj.post, context=serializer_context).data
-
-
 class PostWriteSerializer(serializers.ModelSerializer):
     food_item_id = serializers.PrimaryKeyRelatedField(
         source="food_item",
@@ -216,10 +178,7 @@ class PostWriteSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
-    tags = serializers.ListField(
-        child=serializers.CharField(max_length=50),
-        required=False,
-    )
+    tags = serializers.ListField(child=serializers.CharField(max_length=50), required=False)
     recipe_uses = serializers.ListField(
         child=serializers.CharField(max_length=50),
         required=False,
@@ -261,13 +220,12 @@ class PostWriteSerializer(serializers.ModelSerializer):
             value = value.split(",")
         if not isinstance(value, list):
             raise serializers.ValidationError("Tags must be a list of strings.")
-
-        cleaned_tags = []
+        cleaned = []
         for tag in value:
-            normalized_tag = str(tag).strip()
-            if normalized_tag and normalized_tag not in cleaned_tags:
-                cleaned_tags.append(normalized_tag)
-        return cleaned_tags[:12]
+            normalized = str(tag).strip()
+            if normalized and normalized not in cleaned:
+                cleaned.append(normalized)
+        return cleaned[:12]
 
     def validate_tags(self, value):
         return self._clean_tags(value)
@@ -308,7 +266,6 @@ class PostWriteSerializer(serializers.ModelSerializer):
         food_item = validated_data.get("food_item")
         if food_item is None:
             return validated_data
-
         validated_data.setdefault("item_name", food_item.name)
         validated_data.setdefault("quantity_label", str(food_item.quantity))
         validated_data.setdefault("estimated_price", food_item.estimated_price)
@@ -317,7 +274,7 @@ class PostWriteSerializer(serializers.ModelSerializer):
 
     def _resolve_location(self, attrs):
         location_fields = {"pickup_location", "pickup_latitude", "pickup_longitude"}
-        if self.instance is not None and not any(field in attrs for field in location_fields):
+        if self.instance is not None and not any(f in attrs for f in location_fields):
             return attrs
 
         pickup_location = attrs.get("pickup_location")
@@ -337,11 +294,14 @@ class PostWriteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "pickup_latitude and pickup_longitude must be provided together."
             )
-
         if latitude is not None and not (-90 <= latitude <= 90):
-            raise serializers.ValidationError({"pickup_latitude": "Latitude must be between -90 and 90."})
+            raise serializers.ValidationError(
+                {"pickup_latitude": "Latitude must be between -90 and 90."}
+            )
         if longitude is not None and not (-180 <= longitude <= 180):
-            raise serializers.ValidationError({"pickup_longitude": "Longitude must be between -180 and 180."})
+            raise serializers.ValidationError(
+                {"pickup_longitude": "Longitude must be between -180 and 180."}
+            )
 
         if pickup_location and latitude is not None and longitude is not None:
             attrs["pickup_location"] = pickup_location
@@ -366,10 +326,3 @@ class PostWriteSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         validated_data = self._fill_from_food_item(validated_data)
         return super().update(instance, validated_data)
-
-
-class NotificationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Notification
-        fields = ["id", "title", "message", "is_read", "created_at"]
-        read_only_fields = ["id", "title", "message", "created_at"]

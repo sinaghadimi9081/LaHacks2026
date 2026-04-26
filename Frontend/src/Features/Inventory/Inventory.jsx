@@ -1,8 +1,11 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { toast } from 'react-toastify'
 
+import { useAuth } from '../../Auth/useAuth.jsx'
+import { fetchItems, updateItem, deleteItem } from '../../Utils/itemsApi.jsx'
+import { createSharePost, resolveShareLocation } from '../../Utils/shareApi.jsx'
 import FoodItem from './components/FoodItem.jsx'
 import FoodItemNoImage from './components/FoodItemNoImage.jsx'
-import { foodItems, pantryNotes } from './inventoryData.js'
 import SharePostModal from '../Marketplace/components/SharePostModal.jsx'
 
 const filterOptions = ['all', 'fresh', 'use soon', 'feed today', 'critical']
@@ -12,24 +15,65 @@ const blankSellForm = {
   title: '',
   description: '',
   pickup_location: '',
+  pickup_latitude: '',
+  pickup_longitude: '',
 }
 
 function getItemKey(item) {
   return item.id || `${item.name}-${item.created_at || item.expiration_date}`
 }
 
+function getApiErrorMessage(error, fallback) {
+  const data = error?.response?.data
+  if (data?.detail) return String(data.detail)
+  if (data && typeof data === 'object') {
+    for (const v of Object.values(data)) {
+      if (Array.isArray(v) && v.length > 0) return String(v[0])
+      if (typeof v === 'string' && v.trim()) return v
+    }
+  }
+  return error?.message || fallback
+}
+
 export default function Inventory() {
+  const { user } = useAuth()
+  const [inventoryItems, setInventoryItems] = useState([])
+  const [loadState, setLoadState] = useState('loading')
   const [searchTerm, setSearchTerm] = useState('')
   const [activeFilter, setActiveFilter] = useState('all')
-  const [inventoryItems, setInventoryItems] = useState(() => [
-    ...foodItems,
-    ...pantryNotes,
-  ])
   const [editingItem, setEditingItem] = useState(null)
   const [editedQuantity, setEditedQuantity] = useState('')
   const [sellItem, setSellItem] = useState(null)
   const [sellForm, setSellForm] = useState(blankSellForm)
   const [verificationImage, setVerificationImage] = useState('')
+  const [verificationFile, setVerificationFile] = useState(null)
+  const [isSubmittingPost, setIsSubmittingPost] = useState(false)
+  const [isResolvingLocation, setIsResolvingLocation] = useState(false)
+  const [locationResolutionError, setLocationResolutionError] = useState('')
+  const [currentLocation, setCurrentLocation] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function load() {
+      setLoadState('loading')
+      try {
+        const response = await fetchItems()
+        if (!cancelled) {
+          setInventoryItems(response.items || [])
+          setLoadState('ready')
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setLoadState('error')
+          toast.error(getApiErrorMessage(error, 'Could not load pantry items.'))
+        }
+      }
+    }
+
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   const totalValue = inventoryItems.reduce(
     (sum, item) => sum + Number(item.estimated_price || 0),
@@ -42,7 +86,7 @@ export default function Inventory() {
     (item) => {
       const searchableText = [
         item.name,
-        item.quantity,
+        String(item.quantity ?? ''),
         item.status,
         item.owner_name,
         item.expiration_date,
@@ -53,8 +97,7 @@ export default function Inventory() {
         .toLowerCase()
 
       const matchesSearch =
-        normalizedSearch.length === 0 ||
-        searchableText.includes(normalizedSearch)
+        normalizedSearch.length === 0 || searchableText.includes(normalizedSearch)
       const matchesFilter =
         activeFilter === 'all' || item.status === activeFilter
 
@@ -68,49 +111,50 @@ export default function Inventory() {
     [inventoryItems, matchesSearchAndFilter],
   )
   const visibleCount = filteredInventoryItems.length
+
+  const selectedPickupPoint = useMemo(() => {
+    if (!sellForm.pickup_latitude || !sellForm.pickup_longitude) return null
+    return [Number(sellForm.pickup_latitude), Number(sellForm.pickup_longitude)]
+  }, [sellForm.pickup_latitude, sellForm.pickup_longitude])
+
   const sellFoodItems = useMemo(
     () =>
       inventoryItems.map((item) => ({
         ...item,
-        image: item.image || foodItems[0].image,
-        recipe_uses: item.recipe_uses || item.notes || [],
+        image: item.image || '',
+        recipe_uses: item.recipe_uses || [],
       })),
     [inventoryItems],
   )
+
   const selectedSellItem = useMemo(
     () =>
-      sellFoodItems.find((item) => item.name === sellForm.foodItemName) ||
-      sellItem ||
-      sellFoodItems[0],
+      sellFoodItems.find((item) => item.name === sellForm.foodItemName) || sellItem || sellFoodItems[0],
     [sellFoodItems, sellForm.foodItemName, sellItem],
   )
+
   const reverifiedFoodItem = useMemo(
     () =>
       selectedSellItem
-        ? {
-            ...selectedSellItem,
-            image:
-              verificationImage || selectedSellItem.image || foodItems[0].image,
-          }
-        : foodItems[0],
+        ? { ...selectedSellItem, image: verificationImage || selectedSellItem.image || '' }
+        : { name: '', image: '' },
     [selectedSellItem, verificationImage],
   )
 
   function openEditQuantity(item) {
     setEditingItem(item)
-    setEditedQuantity(item.quantity)
+    setEditedQuantity(String(item.quantity ?? ''))
   }
 
-  function handleEditQuantity(event) {
+  async function handleEditQuantity(event) {
     event.preventDefault()
+    if (!editingItem || !editedQuantity.trim()) return
 
-    if (!editingItem || !editedQuantity.trim()) {
-      return
-    }
+    const rawQuantity = editedQuantity.trim()
+    const parsed = parseInt(rawQuantity, 10)
+    const newQuantity = Number.isFinite(parsed) ? parsed : 1
+    const isZero = newQuantity === 0 || rawQuantity === '0' || rawQuantity.toLowerCase() === 'none'
 
-    const newQuantity = editedQuantity.trim()
-    const isZero = newQuantity === '0' || newQuantity.startsWith('0 ') || newQuantity.toLowerCase() === 'none'
-    
     if (isZero) {
       if (window.confirm(`It looks like you're out of ${editingItem.name}. Would you like to delete this item?`)) {
         handleDeleteItem(editingItem)
@@ -120,54 +164,165 @@ export default function Inventory() {
       }
     }
 
+    const itemId = editingItem.id
     const editingKey = getItemKey(editingItem)
-    setInventoryItems((currentItems) =>
-      currentItems.map((item) =>
-        getItemKey(item) === editingKey
-          ? { ...item, quantity: newQuantity }
-          : item,
+
+    setInventoryItems((current) =>
+      current.map((item) =>
+        getItemKey(item) === editingKey ? { ...item, quantity: newQuantity } : item,
       ),
     )
     setEditingItem(null)
     setEditedQuantity('')
+
+    try {
+      await updateItem(itemId, { quantity: newQuantity })
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Could not save quantity change.'))
+      setInventoryItems((current) =>
+        current.map((item) =>
+          getItemKey(item) === editingKey ? { ...item, quantity: editingItem.quantity } : item,
+        ),
+      )
+    }
   }
 
-  function handleDeleteItem(itemToDelete) {
+  async function handleDeleteItem(itemToDelete) {
     const deleteKey = getItemKey(itemToDelete)
-    setInventoryItems((currentItems) =>
-      currentItems.filter((item) => getItemKey(item) !== deleteKey),
-    )
+    setInventoryItems((current) => current.filter((item) => getItemKey(item) !== deleteKey))
+
+    try {
+      await deleteItem(itemToDelete.id)
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Could not delete item.'))
+      setInventoryItems((current) => [...current, itemToDelete])
+    }
   }
 
   function openSellItem(item) {
     setSellItem({
       ...item,
-      image: item.image || foodItems[0].image,
-      recipe_uses: item.recipe_uses || item.notes || [],
+      image: item.image || '',
+      recipe_uses: item.recipe_uses || [],
     })
     setSellForm({
       foodItemName: item.name,
       title: item.name,
       description: `${item.quantity} available.`,
       pickup_location: '',
+      pickup_latitude: '',
+      pickup_longitude: '',
     })
     setVerificationImage('')
+    setVerificationFile(null)
+    setLocationResolutionError('')
   }
 
   function updateSellForm(field, value) {
-    setSellForm((currentForm) => ({ ...currentForm, [field]: value }))
+    setSellForm((current) => ({ ...current, [field]: value }))
   }
 
   function handleSellImageUpload(event) {
     const file = event.target.files?.[0]
+    setVerificationFile(file || null)
     setVerificationImage(file ? URL.createObjectURL(file) : '')
   }
 
-  function handleSellSubmit(event) {
+  async function handleResolveTypedAddress() {
+    const address = sellForm.pickup_location?.trim()
+    if (!address) return
+
+    setIsResolvingLocation(true)
+    setLocationResolutionError('')
+    try {
+      const resolved = await resolveShareLocation({ pickup_location: address })
+      setSellForm((current) => ({
+        ...current,
+        pickup_location: resolved.pickup_location,
+        pickup_latitude: String(resolved.pickup_latitude),
+        pickup_longitude: String(resolved.pickup_longitude),
+      }))
+    } catch (error) {
+      setLocationResolutionError(getApiErrorMessage(error, 'Could not resolve address.'))
+    } finally {
+      setIsResolvingLocation(false)
+    }
+  }
+
+  function handleSelectMapPoint(point) {
+    setSellForm((current) => ({
+      ...current,
+      pickup_latitude: String(point[0]),
+      pickup_longitude: String(point[1]),
+    }))
+  }
+
+  async function handleUseCurrentLocationForPost() {
+    if (!navigator.geolocation) return
+
+    setIsResolvingLocation(true)
+    setLocationResolutionError('')
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude
+        const lng = position.coords.longitude
+        setCurrentLocation([lat, lng])
+        try {
+          const resolved = await resolveShareLocation({ latitude: lat, longitude: lng })
+          setSellForm((current) => ({
+            ...current,
+            pickup_location: resolved.pickup_location,
+            pickup_latitude: String(resolved.pickup_latitude),
+            pickup_longitude: String(resolved.pickup_longitude),
+          }))
+        } catch {
+          setSellForm((current) => ({
+            ...current,
+            pickup_latitude: String(lat),
+            pickup_longitude: String(lng),
+          }))
+        } finally {
+          setIsResolvingLocation(false)
+        }
+      },
+      () => {
+        setLocationResolutionError('Could not access your current location.')
+        setIsResolvingLocation(false)
+      },
+    )
+  }
+
+  async function handleSellSubmit(event) {
     event.preventDefault()
-    setSellItem(null)
-    setSellForm(blankSellForm)
-    setVerificationImage('')
+    if (isSubmittingPost) return
+
+    setIsSubmittingPost(true)
+    try {
+      const payload = new FormData()
+      payload.append('title', sellForm.title)
+      payload.append('description', sellForm.description)
+      payload.append('pickup_location', sellForm.pickup_location)
+      if (sellForm.pickup_latitude) payload.append('pickup_latitude', sellForm.pickup_latitude)
+      if (sellForm.pickup_longitude) payload.append('pickup_longitude', sellForm.pickup_longitude)
+      if (selectedSellItem?.id) payload.append('food_item_id', selectedSellItem.id)
+      else payload.append('item_name', sellForm.foodItemName || sellForm.title)
+      if (verificationFile) payload.append('image_file', verificationFile)
+      for (const tag of selectedSellItem?.recipe_uses || []) {
+        payload.append('recipe_uses', tag)
+      }
+
+      await createSharePost(payload)
+      toast.success('Item listed on the marketplace!')
+      setSellItem(null)
+      setSellForm(blankSellForm)
+      setVerificationImage('')
+      setVerificationFile(null)
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Could not create share post.'))
+    } finally {
+      setIsSubmittingPost(false)
+    }
   }
 
   return (
@@ -268,13 +423,21 @@ export default function Inventory() {
           </button>
 
           <p className="text-xs font-black uppercase tracking-[0.14em] text-ink/55 lg:col-span-3">
-            Showing {visibleCount} of {inventoryItems.length}
+            {loadState === 'loading'
+              ? 'Loading items...'
+              : `Showing ${visibleCount} of ${inventoryItems.length}`}
           </p>
         </div>
       </section>
 
       <section className="mx-auto grid max-w-7xl gap-4 px-5 py-8 sm:grid-cols-2 md:px-10 lg:grid-cols-3 xl:grid-cols-4 grid-flow-row-dense">
-        {filteredInventoryItems.map((item, index) =>
+        {loadState === 'loading' && (
+          <p className="pantry-card text-sm font-black uppercase tracking-[0.14em] text-ink/60 sm:col-span-2 lg:col-span-3 xl:col-span-4">
+            Loading pantry items...
+          </p>
+        )}
+
+        {loadState === 'ready' && filteredInventoryItems.map((item, index) =>
           item.image ? (
             <FoodItem
               index={index}
@@ -295,9 +458,12 @@ export default function Inventory() {
             />
           ),
         )}
-        {filteredInventoryItems.length === 0 && (
+
+        {loadState === 'ready' && filteredInventoryItems.length === 0 && (
           <p className="pantry-card text-sm font-black uppercase tracking-[0.14em] text-ink/60 sm:col-span-2 lg:col-span-3 xl:col-span-4">
-            No inventory items match this search.
+            {inventoryItems.length === 0
+              ? 'No pantry items yet. Upload a receipt to get started.'
+              : 'No inventory items match this search.'}
           </p>
         )}
       </section>
@@ -332,7 +498,7 @@ export default function Inventory() {
             </div>
 
             <label className="block">
-              <span className="pantry-field-label">Food left</span>
+              <span className="pantry-field-label">Quantity</span>
               <input
                 className="pantry-input"
                 onChange={(event) => setEditedQuantity(event.target.value)}
@@ -366,14 +532,22 @@ export default function Inventory() {
 
       {sellItem && selectedSellItem && (
         <SharePostModal
+          currentLocation={currentLocation}
           foodItems={sellFoodItems}
           form={sellForm}
+          isResolvingLocation={isResolvingLocation}
+          isSubmitting={isSubmittingPost}
+          locationResolutionError={locationResolutionError}
           onClose={() => setSellItem(null)}
           onImageUpload={handleSellImageUpload}
+          onResolveTypedAddress={handleResolveTypedAddress}
+          onSelectMapPoint={handleSelectMapPoint}
           onSubmit={handleSellSubmit}
           onUpdateForm={updateSellForm}
+          onUseCurrentLocationForPost={handleUseCurrentLocationForPost}
           reverifiedFoodItem={reverifiedFoodItem}
           selectedInventoryItem={selectedSellItem}
+          selectedPickupPoint={selectedPickupPoint}
         />
       )}
     </main>

@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 
+from core.notifications import NotificationService
 from households.models import HouseholdMembership
 
 from .models import User
@@ -94,8 +95,6 @@ class SignupView(APIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
-        # Send welcome email + in-app notification
-        from core.notifications import NotificationService
         NotificationService.notify_welcome(user)
 
         return auth_response_for_user(user, request, status.HTTP_201_CREATED)
