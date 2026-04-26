@@ -7,6 +7,7 @@ from .claims import (
 from .detail import PostDetailView
 from .feed import MyPostListView, PostCreateView, PostFeedView
 from .location import PostLocationResolveView
+from .messages import PostRequestMessageListCreateView
 from .notifications import NotificationListView, NotificationReadView
 
 __all__ = [
@@ -20,5 +21,6 @@ __all__ = [
     "PostDetailView",
     "PostFeedView",
     "PostLocationResolveView",
+    "PostRequestMessageListCreateView",
     "PostRequestActionView",
 ]

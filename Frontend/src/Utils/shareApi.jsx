@@ -72,6 +72,14 @@ export function fetchOutgoingShareRequests(params = {}) {
   return apiFetch(`/share/requests/outgoing/${buildShareQuery(params)}`, 'GET')
 }
 
+export function fetchShareRequestMessages(requestId) {
+  return apiFetch(`/share/requests/${requestId}/messages/`, 'GET')
+}
+
+export function sendShareRequestMessage(requestId, payload) {
+  return apiFetch(`/share/requests/${requestId}/messages/`, 'POST', payload)
+}
+
 export function approveShareRequest(requestId, payload = {}) {
   return apiFetch(`/share/requests/${requestId}/approve/`, 'PATCH', payload)
 }

@@ -12,6 +12,7 @@ from .views import (
     PostFeedView,
     PostLocationResolveView,
     PostRequestActionView,
+    PostRequestMessageListCreateView,
 )
 
 urlpatterns = [
@@ -21,6 +22,11 @@ urlpatterns = [
     path("share/mine/", MyPostListView.as_view(), name="share-mine"),
     path("share/requests/incoming/", IncomingPostRequestListView.as_view(), name="share-request-incoming"),
     path("share/requests/outgoing/", OutgoingPostRequestListView.as_view(), name="share-request-outgoing"),
+    path(
+        "share/requests/<int:request_id>/messages/",
+        PostRequestMessageListCreateView.as_view(),
+        name="share-request-messages",
+    ),
     path(
         "share/requests/<int:request_id>/<str:action>/",
         PostRequestActionView.as_view(),

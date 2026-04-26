@@ -148,7 +148,7 @@ function IncomingRequestRow({ index, isBusyApprove, isBusyDecline, onAction, req
       <Link
         className="rounded-full border border-ink/15 bg-white px-3 py-1 text-xs font-black uppercase text-ink shadow-sticker transition hover:-translate-y-0.5"
         onClick={(event) => event.stopPropagation()}
-        to="/marketplace"
+        to={`/dashboard/requests/${request.id}`}
       >
         View
       </Link>
@@ -199,7 +199,7 @@ function IncomingRequestRow({ index, isBusyApprove, isBusyDecline, onAction, req
       />
 
       <div className="flex flex-wrap gap-3">
-        <Link className="pantry-button pantry-button--light" to="/marketplace">
+        <Link className="pantry-button pantry-button--light" to={`/dashboard/requests/${request.id}`}>
           View listing
         </Link>
         <button
@@ -232,7 +232,7 @@ function OutgoingRequestRow({ index, request }) {
         <Link
           className="rounded-full border border-ink/15 bg-white px-3 py-1 text-xs font-black uppercase text-ink shadow-sticker transition hover:-translate-y-0.5"
           onClick={(event) => event.stopPropagation()}
-          to="/marketplace"
+          to={`/dashboard/requests/${request.id}`}
         >
           {request.status === 'approved' ? 'Pickup' : 'View'}
         </Link>
@@ -256,7 +256,7 @@ function OutgoingRequestRow({ index, request }) {
         ]}
       />
 
-      <Link className="pantry-button pantry-button--light" to="/marketplace">
+      <Link className="pantry-button pantry-button--light" to={`/dashboard/requests/${request.id}`}>
         {viewLabel}
       </Link>
     </RequestDisclosure>
