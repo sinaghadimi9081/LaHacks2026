@@ -6,6 +6,7 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from core.models import Notification
 from .models import Post, PostRequest
 
 User = get_user_model()
@@ -176,7 +177,8 @@ class PostApiTests(TestCase):
         self.assertTrue(response.data["food_item"]["image"])
         self.assertTrue(Post.objects.get(id=response.data["id"]).image_file.name)
 
-    def test_non_owner_cannot_edit_post_and_request_creates_pending_state(self):
+    @patch("core.notifications.NotificationService._send_email")
+    def test_non_owner_cannot_edit_post_and_request_creates_pending_state(self, mock_send_email):
         post = self._create_post(
             item_name="Honeycrisp apples",
             quantity_label="8 apples",
@@ -203,6 +205,11 @@ class PostApiTests(TestCase):
         self.assertIsNone(post.claimed_by_user)
         self.assertEqual(post.match_requests.count(), 1)
         self.assertEqual(post.match_requests.first().status, PostRequest.Status.PENDING)
+        notification = Notification.objects.get(user=self.owner)
+        self.assertEqual(notification.title, "New marketplace request")
+        mock_send_email.assert_called_once()
+        self.assertEqual(mock_send_email.call_args[0][0], self.owner)
+        self.assertEqual(mock_send_email.call_args[0][1], "New marketplace request")
         self.assertEqual(
             post.match_requests.first().fulfillment_method,
             PostRequest.FulfillmentMethod.PICKUP,
@@ -261,9 +268,11 @@ class PostApiTests(TestCase):
             "Los Angeles, CA",
         )
 
-    def test_owner_can_approve_request_and_requester_gains_exact_access(self):
+    @patch("core.notifications.NotificationService._send_email")
+    def test_owner_can_approve_request_and_requester_gains_exact_access(self, mock_send_email):
         post = self._create_post(title="Spinach dropoff")
         self.requester_client.patch(f"/api/share/{post.id}/claim/", {}, format="json")
+        mock_send_email.reset_mock()
 
         incoming_response = self.owner_client.get("/api/share/requests/incoming/")
         self.assertEqual(incoming_response.status_code, status.HTTP_200_OK)
@@ -300,6 +309,11 @@ class PostApiTests(TestCase):
         self.assertEqual(observer_detail_response.status_code, status.HTTP_200_OK)
         self.assertEqual(observer_detail_response.data["pickup_location"], "Los Angeles, CA")
         self.assertFalse(observer_detail_response.data["exact_location_visible"])
+        notification = Notification.objects.get(user=self.requester, title="Marketplace request approved")
+        self.assertIn('Your request for "Spinach dropoff" was approved.', notification.message)
+        mock_send_email.assert_called_once()
+        self.assertEqual(mock_send_email.call_args[0][0], self.requester)
+        self.assertEqual(mock_send_email.call_args[0][1], "Marketplace request approved")
 
     @patch("posts.serializers.request.reverse_geocode")
     def test_approved_delivery_request_reveals_exact_pickup_in_quote(self, mock_reverse_geocode):
@@ -347,9 +361,11 @@ class PostApiTests(TestCase):
             "UCLA Residence Hall, Los Angeles, CA",
         )
 
-    def test_owner_can_decline_request_and_post_returns_to_available(self):
+    @patch("core.notifications.NotificationService._send_email")
+    def test_owner_can_decline_request_and_post_returns_to_available(self, mock_send_email):
         post = self._create_post(title="Soup base")
         self.requester_client.patch(f"/api/share/{post.id}/claim/", {}, format="json")
+        mock_send_email.reset_mock()
 
         outgoing_response = self.requester_client.get("/api/share/requests/outgoing/")
         self.assertEqual(outgoing_response.status_code, status.HTTP_200_OK)
@@ -377,6 +393,11 @@ class PostApiTests(TestCase):
         self.assertEqual(detail_response.data["pickup_location"], "Los Angeles, CA")
         self.assertFalse(detail_response.data["exact_location_visible"])
         self.assertEqual(detail_response.data["viewer_request_status"], PostRequest.Status.DECLINED)
+        notification = Notification.objects.get(user=self.requester, title="Marketplace request declined")
+        self.assertIn('Your request for "Soup base" was declined.', notification.message)
+        mock_send_email.assert_called_once()
+        self.assertEqual(mock_send_email.call_args[0][0], self.requester)
+        self.assertEqual(mock_send_email.call_args[0][1], "Marketplace request declined")
 
     @patch("posts.views.location.reverse_geocode")
     def test_location_resolve_supports_browser_coordinates(self, mock_reverse_geocode):
