@@ -1,6 +1,11 @@
 import { startTransition, useMemo, useState } from 'react'
 
-import { confirmReceipt, fetchReceipt, uploadReceipt } from '../../Utils/receiptsApi.jsx'
+import {
+  confirmReceipt,
+  fetchReceipt,
+  searchReceiptsByVendor,
+  uploadReceipt,
+} from '../../Utils/receiptsApi.jsx'
 
 function formatCurrency(value) {
   if (value === null || value === undefined || value === '') {
@@ -90,7 +95,8 @@ function sumEstimatedPrices(items = []) {
 
 export default function ReceiptsWorkbench() {
   const [selectedFile, setSelectedFile] = useState(null)
-  const [receiptIdInput, setReceiptIdInput] = useState('')
+  const [vendorSearchInput, setVendorSearchInput] = useState('')
+  const [vendorSearchResults, setVendorSearchResults] = useState([])
   const [receiptData, setReceiptData] = useState(null)
   const [draftItems, setDraftItems] = useState([])
   const [statusMessage, setStatusMessage] = useState(
@@ -128,8 +134,14 @@ export default function ReceiptsWorkbench() {
     startTransition(() => {
       setReceiptData(payload)
       setDraftItems(createDraftItems(payload?.parsed_items || []))
-      setReceiptIdInput(payload?.receipt_id ? String(payload.receipt_id) : '')
+      setVendorSearchInput(payload?.store_name || '')
     })
+  }
+
+  async function openReceiptById(receiptId, successMessage) {
+    const payload = await fetchReceipt(receiptId)
+    applyReceiptPayload({ ...payload, confirmed_at: null })
+    setStatusMessage(successMessage)
   }
 
   function handleDraftItemChange(itemId, field, value) {
@@ -163,6 +175,7 @@ export default function ReceiptsWorkbench() {
     try {
       const payload = await uploadReceipt(formData)
       applyReceiptPayload(payload)
+      setVendorSearchResults([])
       setStatusMessage(
         'Receipt ready. Review the items before adding them to your pantry.',
       )
@@ -182,27 +195,73 @@ export default function ReceiptsWorkbench() {
   async function handleLoadReceipt(event) {
     event.preventDefault()
 
-    if (!receiptIdInput.trim()) {
-      setErrorMessage('Enter a receipt number to load an earlier upload.')
+    if (!vendorSearchInput.trim()) {
+      setErrorMessage('Enter a vendor name to load an earlier receipt.')
       return
     }
 
     setIsLoadingReceipt(true)
     setErrorMessage('')
-    setStatusMessage('Finding that receipt...')
+    setStatusMessage('Searching receipts by vendor...')
 
     try {
-      const payload = await fetchReceipt(receiptIdInput.trim())
-      applyReceiptPayload({ ...payload, confirmed_at: null })
-      setStatusMessage('Receipt loaded. You can review or submit the items again.')
+      const payload = await searchReceiptsByVendor(vendorSearchInput.trim())
+      const results = payload?.results || []
+      setVendorSearchResults(results)
+
+      if (results.length === 1) {
+        await openReceiptById(
+          results[0].receipt_id,
+          `Loaded the ${results[0].store_name || vendorSearchInput.trim()} receipt from ${formatTimestamp(results[0].created_at)}.`,
+        )
+      } else {
+        startTransition(() => {
+          setReceiptData(null)
+          setDraftItems([])
+        })
+        setStatusMessage(
+          `Found ${results.length} ${vendorSearchInput.trim()} receipt${results.length === 1 ? '' : 's'}. Pick a date to preview one.`,
+        )
+      }
     } catch (error) {
+      setVendorSearchResults([])
       setErrorMessage(
-        getErrorMessage(error, 'Could not find that receipt.'),
+        getErrorMessage(error, 'Could not find a receipt for that vendor.'),
       )
-      setStatusMessage('Receipt lookup failed.')
+      setStatusMessage('Vendor search failed.')
     } finally {
       setIsLoadingReceipt(false)
     }
+  }
+
+  async function handleSelectVendorResult(result) {
+    setErrorMessage('')
+    setIsLoadingReceipt(true)
+    setStatusMessage(`Opening ${result.store_name || 'receipt'} from ${formatTimestamp(result.created_at)}...`)
+
+    try {
+      await openReceiptById(
+        result.receipt_id,
+        `Loaded ${result.store_name || 'receipt'} from ${formatTimestamp(result.created_at)}.`,
+      )
+    } catch (error) {
+      setErrorMessage(
+        getErrorMessage(error, 'Could not open that receipt.'),
+      )
+      setStatusMessage('Receipt load failed.')
+    } finally {
+      setIsLoadingReceipt(false)
+    }
+  }
+
+  function handleBackToVendorResults() {
+    startTransition(() => {
+      setReceiptData(null)
+      setDraftItems([])
+    })
+    setStatusMessage(
+      `Found ${vendorSearchResults.length} ${vendorSearchInput.trim()} receipt${vendorSearchResults.length === 1 ? '' : 's'}. Pick a date to preview one.`,
+    )
   }
 
   async function handleConfirmReceipt(event) {
@@ -314,13 +373,54 @@ export default function ReceiptsWorkbench() {
             </form>
 
             <div className="mt-5">
-              <p className="pantry-label">Receipt preview</p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="pantry-label">Receipt preview</p>
+                {receiptData?.receipt_id && vendorSearchResults.length > 1 ? (
+                  <button
+                    className="pantry-filter-button"
+                    onClick={handleBackToVendorResults}
+                    type="button"
+                  >
+                    Back to matches
+                  </button>
+                ) : null}
+              </div>
               {receiptData?.image ? (
                 <img
                   alt="Uploaded receipt"
                   className="mt-4 w-full rounded-2xl border border-ink/15 object-cover shadow-pop"
                   src={receiptData.image}
                 />
+              ) : vendorSearchResults.length > 1 ? (
+                <div className="mt-4 space-y-3 rounded-2xl border border-ink/15 bg-white/80 p-4 shadow-sticker">
+                  <p className="text-sm font-bold leading-7 text-ink/70">
+                    Choose which receipt date you want to open for {vendorSearchInput.trim()}.
+                  </p>
+                  <div className="grid gap-3">
+                    {vendorSearchResults.map((result) => (
+                      <button
+                        className="recipe-card recipe-card--full text-left"
+                        key={result.receipt_id}
+                        onClick={() => handleSelectVendorResult(result)}
+                        type="button"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="font-black uppercase leading-5 text-ink">
+                              {result.store_name || 'Grocery receipt'}
+                            </p>
+                            <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-ink/50">
+                              {formatTimestamp(result.created_at)}
+                            </p>
+                          </div>
+                          <span className="rounded-full border border-ink/15 bg-citrus px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-ink shadow-sticker">
+                            {formatCurrency(result.detected_total)}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ) : (
                 <div className="mt-4 rounded-2xl border-2 border-dashed border-ink/20 bg-white/70 px-4 py-12 text-center text-sm font-black uppercase tracking-[0.14em] text-ink/55">
                   Your receipt photo will appear here.
@@ -345,10 +445,10 @@ export default function ReceiptsWorkbench() {
             <form className="mt-5 flex flex-col gap-3 sm:flex-row" onSubmit={handleLoadReceipt}>
               <input
                 className="pantry-input min-w-0 flex-1"
-                onChange={(event) => setReceiptIdInput(event.target.value)}
-                placeholder="Receipt number"
+                onChange={(event) => setVendorSearchInput(event.target.value)}
+                placeholder="Vendor name, like Target or Ralphs"
                 type="text"
-                value={receiptIdInput}
+                value={vendorSearchInput}
               />
               <button
                 className="pantry-button pantry-button--light"
@@ -358,6 +458,7 @@ export default function ReceiptsWorkbench() {
                 {isLoadingReceipt ? 'Loading...' : 'Open'}
               </button>
             </form>
+
           </article>
 
           <article className="pantry-card">

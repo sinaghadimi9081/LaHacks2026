@@ -159,7 +159,14 @@ export default function App() {
           <Route path="/marketplace-map-lab" element={<MarketplaceMapLab />} />
           <Route path="/marketplace-match-lab" element={<MarketplaceMatchLab />} />
           <Route path="/impact" element={<Impact />} />
-          <Route path="/receipts" element={<ReceiptsWorkbench />} />
+          <Route
+            path="/receipts"
+            element={
+              <RequireAuth>
+                <ReceiptsWorkbench />
+              </RequireAuth>
+            }
+          />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route

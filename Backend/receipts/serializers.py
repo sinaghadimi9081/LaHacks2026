@@ -61,3 +61,24 @@ class ReceiptSerializer(serializers.ModelSerializer):
             "parsed_items",
         )
         read_only_fields = fields
+
+
+class ReceiptSearchResultSerializer(serializers.ModelSerializer):
+    receipt_id = serializers.IntegerField(source="id", read_only=True)
+    detected_total = serializers.SerializerMethodField()
+
+    def get_detected_total(self, obj):
+        if obj.detected_total_amount is None:
+            return None
+        return f'{Decimal(str(obj.detected_total_amount)):.2f}'
+
+    class Meta:
+        model = Receipt
+        fields = (
+            "receipt_id",
+            "image",
+            "store_name",
+            "created_at",
+            "detected_total",
+        )
+        read_only_fields = fields
