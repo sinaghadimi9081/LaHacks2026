@@ -78,14 +78,14 @@ function NavBar() {
             Lockers
           </NavLink>
 
-          <NavLink className="nav-pill" to="/marketplace-map-lab">
+          {/* <NavLink className="nav-pill" to="/marketplace-map-lab">
             Map Lab
-          </NavLink>
+          </NavLink> */}
 
-          <NavLink className="nav-pill" to="/marketplace-match-lab">
+          {/* <NavLink className="nav-pill" to="/marketplace-match-lab">
             Match Lab
           </NavLink>
-
+ */}
           <NavLink className="nav-pill" to="/impact">
             Impact
           </NavLink>

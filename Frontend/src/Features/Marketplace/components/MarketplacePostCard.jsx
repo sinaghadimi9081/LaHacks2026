@@ -40,6 +40,7 @@ function MarketplacePostCard({
   onClearSelection,
   onSelectPost,
   post,
+  showInlinePreview = true,
 }) {
   const tilt = index % 2 === 0 ? '-1.2deg' : '1deg'
   const isUnavailable = post.status !== 'available'
@@ -92,7 +93,7 @@ function MarketplacePostCard({
       }`}
       onClick={() => onSelectPost?.(post.id)}
       onMouseLeave={() => {
-        if (isSelected) {
+        if (showInlinePreview && isSelected) {
           onClearSelection?.()
         }
       }}
@@ -190,7 +191,7 @@ function MarketplacePostCard({
         </button>
       </div>
 
-      {isSelected ? (
+      {showInlinePreview && isSelected ? (
         <MarketplaceListingPreview
           className="market-listing-preview--card"
           post={post}
