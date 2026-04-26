@@ -5,11 +5,7 @@ function buildRequestConfig(payload) {
     return {}
   }
 
-  return {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  }
+  return {}
 }
 
 function buildShareQuery(params = {}) {
@@ -66,4 +62,20 @@ export function deleteSharePost(sharePostId) {
 
 export function claimSharePost(sharePostId, payload = {}) {
   return apiFetch(`/share/${sharePostId}/claim/`, 'PATCH', payload)
+}
+
+export function fetchIncomingShareRequests(params = {}) {
+  return apiFetch(`/share/requests/incoming/${buildShareQuery(params)}`, 'GET')
+}
+
+export function fetchOutgoingShareRequests(params = {}) {
+  return apiFetch(`/share/requests/outgoing/${buildShareQuery(params)}`, 'GET')
+}
+
+export function approveShareRequest(requestId, payload = {}) {
+  return apiFetch(`/share/requests/${requestId}/approve/`, 'PATCH', payload)
+}
+
+export function declineShareRequest(requestId, payload = {}) {
+  return apiFetch(`/share/requests/${requestId}/decline/`, 'PATCH', payload)
 }

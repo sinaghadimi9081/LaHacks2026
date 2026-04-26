@@ -500,6 +500,11 @@ code {
     @apply flex h-auto flex-col;
   }
 
+  .market-post-card--selected {
+    @apply border-phthalo/40 bg-white;
+    box-shadow: 0 24px 44px -34px rgba(18, 49, 42, 0.55);
+  }
+
   .market-post-card--dragging {
     @apply opacity-45;
   }

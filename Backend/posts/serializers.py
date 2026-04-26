@@ -1,9 +1,17 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from core.models import FoodItem, Notification
 
 from .location_services import GeocodingError, geocode_address, reverse_geocode
-from .models import Post
+from .models import Post, PostRequest
+
+
+def _format_coordinate(value):
+    if value in (None, ""):
+        return None
+    return f"{Decimal(str(value)):.6f}"
 
 
 class PostOwnerSerializer(serializers.Serializer):
@@ -13,12 +21,20 @@ class PostOwnerSerializer(serializers.Serializer):
     full_name = serializers.CharField(source="full_display_name", read_only=True)
 
 
-class PostReadSerializer(serializers.ModelSerializer):
+class BasePostReadSerializer(serializers.ModelSerializer):
     owner = PostOwnerSerializer(read_only=True)
     claimed_by = serializers.SerializerMethodField()
     food_item = serializers.SerializerMethodField()
     distance_miles = serializers.SerializerMethodField()
     is_owner = serializers.SerializerMethodField()
+    exact_location_visible = serializers.SerializerMethodField()
+    viewer_request_status = serializers.SerializerMethodField()
+    public_pickup_location = serializers.SerializerMethodField()
+    public_pickup_latitude = serializers.SerializerMethodField()
+    public_pickup_longitude = serializers.SerializerMethodField()
+    pickup_location = serializers.SerializerMethodField()
+    pickup_latitude = serializers.SerializerMethodField()
+    pickup_longitude = serializers.SerializerMethodField()
 
     class Meta:
         model = Post
@@ -38,10 +54,15 @@ class PostReadSerializer(serializers.ModelSerializer):
             "pickup_location",
             "pickup_latitude",
             "pickup_longitude",
+            "public_pickup_location",
+            "public_pickup_latitude",
+            "public_pickup_longitude",
             "distance_miles",
             "tags",
             "status",
             "claimed_by",
+            "viewer_request_status",
+            "exact_location_visible",
             "created_at",
             "updated_at",
         ]
@@ -82,9 +103,13 @@ class PostReadSerializer(serializers.ModelSerializer):
             "recipe_uses": obj.tags or [],
         }
 
+    def _distance_coordinates(self, obj):
+        raise NotImplementedError
+
     def get_distance_miles(self, obj):
         reference_point = self.context.get("reference_point")
-        if not reference_point or obj.pickup_latitude is None or obj.pickup_longitude is None:
+        latitude, longitude = self._distance_coordinates(obj)
+        if not reference_point or latitude is None or longitude is None:
             return None
 
         ref_latitude, ref_longitude = reference_point
@@ -92,8 +117,8 @@ class PostReadSerializer(serializers.ModelSerializer):
             self.context["distance_fn"](
                 ref_latitude,
                 ref_longitude,
-                float(obj.pickup_latitude),
-                float(obj.pickup_longitude),
+                float(latitude),
+                float(longitude),
             ),
             2,
         )
@@ -101,6 +126,87 @@ class PostReadSerializer(serializers.ModelSerializer):
     def get_is_owner(self, obj):
         request = self.context.get("request")
         return bool(request and request.user.is_authenticated and obj.owner_id == request.user.id)
+
+    def get_viewer_request_status(self, obj):
+        request = self.context.get("request")
+        if request is None:
+            return None
+        return obj.get_viewer_request_status(request.user)
+
+    def get_public_pickup_location(self, obj):
+        return obj.get_public_pickup_location()
+
+    def get_public_pickup_latitude(self, obj):
+        return _format_coordinate(obj.get_public_pickup_latitude())
+
+    def get_public_pickup_longitude(self, obj):
+        return _format_coordinate(obj.get_public_pickup_longitude())
+
+
+class PostReadSerializer(BasePostReadSerializer):
+    def _distance_coordinates(self, obj):
+        return obj.get_public_pickup_latitude(), obj.get_public_pickup_longitude()
+
+    def get_pickup_location(self, obj):
+        return obj.get_public_pickup_location()
+
+    def get_pickup_latitude(self, obj):
+        return _format_coordinate(obj.get_public_pickup_latitude())
+
+    def get_pickup_longitude(self, obj):
+        return _format_coordinate(obj.get_public_pickup_longitude())
+
+    def get_exact_location_visible(self, obj):
+        return False
+
+
+class ApprovedPostReadSerializer(BasePostReadSerializer):
+    def _distance_coordinates(self, obj):
+        return obj.pickup_latitude, obj.pickup_longitude
+
+    def get_pickup_location(self, obj):
+        return obj.pickup_location
+
+    def get_pickup_latitude(self, obj):
+        return _format_coordinate(obj.pickup_latitude)
+
+    def get_pickup_longitude(self, obj):
+        return _format_coordinate(obj.pickup_longitude)
+
+    def get_exact_location_visible(self, obj):
+        return True
+
+
+class PostRequestReadSerializer(serializers.ModelSerializer):
+    requester = PostOwnerSerializer(read_only=True)
+    post = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PostRequest
+        fields = [
+            "id",
+            "status",
+            "created_at",
+            "responded_at",
+            "requester",
+            "post",
+        ]
+        read_only_fields = fields
+
+    def get_post(self, obj):
+        serializer_class = self.context.get("post_serializer_class")
+        request = self.context.get("request")
+        if serializer_class is None:
+            if request is not None and obj.post.can_view_exact_location(request.user):
+                serializer_class = ApprovedPostReadSerializer
+            else:
+                serializer_class = PostReadSerializer
+        serializer_context = {
+            "request": request,
+            "reference_point": self.context.get("reference_point"),
+            "distance_fn": self.context.get("distance_fn"),
+        }
+        return serializer_class(obj.post, context=serializer_context).data
 
 
 class PostWriteSerializer(serializers.ModelSerializer):
@@ -173,6 +279,12 @@ class PostWriteSerializer(serializers.ModelSerializer):
         tags = attrs.pop("recipe_uses", None)
         if tags is not None and "tags" not in attrs:
             attrs["tags"] = tags
+
+        submitted_status = attrs.get("status")
+        if submitted_status is not None and submitted_status != Post.Status.AVAILABLE:
+            raise serializers.ValidationError(
+                {"status": "Marketplace request status is managed by the server."}
+            )
 
         food_item = attrs.get("food_item")
         item_name = attrs.get("item_name")
