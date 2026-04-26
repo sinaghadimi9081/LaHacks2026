@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from rest_framework import serializers
 
@@ -71,15 +71,11 @@ class PostRequestWriteSerializer(serializers.Serializer):
         required=False,
     )
     dropoff_location = serializers.CharField(required=False, allow_blank=True)
-    dropoff_latitude = serializers.DecimalField(
-        max_digits=9,
-        decimal_places=6,
+    dropoff_latitude = serializers.FloatField(
         required=False,
         allow_null=True,
     )
-    dropoff_longitude = serializers.DecimalField(
-        max_digits=9,
-        decimal_places=6,
+    dropoff_longitude = serializers.FloatField(
         required=False,
         allow_null=True,
     )
@@ -127,6 +123,11 @@ class PostRequestWriteSerializer(serializers.Serializer):
                 {"dropoff_longitude": "Longitude must be between -180 and 180."}
             )
 
+        if latitude is not None:
+            attrs["dropoff_latitude"] = self._normalize_coordinate(latitude)
+        if longitude is not None:
+            attrs["dropoff_longitude"] = self._normalize_coordinate(longitude)
+
         if dropoff_location and latitude is not None and longitude is not None:
             attrs["dropoff_location"] = dropoff_location
             return attrs
@@ -146,3 +147,6 @@ class PostRequestWriteSerializer(serializers.Serializer):
         raise serializers.ValidationError(
             {"dropoff_location": "Enter a dropoff address or send both dropoff coordinates for delivery."}
         )
+
+    def _normalize_coordinate(self, value):
+        return Decimal(str(value)).quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
