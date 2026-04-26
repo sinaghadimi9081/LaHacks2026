@@ -403,6 +403,8 @@ code {
   .market-cart-shell--open {
     max-height: calc(100vh - 7.5rem);
     grid-template-rows: auto minmax(0, 1fr) auto;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   .market-basket {
